@@ -12,7 +12,14 @@
 | **Routes** | 🟡 Minimal | Only `/api/v1/health` exists |
 | **Controllers** | ❌ Empty | `src/controllers/` is empty |
 | **Middlewares** | ❌ Empty | `src/middlewares/` is empty |
-| **Frontend** | 🟡 Scaffolded | Vite React app in `web-app/` with luxury dark theme, no routing yet |
+| **Frontend** | ✅ Integrated | Full UI structure, React Router, Login/Signup Auth flows, Flip-card Services, and dynamic Product Pages |
+
+### Recent Integrations (Landing_Page_Gagan Merge)
+- **Landing Page Polish:** Completed responsive UI, category filtering, sticky sidebar, and active states for navigation.
+- **Arya's Contributions:** Integrated the animated Flip-Card Services section and the expanded Footer with SVG payment icons (Visa, Mastercard, UPI, etc.).
+- **Dev's Contributions:** Integrated React Router (`react-router-dom`) with fully functional Login, Signup, Forgot Password, and My Account pages routed through the main App component.
+- **Tilak's Contributions:** Integrated the dynamic Product Description Page (`/product/:productId`) with the combined routing architecture.
+- **Conflict Resolution:** Successfully merged 4-way branch conflicts keeping all UI/UX components intact while preserving complex routing rules.
 
 ### Skills Applied
 | Skill | Applied To |
