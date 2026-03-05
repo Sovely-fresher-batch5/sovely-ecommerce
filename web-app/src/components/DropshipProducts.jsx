@@ -1,19 +1,17 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { getDropshipProducts } from '../data/productData';
 
-// Placeholder data for dropshipping products
-const products = [
-    { id: 1, name: 'Minimalist Ceramic Vase', price: '$24.99', category: 'Home Decor', rating: 4.8, shipping: '7-14 days', stock: 'High' },
-    { id: 2, name: 'Ergonomic Desk Chair', price: '$149.00', category: 'Furniture', rating: 4.5, shipping: '3-7 days', stock: 'Low' },
-    { id: 3, name: 'Smart Fitness Tracker', price: '$45.00', category: 'Electronics', rating: 4.2, shipping: '10-20 days', stock: 'Medium' },
-    { id: 4, name: 'Bamboo Cutting Board', price: '$18.50', category: 'Kitchen', rating: 4.9, shipping: '7-14 days', stock: 'High' },
-    { id: 5, name: 'Wireless Earbuds', price: '$35.99', category: 'Electronics', rating: 4.4, shipping: '7-14 days', stock: 'Medium' },
-    { id: 6, name: 'Yoga Mat with Alignment Lines', price: '$29.00', category: 'Fitness', rating: 4.7, shipping: '3-5 days', stock: 'High' },
-    { id: 7, name: 'Portable Blender', price: '$22.00', category: 'Kitchen', rating: 4.1, shipping: '10-20 days', stock: 'Low' },
-    { id: 8, name: 'LED Ring Light Set', price: '$38.50', category: 'Electronics', rating: 4.6, shipping: '3-7 days', stock: 'High' },
-];
+const products = getDropshipProducts();
 
 function DropshipProducts() {
     const [activeCategory, setActiveCategory] = useState('All');
+
+    const categories = ['All', ...new Set(products.map((p) => p.category))];
+
+    const filteredProducts = activeCategory === 'All'
+        ? products
+        : products.filter((p) => p.category === activeCategory);
 
     return (
         <section className="dropship-section">
@@ -27,11 +25,19 @@ function DropshipProducts() {
                     <div className="filter-group">
                         <h4 className="filter-title">Categories</h4>
                         <ul className="filter-list">
-                            <li><label><input type="radio" name="category" defaultChecked /> All</label></li>
-                            <li><label><input type="radio" name="category" /> Electronics</label></li>
-                            <li><label><input type="radio" name="category" /> Home Decor</label></li>
-                            <li><label><input type="radio" name="category" /> Kitchen</label></li>
-                            <li><label><input type="radio" name="category" /> Furniture</label></li>
+                            {categories.map((cat) => (
+                                <li key={cat}>
+                                    <label>
+                                        <input
+                                            type="radio"
+                                            name="category"
+                                            checked={activeCategory === cat}
+                                            onChange={() => setActiveCategory(cat)}
+                                        />
+                                        {' '}{cat}
+                                    </label>
+                                </li>
+                            ))}
                         </ul>
                     </div>
 
@@ -57,15 +63,18 @@ function DropshipProducts() {
                 </aside>
 
                 <div className="dropship-grid">
-                    {products.map(product => (
+                    {filteredProducts.map(product => (
                         <div className="dropship-card" key={product.id}>
-                            <div className="card-image-placeholder">
-                                <span className="placeholder-text">Image</span>
-                                <span className="badge stock-badge">{product.stock} Stock</span>
-                            </div>
+                            <Link to={`/product/${product.id}`} className="card-image-placeholder" style={{ textDecoration: 'none', color: 'inherit' }}>
+                                <img src={product.image} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                <span className="badge stock-badge">{product.stock > 30 ? 'High' : product.stock > 10 ? 'Medium' : 'Low'} Stock</span>
+                            </Link>
                             <div className="card-content">
                                 <span className="product-category">{product.category}</span>
-                                <h3 className="product-name">{product.name}</h3>
+                                <Link to={`/product/${product.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                                    <h3 className="product-name">{product.name}</h3>
+                                </Link>
+                                <p className="product-sku-text">SKU: {product.skuId}</p>
                                 <div className="product-meta">
                                     <span className="product-rating">★ {product.rating}</span>
                                     <span className="product-shipping">🚚 {product.shipping}</span>
