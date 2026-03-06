@@ -25,5 +25,10 @@ export const productApi = {
     getCategories: async () => {
         const response = await api.get('/categories');
         return response.data.data;
+    },
+
+    getBestDeals: async (limit = 6) => {
+        const response = await api.get(`/products/deals?limit=${limit}`);
+        return response.data.data;
     }
 };

@@ -2,74 +2,6 @@
 // All products shown on the landing page + product detail pages
 
 const allProducts = [
-    // ─── Best Deals ───
-    {
-        id: 1,
-        skuId: 'SVL-BDL-001',
-        name: 'HomePod mini',
-        description: 'Table with air purifier, stained veneer black',
-        price: '₹8,299',
-        priceNum: 8299,
-        oldPrice: '₹10,999',
-        badge: '-25%',
-        category: 'Electronics',
-        subcategory: 'Audio',
-        rating: 4.5,
-        reviewCount: 87,
-        image: 'https://via.placeholder.com/300x300.png?text=HomePod+mini',
-        thumbnails: [],
-        colors: ['#f6d7d7', '#dbeafe', '#ecfccb', '#f1f5f9', '#1e293b'],
-        stock: 12,
-        shipping: 'Free Delivery',
-        returnPolicy: 'Free 30 days Delivery Returns',
-        monthlyPrice: '₹1,383/month',
-        source: 'deals',
-    },
-    {
-        id: 2,
-        skuId: 'SVL-BDL-002',
-        name: 'Instax Mini 9',
-        description: 'Selfie mode and selfie mirror, Macro mode',
-        price: '₹5,799',
-        priceNum: 5799,
-        oldPrice: '₹7,499',
-        badge: '-23%',
-        category: 'Electronics',
-        subcategory: 'Cameras',
-        rating: 4.3,
-        reviewCount: 156,
-        image: 'https://via.placeholder.com/300x300.png?text=Instax+Mini+9',
-        thumbnails: [],
-        colors: ['#fde68a', '#fbcfe8', '#dbeafe', '#f1f5f9'],
-        stock: 25,
-        shipping: 'Free Delivery',
-        returnPolicy: 'Free 30 days Delivery Returns',
-        monthlyPrice: '₹966/month',
-        source: 'deals',
-    },
-    {
-        id: 3,
-        skuId: 'SVL-BDL-003',
-        name: 'Base Camp Duffel M',
-        description: 'Table with air purifier, stained veneer black',
-        price: '₹12,499',
-        priceNum: 12499,
-        oldPrice: '₹16,999',
-        badge: '-25%',
-        category: 'Travel',
-        subcategory: 'Bags',
-        rating: 4.7,
-        reviewCount: 63,
-        image: 'https://via.placeholder.com/300x300.png?text=Duffel+Bag',
-        thumbnails: [],
-        colors: ['#1e293b', '#dc2626', '#f59e0b'],
-        stock: 8,
-        shipping: 'Free Delivery',
-        returnPolicy: 'Free 30 days Delivery Returns',
-        monthlyPrice: '₹2,083/month',
-        source: 'deals',
-    },
-
     // ─── Most Selling ───
     {
         id: 4,
@@ -369,9 +301,6 @@ export function getSimilarProducts(productId, limit = 4) {
     return [...sameCategory, ...others].slice(0, limit);
 }
 
-export function getDealProducts() {
-    return allProducts.filter((p) => p.source === 'deals');
-}
 
 export function getSellingProducts() {
     return allProducts.filter((p) => p.source === 'selling');

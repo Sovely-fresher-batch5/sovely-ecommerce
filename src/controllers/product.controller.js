@@ -73,4 +73,76 @@ const getProductById = asyncHandler(async (req, res) => {
     );
 });
 
-export { getProducts, getProductById };
+/**
+ * GET /api/v1/products/deals
+ * Returns the top deals ranked by discount percentage.
+ * A "deal" is any active product where compareAtPrice > platformSellPrice.
+ */
+const getBestDeals = asyncHandler(async (req, res) => {
+    const limit = Math.min(parseInt(req.query.limit) || 6, 20);
+
+    const deals = await Product.aggregate([
+        // Only active products with a real discount
+        {
+            $match: {
+                status: "active",
+                compareAtPrice: { $exists: true, $gt: 0 },
+                $expr: { $gt: ["$compareAtPrice", "$platformSellPrice"] }
+            }
+        },
+        // Compute discount percentage
+        {
+            $addFields: {
+                discountPercent: {
+                    $round: [
+                        {
+                            $multiply: [
+                                {
+                                    $divide: [
+                                        { $subtract: ["$compareAtPrice", "$platformSellPrice"] },
+                                        "$compareAtPrice"
+                                    ]
+                                },
+                                100
+                            ]
+                        },
+                        0
+                    ]
+                }
+            }
+        },
+        // Best discounts first
+        { $sort: { discountPercent: -1 } },
+        { $limit: limit },
+        // Populate category name
+        {
+            $lookup: {
+                from: "categories",
+                localField: "categoryId",
+                foreignField: "_id",
+                as: "categoryId"
+            }
+        },
+        { $unwind: { path: "$categoryId", preserveNullAndEmptyArrays: true } },
+        // Shape output
+        {
+            $project: {
+                _id: 1,
+                sku: 1,
+                title: 1,
+                images: 1,
+                platformSellPrice: 1,
+                compareAtPrice: 1,
+                discountPercent: 1,
+                "categoryId.name": 1,
+                inventory: 1
+            }
+        }
+    ]);
+
+    return res.status(200).json(
+        new ApiResponse(200, deals, "Best deals fetched successfully")
+    );
+});
+
+export { getProducts, getProductById, getBestDeals };
