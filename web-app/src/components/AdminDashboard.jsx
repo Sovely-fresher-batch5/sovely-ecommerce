@@ -326,7 +326,7 @@ const AdminDashboard = () => {
 
                     <select value={stockFilter} onChange={(e) => setStockFilter(e.target.value)} style={{ padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff' }}>
                         <option value="ALL">All Stock Levels</option>
-                        <option value="IN_STOCK">In Stock (>10)</option>
+                        <option value="IN_STOCK">In Stock {"(>10)"}</option>
                         <option value="LOW_STOCK">Low Stock (1-10)</option>
                         <option value="OUT_OF_STOCK">Out of Stock (0)</option>
                     </select>
