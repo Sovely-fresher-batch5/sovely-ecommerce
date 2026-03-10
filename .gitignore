@@ -1,5 +1,7 @@
 node_modules/
 .agent
+.agents
+.agents/
 .env
 .DS_Store
 coverage/

@@ -1,6 +1,7 @@
 {
   "name": "e-commerce-website",
   "version": "1.0.0",
+  "type": "module",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -11,12 +12,21 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
+    "csv-parser": "^3.2.0",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.2.3",
-    "mongoose-aggregate-paginate-v2": "^1.1.4"
+    "mongoose-aggregate-paginate-v2": "^1.1.4",
+    "pdfkit": "^0.17.2",
+    "qrcode": "^1.5.4",
+    "razorpay": "^2.9.6"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }

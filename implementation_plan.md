@@ -12,7 +12,14 @@
 | **Routes** | 🟡 Minimal | Only `/api/v1/health` exists |
 | **Controllers** | ❌ Empty | `src/controllers/` is empty |
 | **Middlewares** | ❌ Empty | `src/middlewares/` is empty |
-| **Frontend** | 🟡 Scaffolded | Vite React app in `web-app/` with luxury dark theme, no routing yet |
+| **Frontend** | ✅ Integrated | Full UI structure, React Router, Login/Signup Auth flows, Flip-card Services, and dynamic Product Pages |
+
+### Recent Integrations (Landing_Page_Gagan Merge)
+- **Landing Page Polish:** Completed responsive UI, category filtering, sticky sidebar, and active states for navigation.
+- **Arya's Contributions:** Integrated the animated Flip-Card Services section and the expanded Footer with SVG payment icons (Visa, Mastercard, UPI, etc.).
+- **Dev's Contributions:** Integrated React Router (`react-router-dom`) with fully functional Login, Signup, Forgot Password, and My Account pages routed through the main App component.
+- **Tilak's Contributions:** Integrated the dynamic Product Description Page (`/product/:productId`) with the combined routing architecture.
+- **Conflict Resolution:** Successfully merged 4-way branch conflicts keeping all UI/UX components intact while preserving complex routing rules.
 
 ### Skills Applied
 | Skill | Applied To |
@@ -68,74 +75,74 @@ bcrypt jsonwebtoken
 
 ---
 
-## Phase 3: Catalog & Cart (Core Shopping Flow)
+## Phase 3: Catalog & Cart (Core Shopping Flow) ✅ COMPLETE
 > **Why third?** This is the heart of the e-commerce experience.
 
 ### Backend
 | File | Type | Description |
 |------|------|-------------|
-| `src/controllers/product.controller.js` | NEW | `listProducts`, `getProduct`, `searchProducts` (public) |
-| `src/routes/product.routes.js` | NEW | Mount at `/api/v1/products` (public) |
-| `src/controllers/cart.controller.js` | NEW | `getCart`, `addToCart`, `updateQty`, `removeFromCart`, `clearCart` |
-| `src/routes/cart.routes.js` | NEW | Mount at `/api/v1/cart` (protected) |
-| `src/controllers/wishlist.controller.js` | NEW | `getWishlist`, `addToWishlist`, `removeFromWishlist` |
-| `src/routes/wishlist.routes.js` | NEW | Mount at `/api/v1/wishlist` (protected) |
+| `src/controllers/product.controller.js` | DONE | `getProducts` with recursive category hierarchy support |
+| `src/controllers/category.controller.js`| DONE | `getCategories` filtered to root-level only |
+| `src/routes/product.routes.js` | DONE | Mounting `/api/v1/products` and `/api/v1/categories` |
 
-### Frontend (Start Building Real Pages)
-| File | Type | Description |
-|------|------|-------------|
-| `web-app/src/pages/` | NEW dir | `Home.jsx`, `ProductList.jsx`, `ProductDetail.jsx`, `Cart.jsx` |
-| `web-app/src/components/` | NEW dir | `Navbar.jsx`, `ProductCard.jsx`, `Footer.jsx` |
-| React Router setup | MODIFY | Install `react-router-dom`, configure routes in `App.jsx` |
+### Frontend (Phase 3 Refinements)
+| Feature | Status | Description |
+|---------|--------|-------------|
+| **Skeleton Loading** | ✅ | Component-level localized loaders in `DropshipProducts.jsx` |
+| **Dynamic Icons** | ✅ | Lucide-react SVGs mapped to DB categories via `categoryIcons.js` |
+| **Navbar Integration** | ✅ | Dynamic category fetching and stable filtering links |
+| **Hero Component** | ✅ | Shop Now scroll + brand-aligned hero image |
+| **Wishlist Drawer** | ✅ | Animated, premium dark-mode sidebar synced with `WishlistContext`. Seamlessly handles "Move to Cart" and robustly extracts image metadata from DB structures |
+| **Cart Drawer** | ✅ | Fixed structural image bleeding out from MongoDB subdocuments (`[object Object]` mapping error), making UI crisp and stable across Cart and Checkout |
+| **Sidebar Auth** | ✅ | Integrated `AuthContext` to correctly render dynamic User Avatars and Log Out CTA instead of "Sign Up" wrappers |
 
 ### Key Design Decisions
-- Product listing supports pagination via `mongoose-aggregate-paginate-v2` (already installed!)
-- Cart enforces MOQ (minimum order quantity) from Product model
-- Wishlist is a simple toggle — add/remove by `productId`
+- Product listing supports recursive category filtering (Parent -> Children lookup)
+- Replaced global page-wipe Suspense with `@tanstack/react-query` `isLoading` skeletons
+- Unified icon mapping system to ensure brand consistency between Navbar and Carousel
+- Cart and Wishlist toggles connected to local UI state for instant feedback with graceful `[object Object]` to `.url` string extractions
 
 ---
 
-## Phase 4: Order & Checkout Flow
-> **Why fourth?** Cart → Order is the conversion moment.
+## Phase 4: Advanced Invoicing & Checkout Flow (Current Focus)
+> **Goal:** Support B2B functionality, flexible payment terms, and clear documentation.
 
 ### Backend
 | File | Type | Description |
 |------|------|-------------|
-| `src/controllers/order.controller.js` | NEW | `placeOrder`, `getMyOrders`, `getOrderById`, `cancelOrder` (admin: `updateOrderStatus`) |
+| `src/models/Invoice.js` & `Order.js` | MODIFY | Add `paymentTerms` (Enum: DUE_ON_RECEIPT, NET_15, NET_30) and `dueDate` calculation. Add `paymentMethod` "BANK_TRANSFER". |
+| `src/controllers/order.controller.js` | NEW | `placeOrder`, `getMyOrders`, `getOrderById`, `cancelOrder` |
 | `src/routes/order.routes.js` | NEW | Mount at `/api/v1/orders` (protected) |
-| `src/controllers/invoice.controller.js` | NEW | `getInvoice`, `listMyInvoices` |
+| `src/controllers/invoice.controller.js` | NEW | `getInvoice`, `listMyInvoices`, `generateInvoicePDF` (using `pdfkit` or `pdf-lib`), and `markAsPaidManual` (Admins only) |
 | `src/routes/invoice.routes.js` | NEW | Mount at `/api/v1/invoices` (protected) |
 
 ### Frontend
 | File | Type | Description |
 |------|------|-------------|
-| `web-app/src/pages/Checkout.jsx` | NEW | Order summary, address selection, place order |
-| `web-app/src/pages/Orders.jsx` | NEW | Order history with status tracking |
+| `web-app/src/pages/Checkout.jsx` | NEW | Order summary, address, select payment terms (Net 15/30) and Bank Transfer instructions. |
+| `web-app/src/pages/Orders.jsx` | NEW | Order history with status tracking and "Download PDF Invoice" button. |
 
 ### Key Design Decisions
-- Order creation is a **Mongoose transaction**: snapshot cart items → create order → create invoice → clear cart
-- Each order generates an `orderId` via `Counter.getNextSequenceValue('orderId')`
-- Each invoice generates an `invoiceNumber` via `Counter.getNextSequenceValue('invoiceNumber')`
-- Stock is decremented atomically on order placement
+- **PDF Generation**: Leverage the `pdf-official` / node `pdfkit` structures to generate professional invoices holding line items, taxes, branding, and bank transfer routing numbers.
+- **Manual Payment Updates**: Crucial for Bank Transfers. An admin endpoint will transition invoice/order status from `pending` to `paid` once cash clears.
 
 ---
 
 ## Phase 5: Financial Layer (Payments & Wallet)
-> **Why fifth?** Once orders exist, we need to settle them.
+> **Goal:** Self-serve wallet management and integrated deposits utilizing Razorpay.
 
 ### Backend
 | File | Type | Description |
 |------|------|-------------|
-| `src/controllers/payment.controller.js` | NEW | `initiatePayment`, `confirmPayment`, `getPaymentStatus` |
+| `src/controllers/payment.controller.js` | NEW | `createRazorpayOrder`, `verifyRazorpaySignature`, `webhookHandler` |
 | `src/routes/payment.routes.js` | NEW | Mount at `/api/v1/payments` (protected) |
-| `src/controllers/wallet.controller.js` | NEW | `getBalance`, `getTransactionHistory` (admin: `creditWallet`) |
+| `src/controllers/wallet.controller.js` | NEW | `getBalance`, `getTransactionHistory`, `addMoney` (generates Razorpay top-up intent) |
 | `src/routes/wallet.routes.js` | NEW | Mount at `/api/v1/wallet` (protected) |
 
 ### Key Design Decisions
-- Payment always targets an Invoice (mandatory `invoiceId`)
-- `referenceId` ensures idempotency (no double charges)
-- Wallet credits go through the Dual-Path Enforcer (`pre('validate')` hook)
-- Admin wallet top-ups create a `WALLET_TOPUP` invoice
+- **Razorpay Integration**: Use the official `razorpay` Node.js SDK. Implement `verifyRazorpaySignature` strictly for webhook events to ensure PCI compliance and prevent spoofing.
+- **Add Money**: Generates a generic `WALLET_TOPUP` invoice against the current user, dropping into the standard Razorpay checkout flow. Once the raw webhook succeeds, we securely credit the `WalletTransaction` ledger.
+- **Idempotency**: Follows `billing-automation` and `payment-integration` best practices. Razorpay's `order_id` map to MongoDB transaction references to prevent double-crediting.
 
 ---
 
