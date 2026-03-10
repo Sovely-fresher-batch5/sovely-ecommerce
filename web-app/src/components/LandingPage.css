@@ -676,38 +676,48 @@ button {
 }
 
 /* =====================================================
-   CATEGORIES
+   CATEGORIES (Infinite Marquee)
    ===================================================== */
 .categories-section {
   padding: 80px 0;
+  overflow: hidden; /* Prevents horizontal scrollbars on the whole page */
 }
 
-/* Carousel outer wrapper — positions arrows relative to it */
-.categories-carousel-wrapper {
+/* Creates a masking fade effect on the left and right edges */
+.categories-marquee-wrapper {
   position: relative;
-  display: flex;
-  align-items: center;
+  width: 100%;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
 }
 
-/* Scrollable horizontal track */
-.categories-track {
+/* The actual moving train of items */
+.categories-marquee-track {
   display: flex;
   gap: 20px;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  /* hide scrollbar on Firefox */
-  padding: 12px 4px 16px;
-  flex: 1;
+  width: max-content;
+  padding: 12px 0 16px;
+  /* Adjust the '35s' to make it scroll faster or slower */
+  animation: marquee-scroll 35s linear infinite;
 }
 
-.categories-track::-webkit-scrollbar {
-  display: none;
-  /* hide scrollbar on Chrome/Safari */
+/* Pause the animation instantly when the user hovers over the track */
+.categories-marquee-track:hover {
+  animation-play-state: paused;
 }
 
-/* Each category card — fixed width for consistent snapping */
+@keyframes marquee-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    /* Shifts exactly half the track width to loop the duplicated array seamlessly */
+    transform: translateX(calc(-50% - 10px)); 
+  }
+}
+
+/* Each category card */
 .category-card {
   display: flex;
   flex-direction: column;
@@ -720,9 +730,7 @@ button {
   transition: var(--transition);
   cursor: pointer;
   text-decoration: none;
-  scroll-snap-align: start;
   flex: 0 0 140px;
-  /* fixed width, no shrink */
   min-width: 140px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
@@ -755,49 +763,6 @@ button {
   text-align: center;
   white-space: nowrap;
 }
-
-/* Arrow buttons */
-.carousel-arrow {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 10;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: #fff;
-  border: 1.5px solid var(--color-border);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.6rem;
-  line-height: 1;
-  color: var(--color-text);
-  cursor: pointer;
-  transition: opacity 0.25s ease, box-shadow 0.2s ease, background 0.2s ease;
-}
-
-.carousel-arrow:hover {
-  background: var(--color-primary);
-  color: #fff;
-  border-color: var(--color-primary);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
-}
-
-.carousel-arrow-left {
-  left: -22px;
-}
-
-.carousel-arrow-right {
-  right: -22px;
-}
-
-.carousel-arrow-hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-
 
 /* =====================================================
    BEST DEALS

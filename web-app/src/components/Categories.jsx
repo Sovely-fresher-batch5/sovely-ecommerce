@@ -1,13 +1,8 @@
-import { useRef, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { productApi } from '../features/products/api/productApi';
 import { getCategoryIcon } from '../utils/categoryIcons';
 
 function Categories({ onSelectCategory }) {
-    const scrollRef = useRef(null);
-    const [canScrollLeft, setCanScrollLeft] = useState(false);
-    const [canScrollRight, setCanScrollRight] = useState(true);
-
     const { data: dbCategories = [] } = useQuery({
         queryKey: ['categories'],
         queryFn: productApi.getCategories
@@ -24,27 +19,8 @@ function Categories({ onSelectCategory }) {
         };
     });
 
-    const updateScrollState = () => {
-        const el = scrollRef.current;
-        if (!el) return;
-        setCanScrollLeft(el.scrollLeft > 0);
-        setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
-    };
-
-    useEffect(() => {
-        const el = scrollRef.current;
-        if (el) {
-            el.addEventListener('scroll', updateScrollState);
-            updateScrollState();
-        }
-        return () => el?.removeEventListener('scroll', updateScrollState);
-    }, []);
-
-    const scroll = (dir) => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollBy({ left: dir * 320, behavior: 'smooth' });
-        }
-    };
+    // We duplicate the array to create a seamless infinite loop train!
+    const duplicatedCategories = [...categories, ...categories];
 
     return (
         <section className="categories-section" id="categories">
@@ -54,21 +30,12 @@ function Categories({ onSelectCategory }) {
                     <p className="section-subtitle">Discover products across all major niches</p>
                 </div>
 
-                <div className="categories-carousel-wrapper">
-                    {/* Left Arrow */}
-                    <button
-                        className={`carousel-arrow carousel-arrow-left ${!canScrollLeft ? 'carousel-arrow-hidden' : ''}`}
-                        onClick={() => scroll(-1)}
-                        aria-label="Scroll categories left"
-                    >
-                        ‹
-                    </button>
-
-                    {/* Scrollable Track */}
-                    <div className="categories-track" ref={scrollRef}>
-                        {categories.map((cat, index) => (
+                {/* Infinite Marquee Wrapper */}
+                <div className="categories-marquee-wrapper">
+                    <div className="categories-marquee-track">
+                        {duplicatedCategories.map((cat, index) => (
                             <button
-                                key={cat._id || index}
+                                key={`${cat._id || cat.name}-${index}`}
                                 className="category-card"
                                 id={`category-${cat.name.toLowerCase().replace(/\s+/g, '-')}`}
                                 onClick={() => onSelectCategory && onSelectCategory(cat.name)}
@@ -81,15 +48,6 @@ function Categories({ onSelectCategory }) {
                             </button>
                         ))}
                     </div>
-
-                    {/* Right Arrow */}
-                    <button
-                        className={`carousel-arrow carousel-arrow-right ${!canScrollRight ? 'carousel-arrow-hidden' : ''}`}
-                        onClick={() => scroll(1)}
-                        aria-label="Scroll categories right"
-                    >
-                        ›
-                    </button>
                 </div>
             </div>
         </section>
