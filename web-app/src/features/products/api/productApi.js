@@ -1,8 +1,8 @@
 import axios from 'axios';
+import { API_BASE_URL } from '../../../utils/apiBaseUrl.js';
 
 const api = axios.create({
-    // Now it dynamically reads the URL we saved in the .env file!
-    baseURL: import.meta.env.VITE_API_BASE_URL, 
+    baseURL: API_BASE_URL,
     withCredentials: true
 });
 
@@ -15,7 +15,19 @@ export const productApi = {
         if (categoryId && categoryId !== 'All') params.append('categoryId', categoryId);
 
         const response = await api.get(`/products?${params.toString()}`);
-        return response.data.data;
+        const payload = response.data?.data;
+        const safePage = Number(page) || 1;
+        const safeLimit = Number(limit) || 12;
+
+        return {
+            products: Array.isArray(payload?.products) ? payload.products : [],
+            pagination: {
+                total: Number(payload?.pagination?.total) || 0,
+                page: Number(payload?.pagination?.page) || safePage,
+                pages: Number(payload?.pagination?.pages) || 1,
+                limit: safeLimit,
+            },
+        };
     },
 
     getProductById: async (id) => {
@@ -25,7 +37,7 @@ export const productApi = {
 
     getCategories: async () => {
         const response = await api.get('/categories');
-        return response.data.data;
+        return Array.isArray(response.data?.data) ? response.data.data : [];
     },
 
     getBestDeals: async (limit = 6) => {
