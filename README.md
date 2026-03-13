@@ -49,14 +49,27 @@ npm install
 cd web-app
 npm install
 ```
-### 4. Seed the Database (Crucial Step!)
+### 4. Seed the Database (Maintenance)
 
-If you are connecting to a fresh MongoDB Atlas database, the products screen will be blank. You must import the catalog from the reference CSV file.
+If you need to re-seed or clean the database manually, utility scripts are located in the `scripts/` folder.
+```bash
+# From the root folder:
+node scripts/importCsv.js
 ```
-# From the root backend folder:
-node importCsv.js
-```
-Wait for the terminal to confirm that all 800+ products have been saved.
+
+---
+
+## 📂 Project Structure
+
+A professional structure is maintained to separate concerns:
+*   **`src/`**: Backend source code (Express, Mongoose).
+*   **`web-app/`**: Frontend source code (React, Vite).
+*   **`scripts/`**: Utility scripts for database seeding, maintenance, and migrations.
+*   **`docs/`**: Project documentation and implementation plans.
+*   **`public/`**: Static assets for the backend.
+
+---
+
 ### 5. Start the Development Servers
 
 You will need two terminal windows running simultaneously.

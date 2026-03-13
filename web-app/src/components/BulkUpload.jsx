@@ -40,7 +40,6 @@ const BulkUpload = () => {
             });
             setMessage(`Success! ${res.data.data.total} products processed.`);
             setFile(null);
-            // Reset file input
             document.getElementById('file-upload').value = '';
         } catch (err) {
             setError(err.response?.data?.message || "Failed to upload file.");

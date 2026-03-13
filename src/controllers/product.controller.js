@@ -249,6 +249,7 @@ const bulkUploadProducts = asyncHandler(async (req, res) => {
         if (!defCat) defCat = await Category.create({ name: "Uncategorized", parentCategoryId: null });
 
         let count = 0;
+
         for (const [handle, data] of productsMap.entries()) {
             if (!data.title) continue;
 
@@ -276,6 +277,7 @@ const bulkUploadProducts = asyncHandler(async (req, res) => {
             );
             count++;
         }
+        
         return count;
     };
 
@@ -320,4 +322,12 @@ const generateSampleTemplate = asyncHandler(async (req, res) => {
     return res.status(200).send(csvContent);
 });
 
-export { getProducts, getProductById, getBestDeals, getAdminProducts, updateAdminProduct, bulkUploadProducts, generateSampleTemplate };
+export { 
+    getProducts, 
+    getProductById, 
+    getBestDeals, 
+    getAdminProducts, 
+    updateAdminProduct, 
+    bulkUploadProducts, 
+    generateSampleTemplate
+};

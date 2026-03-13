@@ -12,7 +12,6 @@ function BestDeals() {
     const { data: deals = [], isLoading, isError } = useQuery({
         queryKey: ['bestDeals'],
         queryFn: () => productApi.getBestDeals(3),
-        staleTime: 5 * 60 * 1000,
     });
 
     return (
