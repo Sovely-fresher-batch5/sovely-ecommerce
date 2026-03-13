@@ -4,14 +4,12 @@ import { AuthContext } from '../AuthContext';
 import { CartContext } from '../CartContext';
 import { WishlistContext } from '../WishlistContext';
 import { ShoppingCart, Heart, Bell, User, Search, Headphones, Wallet, ChevronDown } from 'lucide-react';
-import CartDrawer from './CartDrawer';
 import WishlistDrawer from './WishlistDrawer';
 
 function Navbar({ onSelectCategory, searchQuery, onSearchChange, onSearchSubmit }) {
   const { user, logout, loading } = useContext(AuthContext);
   const { cartItems } = useContext(CartContext);
   const { wishlistItems } = useContext(WishlistContext);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
 
   const handleKeyDown = (e) => {
@@ -82,10 +80,10 @@ function Navbar({ onSelectCategory, searchQuery, onSearchChange, onSearchSubmit 
             <button className="icon-action-btn" aria-label="Notifications">
                 <Bell size={22} />
             </button>
-            <button className="icon-action-btn" aria-label="Cart" onClick={() => setIsCartOpen(true)}>
+            <Link to="/cart" className="icon-action-btn" aria-label="Cart">
                 <ShoppingCart size={22} />
                 {cartItems?.length > 0 && <span className="action-badge">{cartItems.length}</span>}
-            </button>
+            </Link>
             <div className="user-profile-toggle">
                 <User size={22} />
                 {user && <span className="user-name-small">{user.name.split(' ')[0]}</span>}
@@ -93,7 +91,6 @@ function Navbar({ onSelectCategory, searchQuery, onSearchChange, onSearchSubmit 
           </div>
         </div>
       </div>
-      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
       <WishlistDrawer isOpen={isWishlistOpen} onClose={() => setIsWishlistOpen(false)} />
     </nav>
   );

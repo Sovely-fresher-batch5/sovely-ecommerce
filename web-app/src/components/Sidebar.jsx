@@ -3,10 +3,12 @@ import { Link, useLocation } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
 import { 
   Home, 
-  Search, 
-  LayoutGrid, 
-  ShoppingBag, 
+  BarChart3, 
+  Package, 
+  AlertCircle, 
   Wallet, 
+  ShoppingCart, 
+  Layers, 
   User, 
   Settings,
   Bell,
@@ -18,14 +20,13 @@ function Sidebar() {
     const { user, logout } = useContext(AuthContext);
 
     const navItems = [
-        { icon: Home, label: 'Home', path: '/', active: location.pathname === '/' },
-        { icon: Search, label: 'Search', path: '#search' },
-        { icon: LayoutGrid, label: 'Categories', path: '#categories' },
-        { icon: ShoppingBag, label: 'Orders', path: '/orders' },
-        { icon: Wallet, label: 'Wallet', path: '#wallet' },
-        { icon: Bell, label: 'Notifications', path: '#notifications' },
-        { icon: User, label: 'Profile', path: '/my-account' },
-        { icon: Settings, label: 'Settings', path: '#settings' },
+        { icon: BarChart3, label: 'Analytics', path: '/analytics', active: location.pathname === '/analytics' },
+        { icon: Home, label: 'Overview', path: '/', active: location.pathname === '/' },
+        { icon: Package, label: 'Manage Orders', path: '/manage-orders', active: location.pathname === '/manage-orders' },
+        { icon: AlertCircle, label: 'Manage NDR', path: '/manage-ndr', active: location.pathname === '/manage-ndr' },
+        { icon: Wallet, label: 'Wallet', path: '/wallet', active: location.pathname === '/wallet' },
+        { icon: ShoppingCart, label: 'Cart', path: '/cart', active: location.pathname === '/cart' },
+        { icon: Layers, label: 'Bulk Order', path: '/bulk-order', active: location.pathname === '/bulk-order' },
     ];
 
     return (

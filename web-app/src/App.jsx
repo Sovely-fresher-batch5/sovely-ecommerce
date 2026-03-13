@@ -11,6 +11,12 @@ import Checkout from './components/Checkout'
 import Orders from './components/Orders'
 import OrderTracking from './components/OrderTracking' // New Component!
 import AdminDashboard from './components/AdminDashboard'
+import Analytics from './components/Analytics'
+import ManageOrders from './components/ManageOrders'
+import ManageNDR from './components/ManageNDR'
+import WalletPortal from './components/WalletPortal'
+import FullCartPage from './components/FullCartPage'
+import BulkOrder from './components/BulkOrder'
 
 function App() {
   return (
@@ -26,6 +32,12 @@ function App() {
         <Route path="/orders" element={<Orders />} />
         <Route path="/orders/:id/track" element={<OrderTracking />} /> {/* New Route */}
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/analytics" element={<Analytics />} />
+        <Route path="/manage-orders" element={<ManageOrders />} />
+        <Route path="/manage-ndr" element={<ManageNDR />} />
+        <Route path="/wallet" element={<WalletPortal />} />
+        <Route path="/cart" element={<FullCartPage />} />
+        <Route path="/bulk-order" element={<BulkOrder />} />
       </Routes>
     </Suspense>
   )
