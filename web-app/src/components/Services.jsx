@@ -44,7 +44,7 @@ function Services() {
                                     <p className="service-description">{service.description}</p>
                                     <span className="service-arrow">→</span>
                                 </div>
-                                <div className="card-back" style={{ backgroundColor: service.color }}>
+                                <div className="card-back">
                                     <div className="service-icon-small">
                                         <span>{service.icon}</span>
                                     </div>
