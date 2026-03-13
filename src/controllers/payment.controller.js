@@ -2,6 +2,7 @@ import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { Payment } from '../models/Payment.js';
 import { Invoice } from '../models/Invoice.js';
+import { Customer } from '../models/Customer.js';
 import { WalletTransaction } from '../models/WalletTransaction.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
@@ -37,7 +38,13 @@ export const razorpayInstance = key_id === 'rzp_test_dummy'
 // Endpoint called by frontend after successful Razorpay checkout widget payment
 export const verifyPaymentSignature = asyncHandler(async (req, res) => {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, invoiceId } = req.body;
-    const customerId = req.user._id;
+    
+    // Find the correct customer profile
+    const customer = await Customer.findOne({ userId: req.user._id });
+    if (!customer) {
+        throw new ApiError(404, "Customer profile not found");
+    }
+    const customerDbId = customer._id;
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !invoiceId) {
         throw new ApiError(400, "Missing required payment parameters");
@@ -73,11 +80,16 @@ export const verifyPaymentSignature = asyncHandler(async (req, res) => {
 
     // Save Payment Record
     const payment = await Payment.create({
-        customerId,
+        customerId: customerDbId,
         invoiceId,
-        paymentMethod: 'CARD', // Or fetch exact method from Razorpay API
+        paymentMethod: 'RAZORPAY', 
         status: 'SUCCESS',
-        referenceId: razorpay_payment_id
+        amount: invoice.totalAmount,
+        currency: 'INR',
+        referenceId: razorpay_payment_id,
+        razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id,
+        razorpaySignature: razorpay_signature
     });
 
     // Update Invoice Status
@@ -86,8 +98,19 @@ export const verifyPaymentSignature = asyncHandler(async (req, res) => {
 
     // If this was a WALLET_TOPUP, immediately credit the wallet
     if (invoice.invoiceType === 'WALLET_TOPUP') {
+        // Atomic balance update
+        const customer = await Customer.findOneAndUpdate(
+            { _id: customerDbId },
+            { $inc: { walletBalance: invoice.totalAmount } },
+            { new: true }
+        );
+
+        if (!customer) {
+            throw new ApiError(500, "Failed to update customer wallet balance");
+        }
+
         await WalletTransaction.create({
-            customerId,
+            customerId: customerDbId,
             paymentId: payment._id,
             amount: invoice.totalAmount,
             transactionType: 'CREDIT',

@@ -203,8 +203,10 @@ body {
     cursor: pointer;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     transition: all 0.2s;
+    line-height: 1; /* Perfectly centers text with icons */
 }
 
 .support-btn {

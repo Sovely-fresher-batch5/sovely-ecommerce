@@ -15,9 +15,9 @@ function ManageNDR() {
                     <div className="section-container">
                         <header className="dashboard-header">
                             <h1 className="dashboard-title">Manage NDR</h1>
-                            <div className="header-actions">
+                            <div className="action-buttons-group">
                                 <button className="dash-secondary-btn"><Download size={16} /> Export NDR</button>
-                                <button className="dash-secondary-btn"><Upload size={16} /> Import NDR</button>
+                                <button className="premium-btn"><Upload size={16} /> Import NDR</button>
                             </div>
                         </header>
 
@@ -28,10 +28,9 @@ function ManageNDR() {
                             </div>
                         </div>
 
-                        <div className="filter-bar dashboard-card">
-                            <div className="filter-inputs">
-                                <input type="text" placeholder="Order Id, Customer, AWB Number" className="dashboard-input" />
-                                <div className="date-picker-dash">Select Date Range</div>
+                        <div className="dash-actions-row">
+                            <div className="dash-search-group">
+                                <input type="text" placeholder="Search Order ID, AWB..." className="search-input-pill" />
                                 <button className="dash-search-btn">
                                     <Search size={16} /> Search
                                 </button>

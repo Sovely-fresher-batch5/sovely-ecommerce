@@ -15,9 +15,9 @@ function BulkOrder() {
                     <div className="section-container">
                         <header className="dashboard-header">
                             <h1 className="dashboard-title">Bulk Order</h1>
-                            <div className="header-actions">
-                                <button className="dash-secondary-btn"><Upload size={16} /> Upload CSV</button>
+                            <div className="action-buttons-group">
                                 <button className="dash-secondary-btn"><Download size={16} /> Sample File</button>
+                                <button className="premium-btn"><Upload size={16} /> Upload CSV</button>
                             </div>
                         </header>
 

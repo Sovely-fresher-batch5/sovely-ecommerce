@@ -2,7 +2,12 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import axios from 'axios'
+import { API_BASE_URL } from './utils/apiBaseUrl'
 import './index.css'
+
+axios.defaults.baseURL = API_BASE_URL
+axios.defaults.withCredentials = true
 import App from './App.jsx'
 import ErrorBoundary from './ErrorBoundary.jsx'
 import { AuthProvider } from './AuthContext.jsx'

@@ -32,13 +32,9 @@ function ManageOrders() {
                             </div>
                         </div>
 
-                        <div className="filter-bar dashboard-card">
-                            <div className="filter-inputs">
-                                <input type="text" placeholder="Order Id, Customer, AWB Number" className="dashboard-input" />
-                                <div className="date-picker-dash">Select Date Range</div>
-                                <select className="dashboard-select">
-                                    <option>All</option>
-                                </select>
+                        <div className="dash-actions-row">
+                            <div className="dash-search-group">
+                                <input type="text" placeholder="Search Order ID, AWB..." className="search-input-pill" />
                                 <button className="dash-search-btn">
                                     <Search size={16} /> Search
                                 </button>

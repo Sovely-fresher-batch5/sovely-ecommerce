@@ -7,7 +7,7 @@ import { ShoppingCart, Heart, Bell, User, Search, Headphones, Wallet, ChevronDow
 import WishlistDrawer from './WishlistDrawer';
 
 function Navbar({ onSelectCategory, searchQuery, onSearchChange, onSearchSubmit }) {
-  const { user, logout, loading } = useContext(AuthContext);
+  const { user, balance, logout, loading } = useContext(AuthContext);
   const { cartItems } = useContext(CartContext);
   const { wishlistItems } = useContext(WishlistContext);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
@@ -33,43 +33,107 @@ function Navbar({ onSelectCategory, searchQuery, onSearchChange, onSearchSubmit 
         </div>
 
         {/* Center: Search */}
-        <div className="navbar-center">
-            <div className="b2b-search-bar">
+        <div className="navbar-center" style={{ flexGrow: 1, maxWidth: '800px', margin: '0 40px' }}>
+            <div className="b2b-search-bar" style={{ 
+                width: '100%', 
+                height: '48px', 
+                backgroundColor: '#f1f5f9',
+                border: '1px solid #e2e8f0',
+                borderRadius: '12px',
+                padding: '0 8px 0 16px',
+                boxShadow: 'none',
+                gap: '12px'
+            }}>
+                <Search size={18} color="#94a3b8" />
                 <input 
                     type="text" 
-                    placeholder="Search Orders & Products (e.g. DE124, Magic Book)" 
+                    placeholder="Search Orders, Products or SKU (e.g. DE124, Magic Book)" 
                     value={searchQuery}
                     onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
                     onKeyDown={handleKeyDown}
+                    style={{ fontSize: '14px', fontWeight: 500, backgroundColor: 'transparent' }}
                 />
-                <button className="search-submit-btn" onClick={() => onSearchSubmit && onSearchSubmit(searchQuery)}>
-                    <Search size={20} />
+                <button 
+                  className="premium-search-btn" 
+                  onClick={() => onSearchSubmit && onSearchSubmit(searchQuery)}
+                  style={{
+                    backgroundColor: 'var(--color-primary)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '0 20px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'opacity 0.2s',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}
+                >
+                    Search
                 </button>
             </div>
         </div>
 
         {/* Right: Actions */}
         <div className="navbar-right-b2b">
-          <div className="contact-info">
-             <span className="phone-number">+91 96626-86196</span>
-          </div>
-          
-          <div className="b2b-nav-buttons">
-            <button className="nav-btn support-btn">
-                <Headphones size={16} />
-                Support
-            </button>
-            <button className="nav-btn recharge-btn">
-                Recharge Wallet
-            </button>
-          </div>
-
-          <div className="store-selector">
-            <span className="store-label">Select Store</span>
-            <div className="store-name">
-                Enfinty Enterprises
-                <ChevronDown size={14} />
+          <div className="b2b-nav-buttons" style={{ gap: '15px' }}>
+            {/* Combined Support Hub */}
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--color-primary)', letterSpacing: '0.8px' }}>CONTACT SUPPORT</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--color-text)', fontWeight: 700, fontSize: '14px' }}>
+                    <Headphones size={14} />
+                    +91 96626-86196
+                </div>
             </div>
+
+            <div style={{ width: '1px', height: '24px', backgroundColor: '#e2e8f0', margin: '0 5px' }}></div>
+
+            <Link to="/wallet" className="nav-btn wallet-balance-nav" style={{
+                textDecoration: 'none', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '10px', 
+                backgroundColor: 'rgba(27, 67, 50, 0.05)', 
+                color: '#1b4332', 
+                border: '1.5px solid rgba(27, 67, 50, 0.2)',
+                transition: 'all 0.2s ease',
+                fontWeight: 700,
+                padding: '0 15px',
+                height: '42px',
+                borderRadius: '10px'
+            }}>
+                <div style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '6px',
+                    backgroundColor: '#1b4332',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}>
+                    <Wallet size={16} color="white" />
+                </div>
+                <span style={{ fontSize: '15px' }}>₹{balance.toFixed(2)}</span>
+            </Link>
+            
+            <Link to="/wallet?action=recharge" className="nav-btn recharge-btn" style={{
+                textDecoration: 'none', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '8px',
+                height: '42px',
+                padding: '0 18px',
+                borderRadius: '10px',
+                backgroundColor: '#1b4332',
+                border: 'none',
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: '14px'
+            }}>
+                Recharge
+            </Link>
           </div>
 
           <div className="b2b-icon-actions">

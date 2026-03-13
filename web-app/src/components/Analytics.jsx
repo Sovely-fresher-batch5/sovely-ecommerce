@@ -32,10 +32,13 @@ function Analytics() {
                     <div className="section-container">
                         <header className="dashboard-header">
                             <h1 className="dashboard-title">Analytics</h1>
-                            <div className="dashboard-actions">
-                                <div className="date-picker-placeholder">
-                                    March 5, 2026 - March 12, 2026
+                            <div className="action-buttons-group">
+                                <div className="dash-secondary-btn" style={{cursor: 'default'}}>
+                                    <BarChart3 size={18} /> March 5, 2026 - March 12, 2026
                                 </div>
+                                <button className="premium-btn">
+                                    Refresh Data
+                                </button>
                             </div>
                         </header>
 
