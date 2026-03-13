@@ -27,6 +27,8 @@ function LandingPage() {
 
     const handleSearchSubmit = (query) => {
         setSearchQuery(query);
+        setSelectedCategory('All');
+        setSelectedWeight('All'); // Ensure global search is not restricted by weight
         scrollToProducts();
     };
 

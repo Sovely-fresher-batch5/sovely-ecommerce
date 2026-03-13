@@ -13,7 +13,7 @@ function DropshipProducts({ externalCategory, onCategoryChange, externalWeight, 
     
     // --- Filter State ---
     const [category, setCategory] = useState(externalCategory || 'All');
-    const [priceRange, setPriceRange] = useState(5000); // Max price limit for slider
+    const [priceRange, setPriceRange] = useState(100000); // Increased max price limit
     const [inStockOnly, setInStockOnly] = useState(false);
     const [sortBy, setBy] = useState('featured');
     const [addedIds, setAddedIds] = useState([]);
@@ -70,30 +70,29 @@ function DropshipProducts({ externalCategory, onCategoryChange, externalWeight, 
     // --- Modern Transformation & Client-side filtering/sorting ---
     const products = useMemo(() => {
         if (!data) return [];
-        let list = data.pages.flatMap(page => page.products || []).map(p => ({
+        const raw = data.pages.flatMap(page => page.products || []);
+        const apiDebug = data.pages[0]?.debug;
+        console.log(`[Search UI Debug] Server Results: ${raw.length}`, {
+            query: apiDebug?.query,
+            filter: apiDebug?.filter,
+            products: raw.map(p => ({ sku: p.sku, title: p.title }))
+        });
+        
+        let list = raw.map(p => ({
             id: p._id,
             sku: p.sku || 'N/A',
             title: p.title,
             price: p.platformSellPrice,
             mrp: p.compareAtPrice || p.platformSellPrice * 1.5,
             image: p.images?.[0]?.url || 'https://via.placeholder.com/300',
-            inventory: p.inventoryQuantity || 0,
-            weight: p.payloadWeight || '500', // Ensure it's numeric/parsable
+            inventory: p.inventory?.stock ?? 0,
+            weight: p.weightGrams ?? 500, // Matching the field name in Product model
             rating: 4 + Math.random() * 1,
             sales: Math.floor(Math.random() * 1000)
         }));
 
-        // Apply Search Filter (New)
-        if (searchQuery) {
-            const q = searchQuery.toLowerCase();
-            list = list.filter(p => 
-                p.title.toLowerCase().includes(q) || 
-                p.sku.toLowerCase().includes(q)
-            );
-        }
-
         // Apply Price Filter
-        list = list.filter(p => p.price <= priceRange);
+        list = list.filter(p => !p.price || p.price <= priceRange);
 
         // Apply Stock Filter
         if (inStockOnly) {
@@ -120,7 +119,7 @@ function DropshipProducts({ externalCategory, onCategoryChange, externalWeight, 
 
     const handleReset = () => {
         setCategory('All');
-        setPriceRange(5000);
+        setPriceRange(100000);
         setInStockOnly(false);
         setBy('featured');
         if (onResetAll) onResetAll();
@@ -174,8 +173,8 @@ function DropshipProducts({ externalCategory, onCategoryChange, externalWeight, 
                     <input 
                         type="range" 
                         min="0" 
-                        max="5000" 
-                        step="100"
+                        max="100000" 
+                        step="1000"
                         value={priceRange} 
                         onChange={(e) => setPriceRange(parseInt(e.target.value))}
                         className="price-slider"

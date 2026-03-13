@@ -331,7 +331,7 @@ body {
    PREMIUM CATEGORIES SECTION
    ===================================================== */
 .b2b-categories-section {
-    padding: 20px 0;
+    padding: 20px 0 0 0;
     background: #ffffff;
     border-bottom: 1px solid #f1f5f9;
 }
@@ -339,8 +339,8 @@ body {
 .b2b-categories-row {
     display: flex;
     gap: 30px;
-    padding: 20px 40px; /* Increased padding */
-    justify-content: flex-start; /* Fixes left-side clipping on overflow */
+    padding: 10px 10px 5px 10px; /* Reduced paddings to tighten gaps */
+    justify-content: flex-start;
     overflow-x: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -1053,7 +1053,7 @@ body {
    BEST DEALS & TOP SELLING
    ===================================================== */
 .deals-section {
-    padding: 60px 0;
+    padding: 20px 0 60px 0;
     background: #fff;
 }
 

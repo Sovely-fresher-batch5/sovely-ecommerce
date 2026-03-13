@@ -1,5 +1,5 @@
 // Best Deals API v2
-import 'dotenv/config';
+import 'dotenv/config'; // Config loaded
 import connectDB from "./db/index.js";
 import { app } from "./app.js";
 
