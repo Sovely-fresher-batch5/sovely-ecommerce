@@ -12,7 +12,8 @@ import {
   User, 
   Settings,
   Bell,
-  LogOut
+  LogOut,
+  Truck
 } from 'lucide-react';
 
 function Sidebar() {
@@ -22,6 +23,7 @@ function Sidebar() {
     const navItems = [
         { icon: BarChart3, label: 'Analytics', path: '/analytics', active: location.pathname === '/analytics' },
         { icon: Home, label: 'Overview', path: '/', active: location.pathname === '/' },
+        { icon: Truck, label: 'Courier Service', path: '/courier-service', active: location.pathname === '/courier-service' },
         { icon: Package, label: 'Manage Orders', path: '/manage-orders', active: location.pathname === '/manage-orders' },
         { icon: AlertCircle, label: 'Manage NDR', path: '/manage-ndr', active: location.pathname === '/manage-ndr' },
         { icon: Wallet, label: 'Wallet', path: '/wallet', active: location.pathname === '/wallet' },

@@ -17,6 +17,8 @@ import ManageNDR from './components/ManageNDR'
 import WalletPortal from './components/WalletPortal'
 import FullCartPage from './components/FullCartPage'
 import BulkOrder from './components/BulkOrder'
+import Contact from './components/Contact'
+import CourierService from './components/CourierService'
 
 function App() {
   return (
@@ -38,6 +40,8 @@ function App() {
         <Route path="/wallet" element={<WalletPortal />} />
         <Route path="/cart" element={<FullCartPage />} />
         <Route path="/bulk-order" element={<BulkOrder />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/courier-service" element={<CourierService />} />
       </Routes>
     </Suspense>
   )

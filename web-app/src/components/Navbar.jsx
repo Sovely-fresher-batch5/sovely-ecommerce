@@ -80,13 +80,13 @@ function Navbar({ onSelectCategory, searchQuery, onSearchChange, onSearchSubmit 
         <div className="navbar-right-b2b">
           <div className="b2b-nav-buttons" style={{ gap: '15px' }}>
             {/* Combined Support Hub */}
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <Link to="/contact" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', textDecoration: 'none' }}>
                 <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--color-primary)', letterSpacing: '0.8px' }}>CONTACT SUPPORT</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--color-text)', fontWeight: 700, fontSize: '14px' }}>
                     <Headphones size={14} />
                     +91 96626-86196
                 </div>
-            </div>
+            </Link>
 
             <div style={{ width: '1px', height: '24px', backgroundColor: '#e2e8f0', margin: '0 5px' }}></div>
 
