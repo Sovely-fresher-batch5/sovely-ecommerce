@@ -23,7 +23,7 @@ You will need two `.env` files. Ask the lead developer for the `dotenvx` secrets
 **Backend (`sovely-ecommerce/.env`):**
 ```
 PORT=8000
-MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/sovely
+MONGODB_URI=mongodb+srv://sovelyfresherbatch5_db_user:gnNGY2XFGhhNVhTy@cluster0.oime7md.mongodb.net/?appName=Cluster0
 CORS_ORIGIN=http://localhost:5173
 ACCESS_TOKEN_SECRET=your_jwt_secret_here
 ACCESS_TOKEN_EXPIRY=1d
