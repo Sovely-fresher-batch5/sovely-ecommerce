@@ -19,6 +19,7 @@ import FullCartPage from './components/FullCartPage'
 import BulkOrder from './components/BulkOrder'
 import Contact from './components/Contact'
 import CourierService from './components/CourierService'
+import RoleProtectedRoute from './components/RoleProtectedRoute'
 
 function App() {
   return (
@@ -41,7 +42,7 @@ function App() {
         <Route path="/cart" element={<FullCartPage />} />
         <Route path="/bulk-order" element={<BulkOrder />} />
         <Route path="/contact" element={<Contact />} />
-        <Route path="/courier-service" element={<CourierService />} />
+        <Route path="/courier-service" element={<RoleProtectedRoute allowedRoles={['B2B', 'ADMIN']} element={<CourierService />} />} />
       </Routes>
     </Suspense>
   )
