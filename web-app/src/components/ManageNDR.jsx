@@ -1,104 +1,91 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import { AlertCircle, Search, Download, Upload, Filter, Eye, RotateCcw, XCircle, CheckCircle } from 'lucide-react';
+import { AlertCircle, Search, Download, Upload, Filter, Eye, RotateCcw, XCircle, CheckCircle, Loader2 } from 'lucide-react';
 import './Dashboard.css';
 
-// Dummy NDR Data
-const dummyNDR = [
-    {
-        id: "NDR-827491",
-        awb: "AWB123456789",
-        orderId: "ORD-2023-1001",
-        orderDate: "2023-10-25 10:30 AM",
-        customer: {
-            name: "Amit Sharma",
-            phone: "+91 9876543210",
-            city: "New Delhi, Delhi"
-        },
-        courier: "Delhivery",
-        reason: "Customer completely refused delivery.",
-        status: "Action Required",
-        attempts: 1,
-    },
-    {
-        id: "NDR-827492",
-        awb: "AWB987654321",
-        orderId: "ORD-2023-1002",
-        orderDate: "2023-10-24 02:15 PM",
-        customer: {
-            name: "Priya Singh",
-            phone: "+91 9123456780",
-            city: "Mumbai, Maharashtra"
-        },
-        courier: "Ecom Express",
-        reason: "Address is incomplete/incorrect.",
-        status: "Action Required",
-        attempts: 2,
-    },
-    {
-        id: "NDR-827493",
-        awb: "AWB456123789",
-        orderId: "ORD-2023-1005",
-        orderDate: "2023-10-22 11:45 AM",
-        customer: {
-            name: "Rahul Verma",
-            phone: "+91 9988776655",
-            city: "Bangalore, Karnataka"
-        },
-        courier: "XpressBees",
-        reason: "Customer not available at location.",
-        status: "Delivered",
-        attempts: 3,
-    },
-    {
-        id: "NDR-827494",
-        awb: "AWB321654987",
-        orderId: "ORD-2023-1008",
-        orderDate: "2023-10-20 09:20 AM",
-        customer: {
-            name: "Sneha Reddy",
-            phone: "+91 9012345678",
-            city: "Hyderabad, Telangana"
-        },
-        courier: "BlueDart",
-        reason: "Customer requested future delivery",
-        status: "RTO Initiated",
-        attempts: 3,
-    }
-];
+const api = axios.create({
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1',
+    withCredentials: true
+});
 
 function ManageNDR() {
-    const [activeTab, setActiveTab] = useState('Action Required');
-    const [searchQuery, setSearchQuery] = useState('');
-    const [ndrData, setNdrData] = useState(dummyNDR);
-
     const tabs = ['Action Required', 'Delivered', 'RTO Initiated', 'All NDRs'];
 
-    // Filter logic
+    const [activeTab, setActiveTab] = useState('Action Required');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [ndrData, setNdrData] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchNDROrders = async () => {
+            try {
+                setLoading(true);
+                const response = await api.get('/orders');
+                
+                // FILTER: We only want orders that are actually NDRs. 
+                // Since the DB doesn't have an explicit 'isNDR' flag yet, we filter by NDR-specific statuses.
+                const allOrders = response.data.data;
+                const onlyNDRs = allOrders.filter(order => 
+                    ['ACTION_REQUIRED', 'RTO', 'RTO_INITIATED'].includes(order.status) || 
+                    order.isNDR === true // Future-proofing for when you update the backend
+                );
+                
+                setNdrData(onlyNDRs);
+                setError(null);
+            } catch (err) {
+                console.error("Failed to fetch NDR orders", err);
+                setError(err.response?.data?.message || "Failed to load NDR data. Please check your connection.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchNDROrders();
+    }, []);
+
+    // Map Backend Status to Frontend Tab logic
+    const getMappedStatus = (order) => {
+        if (['RTO', 'RTO_INITIATED'].includes(order.status)) return 'RTO Initiated';
+        if (order.status === 'DELIVERED') return 'Delivered';
+        return 'Action Required'; // Default catch-all for failed deliveries
+    };
+
+    // Apply Tab & Search Filtering
     const filteredNDR = ndrData.filter(item => {
-        const matchesTab = activeTab === 'All NDRs' || item.status.includes(activeTab) || (activeTab === 'RTO Initiated' && item.status.includes('RTO'));
+        const mappedStatus = getMappedStatus(item);
+        const matchesTab = activeTab === 'All NDRs' || mappedStatus === activeTab;
+        
+        const searchTarget = searchQuery.toLowerCase();
         const matchesSearch = 
-            item.awb.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            item.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            item.customer.name.toLowerCase().includes(searchQuery.toLowerCase());
+            item.orderId?.toLowerCase().includes(searchTarget) ||
+            item.tracking?.trackingNumber?.toLowerCase().includes(searchTarget) ||
+            item.customerId?.name?.toLowerCase().includes(searchTarget);
         
         return matchesTab && matchesSearch;
     });
 
-    const getStatusBadge = (status) => {
-        switch(status) {
+    // Helper for Status Badges
+    const getStatusBadge = (statusGroup) => {
+        switch(statusGroup) {
             case 'Action Required':
-                return <span className="status-badge" style={{ backgroundColor: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' }}><AlertCircle size={12} style={{marginRight: '4px'}}/> Action Required</span>;
+                return <span className="status-badge" style={{ backgroundColor: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa', display: 'inline-flex', alignItems: 'center' }}><AlertCircle size={12} style={{marginRight: '4px'}}/> Action Required</span>;
             case 'Delivered':
-                return <span className="status-badge status-delivered"><CheckCircle size={12} style={{marginRight: '4px'}}/> Delivered</span>;
+                return <span className="status-badge status-delivered" style={{ display: 'inline-flex', alignItems: 'center' }}><CheckCircle size={12} style={{marginRight: '4px'}}/> Delivered</span>;
             case 'RTO Initiated':
-                return <span className="status-badge" style={{ backgroundColor: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}><XCircle size={12} style={{marginRight: '4px'}}/> RTO</span>;
+                return <span className="status-badge" style={{ backgroundColor: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', display: 'inline-flex', alignItems: 'center' }}><XCircle size={12} style={{marginRight: '4px'}}/> RTO</span>;
             default:
-                return <span className="status-badge">{status}</span>;
+                return <span className="status-badge">{statusGroup}</span>;
         }
     };
+
+    // Calculate dynamic stats for the summary cards
+    const actionRequiredCount = ndrData.filter(d => getMappedStatus(d) === 'Action Required').length;
+    const deliveredCount = ndrData.filter(d => getMappedStatus(d) === 'Delivered').length;
+    const rtoCount = ndrData.filter(d => getMappedStatus(d) === 'RTO Initiated').length;
 
     return (
         <div className="layout-container">
@@ -115,34 +102,52 @@ function ManageNDR() {
                             </div>
                         </header>
 
-                        {/* Summary Cards */}
+                        {/* --- SUMMARY CARDS (With Double Click Navigation) --- */}
                         <div className="dashboard-stats-grid" style={{ marginBottom: '24px' }}>
-                            <div className="stat-card">
+                            <div 
+                                className="stat-card" 
+                                onClick={() => setActiveTab('Action Required')}
+                                style={{ cursor: 'pointer', transition: 'transform 0.2s', border: activeTab === 'Action Required' ? '1px solid #fed7aa' : '' }}
+                                title="Double-click to view Action Required NDRs"
+                            >
                                 <div className="stat-card-header">
                                     <h3 className="stat-title">Action Required</h3>
                                     <AlertCircle size={20} className="stat-icon" style={{color: '#c2410c'}} />
                                 </div>
-                                <div className="stat-value">{ndrData.filter(d => d.status === 'Action Required').length}</div>
+                                <div className="stat-value">{loading ? '-' : actionRequiredCount}</div>
                                 <div className="stat-trend" style={{color: '#c2410c'}}>Needs immediate attention</div>
                             </div>
-                            <div className="stat-card">
+
+                            <div 
+                                className="stat-card"
+                                onClick={() => setActiveTab('Delivered')}
+                                style={{ cursor: 'pointer', transition: 'transform 0.2s', border: activeTab === 'Delivered' ? '1px solid #a7f3d0' : '' }}
+                                title="Double-click to view Delivered NDRs"
+                            >
                                 <div className="stat-card-header">
                                     <h3 className="stat-title">Delivered</h3>
                                     <CheckCircle size={20} className="stat-icon" style={{color: '#10b981'}} />
                                 </div>
-                                <div className="stat-value">{ndrData.filter(d => d.status === 'Delivered').length}</div>
+                                <div className="stat-value">{loading ? '-' : deliveredCount}</div>
                                 <div className="stat-trend trend-up">Successfully delivered after NDR</div>
                             </div>
-                            <div className="stat-card">
+
+                            <div 
+                                className="stat-card"
+                                onClick={() => setActiveTab('RTO Initiated')}
+                                style={{ cursor: 'pointer', transition: 'transform 0.2s', border: activeTab === 'RTO Initiated' ? '1px solid #fecaca' : '' }}
+                                title="Double-click to view RTO NDRs"
+                            >
                                 <div className="stat-card-header">
                                     <h3 className="stat-title">RTO</h3>
                                     <XCircle size={20} className="stat-icon" style={{color: '#ef4444'}} />
                                 </div>
-                                <div className="stat-value">{ndrData.filter(d => d.status === 'RTO Initiated').length}</div>
+                                <div className="stat-value">{loading ? '-' : rtoCount}</div>
                                 <div className="stat-trend trend-down">Returned to origin</div>
                             </div>
                         </div>
 
+                        {/* --- TAB BAR --- */}
                         <div className="dashboard-tabs-container">
                             <div className="dashboard-tabs">
                                 {tabs.map(tab => (
@@ -157,6 +162,7 @@ function ManageNDR() {
                             </div>
                         </div>
 
+                        {/* --- SEARCH & FILTERS --- */}
                         <div className="dash-actions-row">
                             <div className="dash-search-group">
                                 <input 
@@ -176,7 +182,10 @@ function ManageNDR() {
                             </button>
                         </div>
 
+                        {/* --- DATA TABLE --- */}
                         <div className="table-container dashboard-card">
+                            {error && <div style={{ padding: '16px', color: '#dc2626', background: '#fef2f2', textAlign: 'center', borderBottom: '1px solid #fecaca' }}>{error}</div>}
+                            
                             <table className="dash-table">
                                 <thead>
                                     <tr>
@@ -190,65 +199,71 @@ function ManageNDR() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredNDR.length > 0 ? (
-                                        filteredNDR.map((item, index) => (
-                                            <tr key={index}>
-                                                <td>
-                                                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{item.id}</div>
-                                                    <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>{item.awb}</div>
-                                                </td>
-                                                <td>
-                                                    <div style={{ fontWeight: 600, color: '#3b82f6', cursor: 'pointer' }}>{item.orderId}</div>
-                                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>{item.orderDate}</div>
-                                                </td>
-                                                <td>
-                                                    <div style={{ fontWeight: 500, color: '#1e293b' }}>{item.customer.name}</div>
-                                                    <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>{item.customer.city}</div>
-                                                    <div style={{ fontSize: '13px', color: '#64748b' }}>{item.customer.phone}</div>
-                                                </td>
-                                                <td>
-                                                    <div style={{ fontWeight: 500, color: '#1e293b' }}>{item.reason}</div>
-                                                    <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                        <span style={{width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#3b82f6'}}></span>
-                                                        {item.courier}
-                                                    </div>
-                                                </td>
-                                                <td style={{ textAlign: 'center' }}>
-                                                    <span style={{ 
-                                                        display: 'inline-flex', 
-                                                        alignItems: 'center', 
-                                                        justifyContent: 'center',
-                                                        width: '24px', 
-                                                        height: '24px', 
-                                                        borderRadius: '50%', 
-                                                        backgroundColor: '#f1f5f9', 
-                                                        fontSize: '13px',
-                                                        fontWeight: 600,
-                                                        color: '#475569'
-                                                    }}>
-                                                        {item.attempts}
-                                                    </span>
-                                                </td>
-                                                <td>{getStatusBadge(item.status)}</td>
-                                                <td>
-                                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                                        {item.status === 'Action Required' && (
-                                                            <>
-                                                                <button title="Re-attempt" style={{ background: '#ecfdf5', color: '#10b981', border: '1px solid #10b981', padding: '6px', borderRadius: '6px', cursor: 'pointer' }}>
-                                                                    <RotateCcw size={16} />
-                                                                </button>
-                                                                <button title="RTO (Return to Origin)" style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #ef4444', padding: '6px', borderRadius: '6px', cursor: 'pointer' }}>
-                                                                    <XCircle size={16} />
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                        <button title="View Details" style={{ background: '#f8fafc', color: '#64748b', border: '1px solid #cbd5e1', padding: '6px', borderRadius: '6px', cursor: 'pointer' }}>
-                                                            <Eye size={16} />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
+                                    {loading ? (
+                                        <tr>
+                                            <td colSpan="7" style={{ textAlign: 'center', padding: '40px' }}>
+                                                <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }} />
+                                                <p style={{ marginTop: '10px', color: '#64748b' }}>Scanning courier databases...</p>
+                                            </td>
+                                        </tr>
+                                    ) : filteredNDR.length > 0 ? (
+                                        filteredNDR.map((item) => {
+                                            const mappedGroup = getMappedStatus(item);
+                                            return (
+                                                <tr key={item._id}>
+                                                    <td>
+                                                        {/* Generate a faux NDR ID since we don't have one in DB yet */}
+                                                        <div style={{ fontWeight: 600, color: '#0f172a' }}>NDR-{item.orderId.split('-')[1]}</div>
+                                                        <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+                                                            {item.tracking?.trackingNumber || 'Awaiting AWB'}
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <div style={{ fontWeight: 600, color: '#3b82f6', cursor: 'pointer' }}>{item.orderId}</div>
+                                                        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>{new Date(item.createdAt).toLocaleString()}</div>
+                                                    </td>
+                                                    <td>
+                                                        <div style={{ fontWeight: 500, color: '#1e293b' }}>{item.customerId?.name || 'Unknown'}</div>
+                                                        <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>{item.customerId?.email}</div>
+                                                    </td>
+                                                    <td>
+                                                        {/* Fallbacks for Reason since DB lacks it right now */}
+                                                        <div style={{ fontWeight: 500, color: '#1e293b' }}>{item.ndrReason || "Delivery attempt failed."}</div>
+                                                        <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            <span style={{width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#3b82f6'}}></span>
+                                                            {item.tracking?.courierName || "Standard Courier"}
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <span style={{ 
+                                                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                                            width: '24px', height: '24px', borderRadius: '50%', 
+                                                            backgroundColor: '#f1f5f9', fontSize: '13px', fontWeight: 600, color: '#475569'
+                                                        }}>
+                                                            {item.ndrAttempts || 1}
+                                                        </span>
+                                                    </td>
+                                                    <td>{getStatusBadge(mappedGroup)}</td>
+                                                    <td>
+                                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                                            {mappedGroup === 'Action Required' && (
+                                                                <>
+                                                                    <button title="Request Re-attempt" style={{ background: '#ecfdf5', color: '#10b981', border: '1px solid #10b981', padding: '6px', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.background='#d1fae5'} onMouseOut={e => e.currentTarget.style.background='#ecfdf5'}>
+                                                                        <RotateCcw size={16} />
+                                                                    </button>
+                                                                    <button title="Initiate RTO" style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #ef4444', padding: '6px', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.background='#fee2e2'} onMouseOut={e => e.currentTarget.style.background='#fef2f2'}>
+                                                                        <XCircle size={16} />
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                            <button title="View Details" style={{ background: '#f8fafc', color: '#64748b', border: '1px solid #cbd5e1', padding: '6px', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.background='#f1f5f9'} onMouseOut={e => e.currentTarget.style.background='#f8fafc'}>
+                                                                <Eye size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
                                     ) : (
                                         <tr>
                                             <td colSpan="7" style={{padding: '60px', textAlign: 'center', color: '#64748b'}}>
@@ -267,6 +282,9 @@ function ManageNDR() {
                 </main>
                 <Footer />
             </div>
+            <style dangerouslySetInnerHTML={{__html: `
+                @keyframes spin { 100% { transform: rotate(360deg); } }
+            `}} />
         </div>
     );
 }
