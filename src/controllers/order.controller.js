@@ -19,6 +19,7 @@ const calculateDueDate = (paymentTerms) => {
 };
 
 export const placeOrder = asyncHandler(async (req, res) => {
+    // Note: The frontend needs to send 'retailPrice' inside each item object!
     const { items, paymentMethod = 'RAZORPAY', paymentTerms = 'DUE_ON_RECEIPT' } = req.body;
     const customerId = req.user._id;
 
@@ -31,13 +32,14 @@ export const placeOrder = asyncHandler(async (req, res) => {
 
     try {
         let totalAmount = 0;
+        let totalResellerProfit = 0; // NEW: Track the profit!
         const orderItems = [];
 
         for (const item of items) {
             const product = await Product.findById(item.productId).session(session);
             if (!product) throw new Error("Product not found");
 
-            // Stock Validation Atomic Check
+            // Stock Validation
             if (product.inventory.stock < item.qty) {
                 throw new Error(`Insufficient stock for ${product.title}. Only ${product.inventory.stock} remaining.`);
             }
@@ -49,18 +51,24 @@ export const placeOrder = asyncHandler(async (req, res) => {
                 { session }
             );
 
-            const price = product.platformSellPrice;
-            totalAmount += (price * item.qty);
+            const wholesalePrice = product.platformSellPrice;
+            // If the frontend didn't pass a retail price, assume they sold it at wholesale (0 profit)
+            const retailPrice = item.retailPrice || wholesalePrice; 
+            
+            const itemProfit = (retailPrice - wholesalePrice) * item.qty;
+            
+            totalAmount += (retailPrice * item.qty); // The total value of the order
+            totalResellerProfit += itemProfit; // Add to the aggregated profit
 
             orderItems.push({
                 sku: product.sku,
-                price: price,
+                price: wholesalePrice,
+                retailPrice: retailPrice, // Track what it was sold for
                 qty: item.qty,
-                tax: 0 // Placeholder for tax logic
+                tax: 0
             });
         }
 
-        // Generate IDs
         const orderIdSeq = await Counter.getNextSequenceValue('orderId');
         const invoiceNumSeq = await Counter.getNextSequenceValue('invoiceNumber');
 
@@ -71,9 +79,10 @@ export const placeOrder = asyncHandler(async (req, res) => {
         const newOrder = await Order.create([{
             orderId: orderIdStr,
             customerId,
-            cartId: customerId, // Bypassing strict cartId for direct checkout demo
+            cartId: customerId,
             status: 'PENDING',
             totalAmount,
+            resellerProfit: totalResellerProfit, // NEW: Save it to the DB!
             items: orderItems,
             paymentMethod,
             paymentTerms
@@ -92,8 +101,6 @@ export const placeOrder = asyncHandler(async (req, res) => {
             paymentTerms,
             status: paymentMethod === 'BANK_TRANSFER' ? 'UNPAID' : 'UNPAID'
         }], { session });
-
-        // Removed Cart cleanup since we accept items directly now
 
         await session.commitTransaction();
         session.endSession();

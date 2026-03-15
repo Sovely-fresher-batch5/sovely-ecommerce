@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const orderItemSnapshotSchema = new mongoose.Schema({
+    resellerProfit: { type: Number, default: 0 },
     sku: { type: String, required: true },
     price: { type: Number, required: true },
     tax: { type: Number, default: 0 },
