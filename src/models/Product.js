@@ -32,4 +32,6 @@ const productSchema = new mongoose.Schema({
     inventory: inventorySchema
 }, { timestamps: true });
 
+productSchema.index({ 'inventory.stock': 1 }); // Helpful for finding out-of-stock items quickly
+
 export const Product = mongoose.model('Product', productSchema);

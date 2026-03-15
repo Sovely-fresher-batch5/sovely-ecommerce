@@ -8,6 +8,7 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // Use the Vite proxy (no need for full URL if proxy is setup)
     const api = axios.create({
         baseURL: API_BASE_URL,
         withCredentials: true 
@@ -16,7 +17,8 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const fetchUser = async () => {
             try {
-                const response = await api.get('/auth/me');
+                // Correct endpoint for fetching current user
+                const response = await api.get('/users/current-user');
                 if (response.data?.data) setUser(response.data.data);
             } catch (error) {
                 setUser(null);
@@ -69,7 +71,7 @@ export const AuthProvider = ({ children }) => {
 
     const logout = async () => {
         try {
-            await api.post('/auth/logout');
+            await api.post('/users/logout'); // Correct endpoint
             setUser(null);
         } catch (error) {
             console.error("Error logging out", error);
