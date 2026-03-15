@@ -9,15 +9,15 @@ import jwt from "jsonwebtoken";
 const generateAccessTokens = async (userId) => {
     try {
         const user = await User.findById(userId);
-        const accessToken = user.generateAccessToken();
-        return accessToken;
+        return user.generateAccessToken();
     } catch (error) {
         throw new ApiError(500, "Something went wrong while generating access token");
     }
 };
 
 export const registerUser = asyncHandler(async (req, res) => {
-    const { name, email, password, role } = req.body;
+    // SECURITY FIX: Explicitly remove 'role' from the destructuring
+    const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
         throw new ApiError(400, "All fields are required");
@@ -32,8 +32,8 @@ export const registerUser = asyncHandler(async (req, res) => {
     const user = await User.create({
         name,
         email,
-        passwordHash: password, // The Mongoose pre-save hook handles hashing
-        role: role || 'CUSTOMER'
+        passwordHash: password, 
+        role: 'CUSTOMER' // SECURITY FIX: Hardcode to CUSTOMER. Admins must be created manually.
     });
 
     const createdUser = await User.findById(user._id).select("-passwordHash");
@@ -42,26 +42,23 @@ export const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(500, "Something went wrong while registering the user");
     }
 
-    // Auto-create Customer profile if they are a customer
-    if (createdUser.role === 'CUSTOMER') {
-        const sequenceDoc = await Counter.findOneAndUpdate(
-            { _id: 'customerId' },
-            { $inc: { seq: 1 } },
-            { new: true, upsert: true }
-        );
-        let seq = sequenceDoc.seq.toString().padStart(5, '0');
+    // Auto-create Customer profile
+    const sequenceDoc = await Counter.findOneAndUpdate(
+        { _id: 'customerId' },
+        { $inc: { seq: 1 } },
+        { new: true, upsert: true }
+    );
+    let seq = sequenceDoc.seq.toString().padStart(5, '0');
 
-        await Customer.create({
-            userId: createdUser._id,
-            customerId: `CUST${seq}`
-        });
-    }
+    await Customer.create({
+        userId: createdUser._id,
+        customerId: `CUST${seq}`
+    });
 
     return res.status(201).json(
         new ApiResponse(201, createdUser, "User registered successfully")
     );
 });
-
 
 export const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
@@ -83,12 +80,13 @@ export const loginUser = asyncHandler(async (req, res) => {
     }
 
     const accessToken = await generateAccessTokens(user._id);
-
     const loggedInUser = await User.findById(user._id).select("-passwordHash");
 
+    // Unified cookie options
     const options = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production"
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax" // 'none' requires secure: true
     };
 
     return res
@@ -97,19 +95,18 @@ export const loginUser = asyncHandler(async (req, res) => {
         .json(
             new ApiResponse(
                 200,
-                {
-                    user: loggedInUser,
-                    accessToken
-                },
+                { user: loggedInUser, accessToken },
                 "User logged in successfully"
             )
         );
 });
 
 export const logoutUser = asyncHandler(async (req, res) => {
+    // Unified cookie options to ensure the cookie is actually cleared
     const options = {
         httpOnly: true,
-        secure: true
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict"
     };
 
     return res
@@ -119,5 +116,7 @@ export const logoutUser = asyncHandler(async (req, res) => {
 });
 
 export const getCurrentUser = asyncHandler(async (req, res) => {
+    // Safety check in case the middleware passes but user isn't attached
+    if (!req.user) throw new ApiError(401, "Unauthorized");
     return res.status(200).json(new ApiResponse(200, req.user, "Current user fetched successfully"));
 });

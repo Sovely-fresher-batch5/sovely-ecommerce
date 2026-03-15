@@ -99,19 +99,27 @@ export const verifyPaymentSignature = asyncHandler(async (req, res) => {
 });
 
 
-// Add this at the bottom of payment.controller.js
 export const createRazorpayOrder = asyncHandler(async (req, res) => {
-    const { amount } = req.body;
+    const { invoiceId } = req.body;
+    const customerId = req.user._id;
 
-    if (!amount) {
-        throw new ApiError(400, "Amount is required");
+    if (!invoiceId) {
+        throw new ApiError(400, "invoiceId is required");
     }
+
+    // SECURE: Fetch the invoice from the DB to get the true amount
+    const invoice = await Invoice.findOne({ _id: invoiceId, customerId });
+    
+    if (!invoice) throw new ApiError(404, "Invoice not found or does not belong to user");
+    if (invoice.status === 'PAID') throw new ApiError(400, "Invoice is already paid");
+
+    const amountInINR = invoice.totalAmount;
 
     // Razorpay expects the amount in the smallest currency sub-unit (paise for INR)
     const options = {
-        amount: Math.round(amount * 100), 
+        amount: Math.round(amountInINR * 100), 
         currency: "INR",
-        receipt: `receipt_${Date.now()}`
+        receipt: `receipt_${invoice._id.toString().substring(0, 10)}_${Date.now()}`
     };
 
     const order = await razorpayInstance.orders.create(options);
@@ -120,7 +128,14 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
         throw new ApiError(500, "Failed to create Razorpay order");
     }
 
+    // Save the razorpay order id to the invoice for tracking/verification later
+    invoice.razorpayOrderId = order.id;
+    await invoice.save();
+
     return res.status(200).json(
-        new ApiResponse(200, order, "Razorpay order created successfully")
+        new ApiResponse(200, {
+            razorpayOrder: order,
+            amount: amountInINR // Send back the true amount so the frontend knows what is being charged
+        }, "Razorpay order created securely")
     );
 });

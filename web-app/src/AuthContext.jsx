@@ -3,14 +3,14 @@ import axios from 'axios';
 
 export const AuthContext = createContext();
 
+const api = axios.create({
+    baseURL: import.meta.env.VITE_API_BASE_URL, 
+    withCredentials: true 
+});
+
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-
-    const api = axios.create({
-        baseURL: import.meta.env.VITE_API_BASE_URL, 
-        withCredentials: true 
-    });
 
     useEffect(() => {
         const fetchUser = async () => {
@@ -36,9 +36,9 @@ export const AuthProvider = ({ children }) => {
         }
     }
 
-    const login = async (identifier, password) => {
+    const login = async (email, password) => {
         try {
-            const response = await api.post('/users/login', { identifier, password });
+            const response = await api.post('/users/login', { email, password });
             setUser(response.data.data.user);
             return { success: true };
         } catch (error) {

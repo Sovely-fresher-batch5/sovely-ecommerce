@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useContext } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
 import { CartContext } from '../CartContext';
 import { WishlistContext } from '../WishlistContext';
@@ -19,7 +19,10 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
   const dropRef = useRef(null);
   const hoverTimeout = useRef(null);
-
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
+  
   const { data: dbCategories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: productApi.getCategories
@@ -36,16 +39,9 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
     };
   });
 
-  // Close dropdown when clicking outside
   useEffect(() => {
-    const handler = (e) => {
-      if (dropRef.current && !dropRef.current.contains(e.target)) {
-        setCatDropOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+    setSearchInput(searchParams.get('q') || '');
+  }, [searchParams]);
 
   const handleMouseEnter = () => {
     clearTimeout(hoverTimeout.current);
@@ -55,6 +51,20 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
   const handleMouseLeave = () => {
     hoverTimeout.current = setTimeout(() => setCatDropOpen(false), 180);
   };
+
+  const handleSearch = (e) => {
+    if (e.key === 'Enter' && searchInput.trim() !== '') {
+      // NAVIGATE TO THE NEW PAGE!
+      navigate(`/search?q=${encodeURIComponent(searchInput.trim())}`);
+      
+      if (mobileMenuOpen) setMobileMenuOpen(false);
+    }
+  };
+  
+  // Sync the input if the URL changes externally (like clicking "Clear Filters")
+  useEffect(() => {
+    setSearchInput(searchParams.get('search') || '');
+  }, [searchParams]);
 
   return (
     <nav className="navbar" id="navbar">
@@ -133,6 +143,9 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
               placeholder="Search Product"
               className="search-input"
               id="search-input"
+              value={searchInput} // CONTROLLED INPUT
+              onChange={(e) => setSearchInput(e.target.value)} // UPDATE STATE
+              onKeyDown={handleSearch} // LISTEN FOR ENTER KEY
             />
           </div>
           <div className="nav-actions">

@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import Hero from './Hero';
@@ -10,9 +11,12 @@ import Footer from './Footer';
 import './LandingPage.css';
 
 function LandingPage() {
+    const [selectedCat, setSelectedCat] = useState('All');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState('All');
     const productsRef = useRef(null);
+    const [searchParams] = useSearchParams();
+    const globalSearchQuery = searchParams.get('search') || '';
 
     const toggleSidebar = () => setIsSidebarOpen(v => !v);
     const closeSidebar = () => setIsSidebarOpen(false);
@@ -42,10 +46,7 @@ function LandingPage() {
                 <Categories onSelectCategory={handleSelectCategory} />
                 <BestDeals />
                 <div ref={productsRef}>
-                    <DropshipProducts
-                        externalCategory={selectedCategory}
-                        onCategoryChange={setSelectedCategory}
-                    />
+                    <DropshipProducts externalCategory={selectedCat} onCategoryChange={setSelectedCat} globalSearchQuery={globalSearchQuery} />
                 </div>
                 <Services />
             </main>

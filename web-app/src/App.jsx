@@ -11,6 +11,8 @@ import Checkout from './components/Checkout'
 import Orders from './components/Orders'
 import OrderTracking from './components/OrderTracking' // New Component!
 import AdminDashboard from './components/AdminDashboard'
+import SearchResults from './components/SearchResults'
+import AdminRoute from './components/AdminRoute';
 
 function App() {
   return (
@@ -26,6 +28,15 @@ function App() {
         <Route path="/orders" element={<Orders />} />
         <Route path="/orders/:id/track" element={<OrderTracking />} /> {/* New Route */}
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/search" element={<SearchResults />} />
+        <Route 
+            path="/admin" 
+            element={
+                <AdminRoute>
+                    <AdminDashboard />
+                </AdminRoute>
+            } 
+        />
       </Routes>
     </Suspense>
   )

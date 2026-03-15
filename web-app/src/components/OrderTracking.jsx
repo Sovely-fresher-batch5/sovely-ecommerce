@@ -82,8 +82,24 @@ const OrderTracking = () => {
                     </div>
                     {order.tracking?.trackingNumber && (
                         <div style={{ textAlign: 'right' }}>
-                            <span style={{ fontSize: '0.8rem', color: '#64748b', textTransform: 'uppercase' }}>Courier: {order.tracking.courierName}</span>
-                            <div style={{ fontWeight: '600', color: '#1b4332' }}>AWB: {order.tracking.trackingNumber}</div>
+                            <span style={{ fontSize: '0.8rem', color: '#64748b', textTransform: 'uppercase' }}>
+                                Courier: {order.tracking.courierName}
+                            </span>
+                            <div style={{ fontWeight: '600', color: '#1b4332', marginTop: '4px' }}>
+                                {/* Make it a clickable link! */}
+                                {order.tracking.trackingUrl ? (
+                                    <a 
+                                        href={order.tracking.trackingUrl} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        style={{ color: '#2563eb', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                    >
+                                        AWB: {order.tracking.trackingNumber} ↗
+                                    </a>
+                                ) : (
+                                    `AWB: ${order.tracking.trackingNumber}`
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -149,9 +165,13 @@ const OrderTracking = () => {
                     {order.items.map((item, idx) => (
                         <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '0.9rem' }}>
                             <div>
-                                <strong style={{ color: '#0f172a' }}>{item.qty}x</strong> {item.sku.substring(0, 30)}...
+                                <strong style={{ color: '#0f172a' }}>{item.qty}x</strong>{' '}
+                                {/* Safe ellipsis */}
+                                {item.sku.length > 30 ? `${item.sku.substring(0, 30)}...` : item.sku}
                             </div>
-                            <div style={{ color: '#0f172a', fontWeight: '500' }}>₹{(item.price * item.qty).toLocaleString('en-IN')}</div>
+                            <div style={{ color: '#0f172a', fontWeight: '500' }}>
+                                ₹{(item.price * item.qty).toLocaleString('en-IN')}
+                            </div>
                         </div>
                     ))}
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', paddingTop: '20px', borderTop: '1px dashed #cbd5e1', fontWeight: '700', fontSize: '1.1rem' }}>

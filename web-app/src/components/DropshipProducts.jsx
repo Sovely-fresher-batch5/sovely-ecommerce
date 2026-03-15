@@ -26,7 +26,13 @@ function Stars({ rating }) {
     );
 }
 
-function DropshipProducts({ externalCategory, onCategoryChange }) {
+function DropshipProducts({ 
+    externalCategory, 
+    onCategoryChange, 
+    globalSearchQuery = '',
+    customTitle = "Featured Products",
+    customSubtitle = "Curated products ready to add to your store"
+}) {
     const { cartItems, addToCart, updateQuantity } = useContext(CartContext);
     // Fetch categories first (suspended) to map category names to IDs
     const { data: dbCategories = [] } = useSuspenseQuery({
@@ -51,7 +57,7 @@ function DropshipProducts({ externalCategory, onCategoryChange }) {
         return found ? found._id : null;
     }, [category, dbCategories]);
 
-    // Fetch products using useInfiniteQuery for "Load More" pagination
+    // Fetch products using useInfiniteQuery, now driven entirely by the backend!
     const {
         data,
         isLoading,
@@ -59,22 +65,33 @@ function DropshipProducts({ externalCategory, onCategoryChange }) {
         hasNextPage,
         fetchNextPage
     } = useInfiniteQuery({
-        queryKey: ['products', selectedCatId],
+        // Add globalSearchQuery to the queryKey so it refetches when the search changes!
+        queryKey: ['products', selectedCatId, sort, minPrice, maxPrice, shipping, minRating, saleOnly, globalSearchQuery],
         queryFn: ({ pageParam = 1 }) => productApi.getProducts({
             page: pageParam,
             limit: 24,
-            categoryId: selectedCatId || 'All'
+            categoryId: selectedCatId,
+            sort,
+            minPrice,
+            maxPrice,
+            shipping,
+            minRating,
+            saleOnly,
+            query: globalSearchQuery // PASS TO API
         }),
         initialPageParam: 1,
         getNextPageParam: (lastPage) => {
+            if (!lastPage || !lastPage.pagination) return undefined;
             const { page, pages } = lastPage.pagination;
             return page < pages ? page + 1 : undefined;
         }
     });
 
-    const ALL_PRODUCTS = useMemo(() => {
+    // We no longer need local filtering! Just flatten the pages and use the REAL DB values.
+    const displayProducts = useMemo(() => {
         if (!data) return [];
         const allProducts = data.pages.flatMap(page => page.products || []);
+        
         return allProducts.map(p => ({
             id: p._id,
             skuId: p.sku,
@@ -82,10 +99,11 @@ function DropshipProducts({ externalCategory, onCategoryChange }) {
             category: p.categoryId?.name || p.productType || 'All',
             price: p.platformSellPrice,
             originalPrice: p.compareAtPrice || Math.floor(p.platformSellPrice * 1.2),
-            rating: 4.5,
-            reviews: Math.floor(Math.random() * 200) + 10,
-            sale: Boolean(p.compareAtPrice && p.compareAtPrice > p.platformSellPrice),
-            shipping: '3-5',
+            // Now using REAL database values instead of Math.random()
+            rating: p.averageRating || 4.5,
+            reviews: p.reviewCount || 0,
+            sale: p.discountPercent > 0,
+            shipping: p.shippingDays || '3-5',
             image: p.images?.[0]?.url || 'https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?w=500&q=80'
         }));
     }, [data]);
@@ -104,32 +122,14 @@ function DropshipProducts({ externalCategory, onCategoryChange }) {
         if (onCategoryChange) onCategoryChange(cat);
     };
 
-    // ── Derived filtered + sorted list ───────────────────────────────────────
-    const filtered = useMemo(() => {
-        let list = [...ALL_PRODUCTS];
-
-        if (saleOnly) list = list.filter(p => p.sale);
-        if (minPrice !== '') list = list.filter(p => p.price >= Number(minPrice));
-        if (maxPrice !== '') list = list.filter(p => p.price <= Number(maxPrice));
-        if (minRating > 0) list = list.filter(p => p.rating >= minRating);
-        if (shipping.length > 0) list = list.filter(p => shipping.includes(p.shipping));
-
-        switch (sort) {
-            case 'price-asc': list.sort((a, b) => a.price - b.price); break;
-            case 'price-desc': list.sort((a, b) => b.price - a.price); break;
-            case 'rating': list.sort((a, b) => b.rating - a.rating); break;
-            case 'reviews': list.sort((a, b) => b.reviews - a.reviews); break;
-            default: break;
-        }
-        return list;
-    }, [ALL_PRODUCTS, sort, minPrice, maxPrice, shipping, minRating, saleOnly]);
-
     const toggleShipping = (val) =>
         setShipping(prev => prev.includes(val) ? prev.filter(s => s !== val) : [...prev, val]);
 
     const resetFilters = () => {
         handleSetCategory('All'); setSort('default'); setMinPrice(''); setMaxPrice('');
         setShipping([]); setMinRating(0); setSaleOnly(false);
+        // Clear the URL search param if it exists
+        if (globalSearchQuery) window.history.pushState({}, '', '/');
     };
 
     const handleAdd = (id) => {
@@ -142,8 +142,8 @@ function DropshipProducts({ externalCategory, onCategoryChange }) {
             <div className="section-container">
                 <div className="section-header dropship-header">
                     <div>
-                        <h2 className="section-title">Featured Products</h2>
-                        <p className="section-subtitle">Curated products ready to add to your store</p>
+                        <h2 className="section-title">{customTitle}</h2>
+                        <p className="section-subtitle">{customSubtitle}</p>
                     </div>
                     {/* Sort dropdown */}
                     <div className="ds-sort-wrapper">
@@ -286,7 +286,7 @@ function DropshipProducts({ externalCategory, onCategoryChange }) {
                                 ))}
                             </div>
                         </>
-                    ) : filtered.length === 0 ? (
+                    ) : displayProducts.length === 0 ? (
                         <div className="no-results">
                             <span>😕</span>
                             <p>No products match your filters.</p>
@@ -294,9 +294,9 @@ function DropshipProducts({ externalCategory, onCategoryChange }) {
                         </div>
                     ) : (
                         <>
-                            <p className="results-count">{filtered.length} product{filtered.length !== 1 ? 's' : ''} found</p>
+                            <p className="results-count">{displayProducts.length} product{displayProducts.length !== 1 ? 's' : ''} found</p>
                             <div className="dropship-grid">
-                                {filtered.map(product => {
+                                {displayProducts.map(product => {
                                     const discount = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
                                     const isAdded = addedIds.includes(product.id);
                                     const isWishlisted = isInWishlist(product.id);

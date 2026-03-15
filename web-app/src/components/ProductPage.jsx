@@ -6,6 +6,7 @@ import { CartContext } from '../CartContext.jsx';
 import { WishlistContext } from '../WishlistContext.jsx';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
+import BeautifulDescription from './BeautifulDescription';
 import Footer from './Footer';
 import './ProductPage.css';
 import './LandingPage.css';
@@ -38,7 +39,10 @@ function ProductPage() {
             price: `₹${p.platformSellPrice.toLocaleString('en-IN')}`,
             oldPrice: p.compareAtPrice ? `₹${p.compareAtPrice.toLocaleString('en-IN')}` : null,
             monthlyPrice: `₹${Math.round(p.platformSellPrice / 6).toLocaleString('en-IN')}/mo`,
-            description: p.descriptionHTML ? p.descriptionHTML.replace(/<[^>]*>?/gm, '') : p.title,
+            
+            // FIX: Pass the raw HTML straight through!
+            descriptionHTML: p.descriptionHTML || p.description || p.title, 
+            
             images: p.images?.length > 0 ? p.images.map(img => img.url) : ['https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?w=500&q=80'],
             rating: 4.5,
             reviewCount: Math.floor(Math.random() * 200) + 10,
@@ -109,9 +113,9 @@ function ProductPage() {
                     {/* Product Info */}
                     <div className="pp-info">
                         <div className="pp-info-header">
-                            <h1 className="pp-title">{product.name}</h1>
+                            {/*<h1 className="pp-title">{product.name}</h1>
                             <p className="pp-description">{product.description}</p>
-                            <p className="pp-sku">SKU: {product.skuId}</p>
+                            <p className="pp-sku">SKU: {product.skuId}</p>*/}
 
                             {/* Rating */}
                             <div className="pp-rating">
@@ -244,6 +248,10 @@ function ProductPage() {
                         </div>
                     </div>
                 </div>
+
+                <section style={{ marginTop: '40px', marginBottom: '40px' }}>
+                     <BeautifulDescription rawHtml={product.descriptionHTML} />
+                </section>
 
                 {/* Similar Items Section */}
                 <section className="pp-similar-section">

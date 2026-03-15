@@ -141,27 +141,24 @@ export const cancelOrder = asyncHandler(async (req, res) => {
 export const updateOrderStatus = asyncHandler(async (req, res) => {
     const { status, courierName, trackingNumber } = req.body;
     
-    // Find the order
     const order = await Order.findById(req.params.id);
     if (!order) throw new ApiError(404, "Order not found");
 
-    // Update the status (Ensure it's a valid enum value)
     if (status) {
         order.status = status.toUpperCase();
     }
 
-    // Add tracking details if the warehouse worker provided them
     if (courierName || trackingNumber) {
+        // DEFENSIVE FIX: Spread existing tracking data so we don't delete other fields!
         order.tracking = {
+            ...order.tracking, 
             courierName: courierName || order.tracking?.courierName,
             trackingNumber: trackingNumber || order.tracking?.trackingNumber,
-            trackingUrl: `https://${courierName?.toLowerCase() || 'courier'}.com/track/${trackingNumber}`
+            trackingUrl: `https://${(courierName || order.tracking?.courierName || 'courier').toLowerCase()}.com/track/${trackingNumber || order.tracking?.trackingNumber}`
         };
     }
 
-    // Saving it will automatically trigger our pre-save hook to update the timeline!
     await order.save();
-
     return res.status(200).json(new ApiResponse(200, order, `Order successfully marked as ${order.status}`));
 });
 

@@ -5,7 +5,7 @@ import Navbar from './Navbar';
 import BulkUpload from './BulkUpload';
 
 const api = axios.create({
-    baseURL: 'http://localhost:8000/api/v1',
+    baseURL: import.meta.env.VITE_API_BASE_URL, 
     withCredentials: true
 });
 
@@ -76,28 +76,53 @@ const AdminDashboard = () => {
     const submitOrderUpdate = async (id) => {
         setIsSaving(true);
         try {
-            await api.put(`/orders/${id}/status`, { status: editForm.status, courierName: editForm.courierName, trackingNumber: editForm.trackingNumber });
+            const res = await api.put(`/orders/${id}/status`, { 
+                status: editForm.status, 
+                courierName: editForm.courierName, 
+                trackingNumber: editForm.trackingNumber 
+            });
+            // INSTANT UI UPDATE: Replace the old order with the newly updated one from the backend
+            setOrders(prev => prev.map(o => o._id === id ? res.data.data : o));
             setUpdatingId(null);
-            const res = await api.get('/orders/admin/all'); setOrders(res.data.data);
-        } finally { setIsSaving(false); }
+        } catch (err) {
+            const errorMsg = err.response?.data?.message || err.message;
+            console.error("FULL ERROR:", err.response?.data || err);
+            alert(`Update Failed: ${errorMsg}`);
+        } finally { 
+            setIsSaving(false); 
+        }
     };
 
     const submitProductUpdate = async (id) => {
         setIsSaving(true);
         try {
-            await api.put(`/products/admin/${id}`, { platformSellPrice: Number(editForm.price), stock: Number(editForm.stock), status: editForm.status });
+            const res = await api.put(`/products/admin/${id}`, { 
+                platformSellPrice: Number(editForm.price), 
+                stock: Number(editForm.stock), 
+                status: editForm.status 
+            });
+            // INSTANT UI UPDATE
+            setProducts(prev => prev.map(p => p._id === id ? res.data.data : p));
             setUpdatingId(null);
-            const res = await api.get('/products/admin/all'); setProducts(res.data.data);
-        } finally { setIsSaving(false); }
+        } catch (err) {
+            alert("Failed to update product");
+        } finally { 
+            setIsSaving(false); 
+        }
     };
 
     const submitUserUpdate = async (id) => {
         setIsSaving(true);
         try {
-            await api.put(`/users/admin/${id}/role`, { role: editForm.role });
+            const res = await api.put(`/users/admin/${id}/role`, { role: editForm.role });
+            // INSTANT UI UPDATE
+            setUsers(prev => prev.map(u => u._id === id ? res.data.data : u));
             setUpdatingId(null);
-            const res = await api.get('/users/admin/all'); setUsers(res.data.data);
-        } finally { setIsSaving(false); }
+        } catch (err) {
+            alert("Failed to update user");
+        } finally { 
+            setIsSaving(false); 
+        }
     };
 
     const getStatusColor = (status) => {
