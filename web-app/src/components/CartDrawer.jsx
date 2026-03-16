@@ -9,10 +9,7 @@ function CartDrawer({ isOpen, onClose }) {
     const navigate = useNavigate();
 
     const totalAmount = cartItems.reduce((acc, item) => {
-        const price = typeof item.product.price === 'string'
-            ? parseFloat(item.product.price.replace(/[^0-9.-]+/g, ""))
-            : item.product.price;
-        return acc + (price * item.quantity);
+        return acc + (item.product.price * item.quantity);
     }, 0);
 
     const handleCheckout = () => {
@@ -63,9 +60,7 @@ function CartDrawer({ isOpen, onClose }) {
                                         <div className="cart-item-details">
                                             <h4 className="cart-item-title">{item.product.name}</h4>
                                             <div className="cart-item-price">
-                                                {typeof item.product.price === 'number'
-                                                    ? `₹${item.product.price.toLocaleString('en-IN')}`
-                                                    : item.product.price}
+                                                ₹{item.product.price.toLocaleString('en-IN')}
                                             </div>
                                             <div className="cart-item-actions">
                                                 <div className="cart-quantity-controls-small">

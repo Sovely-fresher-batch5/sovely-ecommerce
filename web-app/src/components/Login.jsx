@@ -44,6 +44,14 @@ const Login = () => {
         }
     };
 
+    const handleTabSwitch = (method) => {
+        setLoginMethod(method);
+        setError('');
+        setOtpSent(false);
+        setOtpCode('');
+        setCooldown(0);
+    };
+
     const handleEmailLogin = async (e) => {
         e.preventDefault();
         setError('');
@@ -87,8 +95,20 @@ const Login = () => {
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-                    <button type="button" onClick={() => { setLoginMethod('email'); setError(''); }} style={{ flex: 1, padding: '10px', border: '1px solid #ccc', borderRadius: '6px', background: loginMethod === 'email' ? '#000' : '#fff', color: loginMethod === 'email' ? '#fff' : '#000', cursor: 'pointer' }}>Email</button>
-                    <button type="button" onClick={() => { setLoginMethod('phone'); setError(''); }} style={{ flex: 1, padding: '10px', border: '1px solid #ccc', borderRadius: '6px', background: loginMethod === 'phone' ? '#000' : '#fff', color: loginMethod === 'phone' ? '#fff' : '#000', cursor: 'pointer' }}>Mobile Number</button>
+                    <button 
+                        type="button" 
+                        onClick={() => handleTabSwitch('email')} 
+                        style={{ flex: 1, padding: '10px', border: '1px solid #ccc', borderRadius: '6px', background: loginMethod === 'email' ? '#000' : '#fff', color: loginMethod === 'email' ? '#fff' : '#000', cursor: 'pointer' }}
+                    >
+                        Email
+                    </button>
+                    <button 
+                        type="button" 
+                        onClick={() => handleTabSwitch('phone')} 
+                        style={{ flex: 1, padding: '10px', border: '1px solid #ccc', borderRadius: '6px', background: loginMethod === 'phone' ? '#000' : '#fff', color: loginMethod === 'phone' ? '#fff' : '#000', cursor: 'pointer' }}
+                    >
+                        Mobile Number
+                    </button>
                 </div>
 
                 {error && <div style={{ color: 'red', marginBottom: '16px', textAlign: 'center' }}>{error}</div>}

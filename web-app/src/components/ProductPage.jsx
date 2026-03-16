@@ -29,28 +29,28 @@ function ProductPage() {
 
     // Map backend data to component needs
     const product = React.useMemo(() => {
-        if (!p) return null;
-        return {
-            id: p._id,
-            skuId: p.sku,
-            name: p.title,
-            category: p.categoryId?.name || p.productType || 'Shopping',
-            subcategory: p.vendor || 'General',
-            price: `₹${p.platformSellPrice.toLocaleString('en-IN')}`,
-            oldPrice: p.compareAtPrice ? `₹${p.compareAtPrice.toLocaleString('en-IN')}` : null,
-            monthlyPrice: `₹${Math.round(p.platformSellPrice / 6).toLocaleString('en-IN')}/mo`,
-            
-            // FIX: Pass the raw HTML straight through!
-            descriptionHTML: p.descriptionHTML || p.description || p.title, 
-            
-            images: p.images?.length > 0 ? p.images.map(img => img.url) : ['https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?w=500&q=80'],
-            rating: 4.5,
-            reviewCount: Math.floor(Math.random() * 200) + 10,
-            stock: p.inventory?.stock || 50,
-            colors: ['#000000', '#silver', '#ffffff'],
-            returnPolicy: 'Free 30-Day returns'
-        }
-    }, [p]);
+    if (!p) return null;
+    return {
+        id: p._id,
+        skuId: p.sku,
+        name: p.title,
+        category: p.categoryId?.name || p.productType || 'Shopping',
+        subcategory: p.vendor || 'General',
+        
+        // FIX: Keep these as raw numbers! No strings, no regex needed later.
+        price: p.platformSellPrice,
+        oldPrice: p.compareAtPrice || null,
+        monthlyPrice: Math.round(p.platformSellPrice / 6),
+        
+        descriptionHTML: p.descriptionHTML || p.description || p.title, 
+        images: p.images?.length > 0 ? p.images.map(img => img.url) : ['https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?w=500&q=80'],
+        rating: 4.5,
+        reviewCount: Math.floor(Math.random() * 200) + 10,
+        stock: p.inventory?.stock || 0, // Default to 0 just in case it's undefined
+        colors: ['#000000', '#silver', '#ffffff'],
+        returnPolicy: 'Free 30-Day returns'
+    }
+}, [p]);
 
     const similarProducts = []; // Omitted for now unless another query is added
 
@@ -61,6 +61,7 @@ function ProductPage() {
     if (!product) return null;
 
     const handleQuantityChange = (delta) => {
+        if (product.stock <= 0) return; // Hard block if out of stock
         setQuantity((prev) => Math.max(1, Math.min(prev + delta, product.stock)));
     };
 
@@ -135,11 +136,11 @@ function ProductPage() {
                         {/* Pricing */}
                         <div className="pp-pricing-section">
                             <div className="pp-price-row">
-                                <span className="pp-current-price">{product.price}</span>
+                                <span className="pp-current-price">₹{product.price.toLocaleString('en-IN')}</span>
                                 {product.oldPrice && (
-                                    <span className="pp-old-price">{product.oldPrice}</span>
+                                    <span className="pp-old-price">₹{product.oldPrice.toLocaleString('en-IN')}</span>
                                 )}
-                                <span className="pp-monthly">or {product.monthlyPrice}</span>
+                                <span className="pp-monthly">or ₹{product.monthlyPrice.toLocaleString('en-IN')}/mo</span>
                             </div>
                             <p className="pp-financing-note">Suggested payments with 6 months special financing.</p>
                         </div>
@@ -201,28 +202,28 @@ function ProductPage() {
                             </button>
                             <button
                                 className="pp-btn-cart"
+                                disabled={product.stock <= 0}
                                 onClick={(e) => {
                                     e.preventDefault();
+                                    if (product.stock <= 0) return; // Double check against wonkiness
 
                                     let safeImage = 'https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?w=500&q=80';
                                     if (product.images && product.images.length > 0) {
                                         safeImage = typeof product.images[0] === 'string' ? product.images[0] : product.images[0].url;
-                                    } else if (product.image) {
-                                        safeImage = typeof product.image === 'string' ? product.image : product.image.url;
                                     }
 
                                     addToCart({
                                         _id: product.id,
                                         id: product.id,
                                         name: product.name,
-                                        price: typeof product.price === 'string' ? parseFloat(product.price.replace(/[^0-9.-]+/g, "")) : product.price,
+                                        price: product.price, // CLEAN DATA: Passing the raw number!
                                         image: safeImage,
                                         sku: product.skuId
                                     }, quantity);
                                     alert(`Added ${quantity === 1 ? '1 item' : quantity + ' items'} to cart!`);
                                 }}
                             >
-                                Add to Cart
+                                {product.stock <= 0 ? 'Out of Stock' : 'Add to Cart'}
                             </button>
                         </div>
 

@@ -1,13 +1,9 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import axios from 'axios';
+import api from './utils/api.js';
 import { AuthContext } from './AuthContext';
 
 export const WishlistContext = createContext();
 
-const api = axios.create({
-    baseURL: 'http://localhost:8000/api/v1',
-    withCredentials: true
-});
 
 export const WishlistProvider = ({ children }) => {
     const { user } = useContext(AuthContext);

@@ -1,14 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User, Mail, Shield, Calendar, LogOut, Wallet, Plus, Package, ArrowLeft } from 'lucide-react';
-import axios from 'axios';
+import api from '../utils/api.js';
 import { AuthContext } from '../AuthContext';
 import './Auth.css';
-
-const api = axios.create({
-    baseURL: 'http://localhost:8000/api/v1',
-    withCredentials: true
-});
 
 const MyAccount = () => {
     const { user, loading, logout } = useContext(AuthContext);

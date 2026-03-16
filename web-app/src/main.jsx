@@ -23,16 +23,17 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <WishlistProvider>
-            <CartProvider>
-              <BrowserRouter>
+        <BrowserRouter> 
+          {/* Router is now outside, so inner contexts can use useNavigate! */}
+          <AuthProvider>
+            <WishlistProvider>
+              <CartProvider>
                 <App />
-              </BrowserRouter>
-            </CartProvider>
-          </WishlistProvider>
-        </AuthProvider>
+              </CartProvider>
+            </WishlistProvider>
+          </AuthProvider>
+        </BrowserRouter>
       </QueryClientProvider>
     </ErrorBoundary>
-  </StrictMode>,
+  </StrictMode>
 )

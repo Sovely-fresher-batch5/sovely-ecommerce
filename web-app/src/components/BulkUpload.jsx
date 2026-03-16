@@ -1,11 +1,6 @@
 import React, { useState } from 'react';
 import { Upload, Download, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import axios from 'axios';
-
-const api = axios.create({
-    baseURL: 'http://localhost:8000/api/v1',
-    withCredentials: true
-});
+import api from '../utils/api.js';
 
 const BulkUpload = () => {
     const [file, setFile] = useState(null);

@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, ShoppingBag, Users, Package, TrendingUp, AlertCircle, DollarSign, Edit2, Search, Filter, Upload } from 'lucide-react';
-import axios from 'axios';
+import api from '../utils/api.js';
 import Navbar from './Navbar';
 import BulkUpload from './BulkUpload';
 
-const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL, 
-    withCredentials: true
-});
 
 const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('orders'); // 'overview', 'orders', 'products', 'users', 'bulk-upload'

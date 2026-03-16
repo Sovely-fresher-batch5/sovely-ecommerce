@@ -60,11 +60,6 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
       if (mobileMenuOpen) setMobileMenuOpen(false);
     }
   };
-  
-  // Sync the input if the URL changes externally (like clicking "Clear Filters")
-  useEffect(() => {
-    setSearchInput(searchParams.get('search') || '');
-  }, [searchParams]);
 
   return (
     <nav className="navbar" id="navbar">
@@ -173,7 +168,9 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                 <span className="nav-link">...</span>
               ) : user ? (
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                  <Link to="/my-account" className="nav-link" style={{ fontWeight: 600 }}>Hi, {user.name.split(' ')[0]}</Link>
+                  <Link to="/my-account" className="nav-link" style={{ fontWeight: 600 }}>
+                    Hi, {user?.name ? user.name.split(' ')[0] : 'User'}
+                  </Link>
                   <button onClick={logout} className="btn-nav-login" style={{ cursor: 'pointer', background: 'transparent', border: '1px solid #333' }}>Logout</button>
                 </div>
               ) : (

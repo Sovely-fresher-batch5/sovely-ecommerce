@@ -1,22 +1,4 @@
-import axios from 'axios';
-import { API_BASE_URL } from '../../../utils/apiBaseUrl.js';
-
-// Fallback to localhost:3000 if the env variable is missing during development
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
-
-const api = axios.create({
-    baseURL: API_BASE_URL,
-    withCredentials: true
-});
-
-// Intercept responses to ensure we don't accidentally return HTML or undefined
-api.interceptors.response.use((response) => {
-    // If the server returns HTML (usually Vite's dev server fallback), throw an error
-    if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
-        throw new Error("API Route Not Found: Received HTML instead of JSON. Check your VITE_API_BASE_URL.");
-    }
-    return response;
-});
+import api from '../../../utils/api.js';
 
 export const productApi = {
     getProducts: async ({ 
@@ -35,12 +17,12 @@ export const productApi = {
         if (minPrice) params.append('minPrice', minPrice);
         if (maxPrice) params.append('maxPrice', maxPrice);
         if (saleOnly) params.append('saleOnly', 'true');
-        if (shipping && shipping.length > 0) params.append('shipping', shipping.join(',')); // Sends as "3-5,7-14"
+        if (shipping && shipping.length > 0) params.append('shipping', shipping.join(',')); 
         if (minRating) params.append('minRating', minRating);
         if (sort && sort !== 'default') params.append('sort', sort);
 
         const response = await api.get(`/products?${params.toString()}`);
-    const payload = response.data?.data;
+        const payload = response.data?.data;
         const safePage = Number(page) || 1;
         const safeLimit = Number(limit) || 12;
 
@@ -63,7 +45,7 @@ export const productApi = {
 
     getCategories: async () => {
         const response = await api.get('/categories');
-    return Array.isArray(response.data?.data) ? response.data.data : [];
+        return Array.isArray(response.data?.data) ? response.data.data : [];
     },
 
     getBestDeals: async (limit = 6) => {

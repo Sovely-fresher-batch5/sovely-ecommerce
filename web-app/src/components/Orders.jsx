@@ -1,15 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Package, Download, Clock, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
-import axios from 'axios';
+import api from '../utils/api.js';
 import './Auth.css';
-import Navbar from './Navbar';
-import Footer from './Footer';
-
-const api = axios.create({
-    baseURL: 'http://localhost:8000/api/v1',
-    withCredentials: true
-});
 
 const Orders = () => {
     const [invoices, setInvoices] = useState([]);
@@ -35,7 +28,6 @@ const Orders = () => {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#fafafa' }}>
-            <Navbar />
             <main style={{ flex: 1, padding: '40px 20px', maxWidth: '900px', margin: '0 auto', width: '100%' }}>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
@@ -115,7 +107,7 @@ const Orders = () => {
 
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '12px' }}>
                                         <a
-                                            href={`http://localhost:8000/api/v1/invoices/${inv._id}/pdf`}
+                                            href={`${import.meta.env.VITE_API_BASE_URL || '/api/v1'}/invoices/${inv._id}/pdf`}
                                             target="_blank"
                                             rel="noreferrer"
                                             style={{
@@ -157,7 +149,6 @@ const Orders = () => {
                     </div>
                 )}
             </main>
-            <Footer />
         </div>
     );
 };

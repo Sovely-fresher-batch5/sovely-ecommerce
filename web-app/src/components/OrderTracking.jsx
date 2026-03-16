@@ -1,14 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Package, Truck, CheckCircle2, Clock, XCircle, MapPin } from 'lucide-react';
-import axios from 'axios';
+import api from '../utils/api.js';
 import Navbar from './Navbar';
 import Footer from './Footer';
-
-const api = axios.create({
-    baseURL: 'http://localhost:8000/api/v1',
-    withCredentials: true
-});
 
 const OrderTracking = () => {
     const { id } = useParams();

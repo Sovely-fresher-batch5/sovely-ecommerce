@@ -34,12 +34,21 @@ const Signup = () => {
     };
 
     const strength = getPasswordStrength(password);
+    
+    const handleTabSwitch = (method) => {
+        setContactMethod(method); 
+        setError('');
+        setOtpSent(false);
+        setOtpCode('');
+        setCooldown(0);
+    };
 
-    const handleSendOtp = async () => {
+    const handleSendOtp = async (e) => {
+        e.preventDefault(); // CRITICAL: Prevents accidental form submission
         if (!phoneNumber || phoneNumber.length < 10) return setError("Please enter a valid phone number");
         setError('');
         setIsLoading(true);
-        const res = await sendOtp(phoneNumber, false); // false = signup OTP
+        const res = await sendOtp(phoneNumber, false); 
         setIsLoading(false);
         
         if (res.success) {
@@ -52,6 +61,10 @@ const Signup = () => {
 
     const handleSignup = async (e) => {
         e.preventDefault();
+        if (contactMethod === 'phone' && !otpSent) {
+            setError("Please request and enter an OTP first.");
+            return; 
+        }
         setError('');
         setIsLoading(true);
 
@@ -63,12 +76,14 @@ const Signup = () => {
             };
 
             const response = await register(userData);
-            if (response.success) navigate('/');
-            else throw new Error(response.message || "Registration failed");
+            if (response.success) {
+                navigate('/'); 
+            } else {
+                throw new Error(response.message || "Failed to create account. Please try again.");
+            }
         } catch (err) {
             setError(err.message);
-        } finally {
-            setIsLoading(false);
+            setIsLoading(false); // Only stop loading if there's an error, otherwise let it navigate!
         }
     };
 
@@ -85,31 +100,34 @@ const Signup = () => {
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-                    <button type="button" onClick={() => { setContactMethod('email'); setError(''); }} style={{ flex: 1, padding: '10px', border: '1px solid #ccc', borderRadius: '6px', background: contactMethod === 'email' ? '#000' : '#fff', color: contactMethod === 'email' ? '#fff' : '#000', cursor: 'pointer' }}>Use Email</button>
-                    <button type="button" onClick={() => { setContactMethod('phone'); setError(''); }} style={{ flex: 1, padding: '10px', border: '1px solid #ccc', borderRadius: '6px', background: contactMethod === 'phone' ? '#000' : '#fff', color: contactMethod === 'phone' ? '#fff' : '#000', cursor: 'pointer' }}>Use Mobile</button>
+                    <button type="button" onClick={() => handleTabSwitch('email')} style={{ flex: 1, padding: '10px', border: '1px solid #ccc', borderRadius: '6px', background: contactMethod === 'email' ? '#000' : '#fff', color: contactMethod === 'email' ? '#fff' : '#000', cursor: 'pointer' }}>
+                        Use Email
+                    </button>
+                    <button type="button" onClick={() => handleTabSwitch('phone')} style={{ flex: 1, padding: '10px', border: '1px solid #ccc', borderRadius: '6px', background: contactMethod === 'phone' ? '#000' : '#fff', color: contactMethod === 'phone' ? '#fff' : '#000', cursor: 'pointer' }}>
+                        Use Mobile
+                    </button>   
                 </div>
 
-                {error && <div style={{ color: 'red', marginBottom: '16px', textAlign: 'center' }}>{error}</div>}
+                {error && <div style={{ color: '#ef4444', backgroundColor: '#fee2e2', padding: '10px', borderRadius: '6px', marginBottom: '16px', textAlign: 'center', fontSize: '0.875rem' }}>{error}</div>}
 
-                {/* Form set to turn off strict autofill */}
                 <form className="auth-form" onSubmit={handleSignup} autoComplete="off">
                     <div className="form-group">
                         <label>Full Name *</label>
-                        <input type="text" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" required />
+                        <input type="text" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required />
                     </div>
 
                     {contactMethod === 'email' ? (
                         <div className="form-group">
                             <label>Email Address *</label>
-                            <input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" required />
+                            <input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
                         </div>
                     ) : (
                         <>
                             <div className="form-group">
                                 <label>Mobile Number *</label>
                                 <div style={{ display: 'flex', gap: '10px' }}>
-                                    <input type="tel" inputMode="numeric" placeholder="Enter 10 digit number" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))} disabled={otpSent && cooldown > 0} autoComplete="off" required />
-                                    <button type="button" onClick={handleSendOtp} disabled={cooldown > 0 || isLoading} style={{ padding: '0 15px', borderRadius: '6px', cursor: cooldown > 0 ? 'not-allowed' : 'pointer', minWidth: '110px' }}>
+                                    <input type="tel" inputMode="numeric" placeholder="Enter 10 digit number" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))} disabled={otpSent && cooldown > 0} required />
+                                    <button type="button" onClick={handleSendOtp} disabled={cooldown > 0 || isLoading} style={{ padding: '0 15px', borderRadius: '6px', cursor: cooldown > 0 ? 'not-allowed' : 'pointer', minWidth: '110px', border: '1px solid #ccc', background: '#f9fafb' }}>
                                         {cooldown > 0 ? `Resend (${cooldown}s)` : (otpSent ? 'Resend' : 'Get OTP')}
                                     </button>
                                 </div>
@@ -127,7 +145,6 @@ const Signup = () => {
                         <label>Password *</label>
                         <input type="password" placeholder="Create a strong password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" required />
                         
-                        {/* Upgraded Strength Meter */}
                         {password.length > 0 && (
                             <div style={{ marginTop: '8px' }}>
                                 <div style={{ height: '4px', width: '100%', background: '#e5e7eb', borderRadius: '2px', overflow: 'hidden' }}>
@@ -140,13 +157,13 @@ const Signup = () => {
                         )}
                     </div>
 
-                    <button type="submit" className="btn-auth-submit" disabled={isLoading || (contactMethod === 'phone' && !otpSent)}>
+                    <button type="submit" className="btn-auth-submit" disabled={isLoading || (contactMethod === 'phone' && !otpSent)} style={{ background: '#000', color: '#fff', border: 'none', padding: '12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginTop: '10px' }}>
                         {isLoading ? 'Creating Account...' : 'Create Account'}
                     </button>
                 </form>
 
-                <div className="auth-footer">
-                    Already have an account? <Link to="/login">Sign in</Link>
+                <div className="auth-footer" style={{ marginTop: '20px', textAlign: 'center', fontSize: '0.875rem' }}>
+                    Already have an account? <Link to="/login" style={{ fontWeight: 'bold', color: '#000' }}>Sign in</Link>
                 </div>
             </div>
         </div>

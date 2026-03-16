@@ -1,16 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react'; // Added useContext
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, CreditCard, Wallet, Landmark, Package, Smartphone } from 'lucide-react';
-import axios from 'axios';
+import api from '../utils/api.js';
+import { CartContext } from '../CartContext'; // Imported CartContext
 import './Auth.css';
-import Navbar from './Navbar';
-import Footer from './Footer';
-
-// CRITICAL FIX: Use relative path for Vite Proxy
-const api = axios.create({
-    baseURL: '/api/v1',
-    withCredentials: true
-});
 
 const loadRazorpayScript = () => {
     return new Promise((resolve) => {
@@ -26,16 +19,18 @@ const Checkout = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const items = location.state?.items;
+    
+    // Grab clearCart from context
+    const { clearCart } = useContext(CartContext); 
 
     const [paymentMethod, setPaymentMethod] = useState('UPI'); 
     const [paymentTerms, setPaymentTerms] = useState('DUE_ON_RECEIPT');
     const [loading, setLoading] = useState(false);
 
     // ... (Keep the empty cart UI check here) ...
-    if (!items || items.length === 0) {
+    if (!items || items?.length === 0) {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#fafafa' }}>
-                <Navbar />
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ textAlign: 'center', padding: '40px', background: '#fff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
                         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
@@ -47,16 +42,12 @@ const Checkout = () => {
                         </Link>
                     </div>
                 </div>
-                <Footer />
             </div>
         );
     }
 
     const totalAmount = items.reduce((acc, item) => {
-        const priceRaw = item.product?.price;
-        const priceStr = typeof priceRaw === 'number' ? priceRaw.toString() : (priceRaw || "0");
-        const numeric = parseFloat(priceStr.replace(/[^0-9.-]+/g, "")) || 0;
-        return acc + (numeric * item.qty);
+        return acc + ((item.product?.price || 0) * item.qty);
     }, 0);
 
     const handlePlaceOrder = async (e) => {
@@ -79,6 +70,7 @@ const Checkout = () => {
             const { order, invoice } = orderRes.data.data;
 
             if (backendPaymentMethod !== 'RAZORPAY') {
+                clearCart();
                 navigate('/orders', { state: { successMessage: `Order placed! ID: ${order.orderId}` } });
                 return;
             }
@@ -90,7 +82,7 @@ const Checkout = () => {
                 return;
             }
 
-            const rzpOrderRes = await api.post('/payments/create-order', { amount: totalAmount });
+            const rzpOrderRes = await api.post('/payments/create-order', { invoiceId: invoice._id });
             const rzpOrder = rzpOrderRes.data.data;
 
             const options = {
@@ -109,6 +101,7 @@ const Checkout = () => {
                             razorpay_signature: response.razorpay_signature,
                             invoiceId: invoice._id
                         });
+                        clearCart();
                         navigate('/orders');
                     } catch (err) {
                         alert("Payment verification failed. Please contact support.");
