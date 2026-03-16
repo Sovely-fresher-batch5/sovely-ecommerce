@@ -1,4 +1,3 @@
-
 import heroImg from '../assets/hero-shopping.png';
 
 function Hero({ onShopNow }) {
@@ -44,16 +43,6 @@ function Hero({ onShopNow }) {
                         src={heroImg}
                         alt="Stylish shopping experience"
                         className="hero-image"
-                        style={{
-                            width: '100%',
-                            maxWidth: '500px',
-                            height: '400px',
-                            objectFit: 'cover',
-                            borderRadius: 'var(--radius-xl)',
-                            position: 'relative',
-                            zIndex: 1,
-                            boxShadow: 'var(--shadow-xl)',
-                        }}
                     />
                     <div className="hero-floating-card">
                         <span className="floating-emoji">🔥</span>

@@ -54,9 +54,7 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
 
   const handleSearch = (e) => {
     if (e.key === 'Enter' && searchInput.trim() !== '') {
-      // NAVIGATE TO THE NEW PAGE!
       navigate(`/search?q=${encodeURIComponent(searchInput.trim())}`);
-      
       if (mobileMenuOpen) setMobileMenuOpen(false);
     }
   };
@@ -73,14 +71,13 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
             >
               ☰
             </button>
-            <a href="#" className="navbar-logo">
+            <Link to="/" className="navbar-logo">
               <img src="https://m.media-amazon.com/images/X/bxt1/M/Bbxt1BI1cNpD5ln._SL160_QL95_FMwebp_.png" alt="Sovely Logo" className="logo-image" />
               <span className="logo-text">Sovely</span>
-            </a>
+            </Link>
           </div>
 
           <ul className={`nav-links ${mobileMenuOpen ? 'active' : ''}`}>
-            {/* Category item with dropdown */}
             <li
               className="nav-item-dropdown"
               ref={dropRef}
@@ -101,8 +98,8 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
               <div className={`cat-dropdown ${catDropOpen ? 'cat-dropdown-open' : ''}`} role="menu">
                 <div className="cat-dropdown-grid">
                   {displayCategories.map((cat, i) => (
-                    <a
-                      href="#products"
+                    <button
+                      type="button"
                       className="cat-dropdown-item"
                       key={cat._id || i}
                       onClick={() => {
@@ -110,6 +107,7 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                         if (onSelectCategory) onSelectCategory(cat.name);
                       }}
                       role="menuitem"
+                      style={{ background: 'none', border: 'none', width: '100%', fontFamily: 'inherit' }}
                     >
                       <span
                         className="cat-dropdown-icon"
@@ -118,7 +116,7 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                         <cat.Icon size={18} strokeWidth={2} />
                       </span>
                       <span className="cat-dropdown-label">{cat.name}</span>
-                    </a>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -138,9 +136,9 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
               placeholder="Search Product"
               className="search-input"
               id="search-input"
-              value={searchInput} // CONTROLLED INPUT
-              onChange={(e) => setSearchInput(e.target.value)} // UPDATE STATE
-              onKeyDown={handleSearch} // LISTEN FOR ENTER KEY
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={handleSearch}
             />
           </div>
           <div className="nav-actions">

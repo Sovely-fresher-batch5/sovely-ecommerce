@@ -93,6 +93,98 @@ button {
   min-height: 100vh;
 }
 
+/* =====================================================
+   TRUST BANNER & CATEGORY PILLS
+   ===================================================== */
+.trust-banner {
+  display: flex;
+  justify-content: center;
+  gap: clamp(1rem, 4vw, 3rem);
+  padding: 12px 20px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+  flex-wrap: wrap;
+}
+
+.trust-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.category-navigation-wrapper {
+  padding: 30px 20px 10px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.category-pills {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.category-pills::-webkit-scrollbar {
+  display: none;
+}
+
+.category-pill-btn {
+  padding: 8px 20px;
+  border-radius: 30px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  font-family: var(--font-primary);
+}
+
+.category-pill-btn:hover {
+  border-color: #cbd5e1;
+}
+
+.category-pill-btn.active {
+  background: #0f172a;
+  color: #fff;
+  border-color: #0f172a;
+}
+
+.products-container-wrapper {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 60vh;
+}
+
+.products-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.products-title {
+  font-size: 1.75rem;
+  font-weight: bold;
+  color: #0f172a;
+  font-family: var(--font-primary);
+}
+
+/* Ensure the trust banner stacks beautifully on really small phones */
+@media (max-width: 480px) {
+  .trust-banner {
+    gap: 12px;
+  }
+}
+
 /* ─── Section Utilities ─── */
 .section-container {
   max-width: 1280px;
@@ -603,8 +695,9 @@ button {
 
 .hero-image-bg {
   position: absolute;
-  width: 400px;
-  height: 400px;
+  /* Use viewport width (vw) so it scales down on mobile, but maxes out at 400px */
+  width: min(80vw, 400px); 
+  height: min(80vw, 400px);
   background: radial-gradient(circle, rgba(64, 145, 108, 0.15) 0%, transparent 70%);
   border-radius: 50%;
   z-index: 0;
@@ -613,6 +706,9 @@ button {
 .hero-image {
   width: 100%;
   max-width: 500px;
+  /* Use aspect-ratio instead of a fixed height to prevent stretching */
+  aspect-ratio: 5 / 4; 
+  object-fit: cover;
   border-radius: var(--radius-xl);
   position: relative;
   z-index: 1;
@@ -1551,6 +1647,11 @@ button {
    RESPONSIVE — MOBILE
    ===================================================== */
 @media (max-width: 768px) {
+  /* Navbar Fixes */
+  .navbar-container {
+    padding: 0 16px;
+  }
+
   .nav-links {
     display: none;
     position: absolute;
@@ -1573,14 +1674,36 @@ button {
     display: block;
   }
 
+  /* Keep Search and Actions visible, but adjust layout */
+  .navbar-right {
+    gap: 8px;
+  }
+
   .search-wrapper {
-    display: none;
+    /* Hide the full bar, but keep it structured for future expansion if needed */
+    display: none; 
+  }
+
+  .nav-auth-buttons {
+    display: none; /* Hide login text buttons on very small screens, keep icons */
   }
 
   .nav-actions {
-    display: none;
+    display: flex;
+    gap: 8px;
   }
 
+  .cat-dropdown {
+    width: 100%;
+    max-width: calc(100vw - 32px);
+    left: 0;
+  }
+
+  .cat-dropdown-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  /* Landing Page specific adjustments */
   .hero-title {
     font-size: 2rem;
   }
@@ -1635,7 +1758,8 @@ button {
   }
 
   .credit-card {
-    width: 280px;
+    width: 100%;
+    max-width: 280px;
     height: 180px;
     padding: 24px;
     transform: none;
