@@ -1,13 +1,13 @@
 import mongoose from 'mongoose';
 
 const orderItemSnapshotSchema = new mongoose.Schema({
+    resellerProfit: { type: Number, default: 0 },
     sku: { type: String, required: true },
     price: { type: Number, required: true },
     tax: { type: Number, default: 0 },
     qty: { type: Number, required: true, min: 1 }
 }, { _id: false });
 
-// New: Keep track of every time the order status changes for the timeline
 const statusHistorySchema = new mongoose.Schema({
     status: { type: String, required: true },
     comment: { type: String },
@@ -31,11 +31,11 @@ const orderSchema = new mongoose.Schema({
         enum: ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
         default: 'PENDING'
     },
-    statusHistory: [statusHistorySchema], // New array for the timeline
-    tracking: {                           // New object for Courier Info
-        courierName: { type: String },    // e.g., 'Delhivery', 'BlueDart'
-        trackingNumber: { type: String }, // e.g., 'AWB123456789'
-        trackingUrl: { type: String }     // e.g., 'https://delhivery.com/track/...'
+    statusHistory: [statusHistorySchema],
+    tracking: {
+        courierName: { type: String },
+        trackingNumber: { type: String },
+        trackingUrl: { type: String }
     },
     paymentTerms: {
         type: String,
@@ -48,16 +48,15 @@ const orderSchema = new mongoose.Schema({
         default: 'RAZORPAY'
     },
     totalAmount: { type: Number, required: true },
+    resellerProfit: { type: Number, default: 0 },
     items: [orderItemSnapshotSchema],
     orderDate: { type: Date, default: Date.now }
 }, { timestamps: true });
 
-// Pre-save hook: Automatically log the first status when an order is created
 orderSchema.pre('save', function(next) {
     if (this.isNew) {
         this.statusHistory.push({ status: this.status, comment: 'Order placed successfully' });
     }
-    // Also log if status is modified later
     if (!this.isNew && this.isModified('status')) {
         this.statusHistory.push({ status: this.status, comment: `Order marked as ${this.status}` });
     }

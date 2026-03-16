@@ -21,34 +21,66 @@ function ProductPage() {
         queryFn: () => productApi.getProductById(productId)
     });
 
+    // Fetch similar products based on category
+    const { data: similarResults } = useSuspenseQuery({
+        queryKey: ['similar-products', p?.categoryId?._id],
+        queryFn: () => productApi.getProducts({ 
+            categoryId: p?.categoryId?._id, 
+            limit: 5 // Fetch slightly more to filter out current product
+        }),
+        enabled: !!p?.categoryId?._id
+    });
+
     const [selectedColor, setSelectedColor] = useState(0);
     const [quantity, setQuantity] = useState(1);
     const [selectedImage, setSelectedImage] = useState(0);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState('description');
 
     // Map backend data to component needs
     const product = React.useMemo(() => {
         if (!p) return null;
+        const rawDesc = p.descriptionHTML || '';
+        const textDesc = rawDesc.replace(/<[^>]*>?/gm, '');
+        
         return {
             id: p._id,
             skuId: p.sku,
             name: p.title,
             category: p.categoryId?.name || p.productType || 'Shopping',
+            categoryId: p.categoryId?._id,
             subcategory: p.vendor || 'General',
             price: `₹${p.platformSellPrice.toLocaleString('en-IN')}`,
             oldPrice: p.compareAtPrice ? `₹${p.compareAtPrice.toLocaleString('en-IN')}` : null,
             monthlyPrice: `₹${Math.round(p.platformSellPrice / 6).toLocaleString('en-IN')}/mo`,
-            description: p.descriptionHTML ? p.descriptionHTML.replace(/<[^>]*>?/gm, '') : p.title,
+            summary: textDesc.length > 180 ? textDesc.substring(0, 180) + '...' : textDesc,
+            descriptionHTML: rawDesc,
             images: p.images?.length > 0 ? p.images.map(img => img.url) : ['https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?w=500&q=80'],
             rating: 4.5,
             reviewCount: Math.floor(Math.random() * 200) + 10,
             stock: p.inventory?.stock || 50,
+            moq: p.moq || 1,
+            weight: p.weightGrams ? `${(p.weightGrams / 1000).toFixed(2)} KG` : 'N/A',
             colors: ['#000000', '#silver', '#ffffff'],
-            returnPolicy: 'Free 30-Day returns'
+            returnPolicy: 'Hassle-free 7-day B2B returns'
         }
     }, [p]);
 
-    const similarProducts = []; // Omitted for now unless another query is added
+    const similarProducts = React.useMemo(() => {
+        if (!similarResults?.products) return [];
+        return similarResults.products
+            .filter(item => item._id !== productId)
+            .slice(0, 4)
+            .map(item => ({
+                id: item._id,
+                name: item.title,
+                price: `₹${item.platformSellPrice.toLocaleString('en-IN')}`,
+                image: item.images?.[0]?.url || 'https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?w=500&q=80',
+                subcategory: item.vendor || 'General',
+                skuId: item.sku,
+                rating: 4.5
+            }));
+    }, [similarResults, productId]);
 
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -57,8 +89,16 @@ function ProductPage() {
     if (!product) return null;
 
     const handleQuantityChange = (delta) => {
-        setQuantity((prev) => Math.max(1, Math.min(prev + delta, product.stock)));
+        const newQty = Math.max(product.moq, Math.min(quantity + delta, product.stock));
+        setQuantity(newQty);
     };
+
+    // Initialize quantity to MOQ if needed
+    useEffect(() => {
+        if (product && quantity < product.moq) {
+            setQuantity(product.moq);
+        }
+    }, [product]);
 
     // Generate star rating
     const fullStars = Math.floor(product.rating);
@@ -66,248 +106,297 @@ function ProductPage() {
     const emptyStars = 5 - fullStars - (hasHalf ? 1 : 0);
 
     return (
-        <div className="landing-page">
+        <div className="layout-container">
             <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-            <Navbar onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+            
+            <div className="main-viewport">
+                <Navbar onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
 
-            <main className="product-page-main">
-                {/* Breadcrumb */}
-                <nav className="pp-breadcrumb">
-                    <Link to="/" className="pp-breadcrumb-link">Home</Link>
-                    <span className="pp-breadcrumb-sep">›</span>
-                    <span className="pp-breadcrumb-link">{product.category}</span>
-                    <span className="pp-breadcrumb-sep">›</span>
-                    <span className="pp-breadcrumb-link">{product.subcategory}</span>
-                    <span className="pp-breadcrumb-sep">›</span>
-                    <span className="pp-breadcrumb-current">{product.name}</span>
-                </nav>
+                <main className="product-page-main">
+                    {/* Breadcrumb */}
+                    <nav className="pp-breadcrumb">
+                        <Link to="/" className="pp-breadcrumb-link">Home</Link>
+                        <span className="pp-breadcrumb-sep">›</span>
+                        <span className="pp-breadcrumb-link">{product.category}</span>
+                        <span className="pp-breadcrumb-sep">›</span>
+                        <span className="pp-breadcrumb-link">{product.subcategory}</span>
+                        <span className="pp-breadcrumb-sep">›</span>
+                        <span className="pp-breadcrumb-current">{product.name}</span>
+                    </nav>
 
-                {/* Product Detail Grid */}
-                <div className="pp-detail-grid">
-                    {/* Image Gallery */}
-                    <div className="pp-gallery">
-                        <div className="pp-main-image-wrapper">
-                            <img
-                                src={product.images[selectedImage] || product.images[0]}
-                                alt={product.name}
-                                className="pp-main-image"
-                            />
-                        </div>
-                        <div className="pp-thumbnail-row">
-                            {product.images.map((img, i) => (
-                                <button
-                                    key={i}
-                                    className={`pp-thumbnail ${selectedImage === i ? 'pp-thumbnail-active' : ''}`}
-                                    onClick={() => setSelectedImage(i)}
-                                >
-                                    <img src={img} alt={`${product.name} view ${i + 1}`} />
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Product Info */}
-                    <div className="pp-info">
-                        <div className="pp-info-header">
-                            <h1 className="pp-title">{product.name}</h1>
-                            <p className="pp-description">{product.description}</p>
-                            <p className="pp-sku">SKU: {product.skuId}</p>
-
-                            {/* Rating */}
-                            <div className="pp-rating">
-                                <div className="pp-stars">
-                                    {Array(fullStars).fill(null).map((_, i) => (
-                                        <span key={`full-${i}`} className="pp-star pp-star-filled">★</span>
-                                    ))}
-                                    {hasHalf && <span className="pp-star pp-star-filled">★</span>}
-                                    {Array(emptyStars).fill(null).map((_, i) => (
-                                        <span key={`empty-${i}`} className="pp-star pp-star-empty">★</span>
-                                    ))}
-                                </div>
-                                <span className="pp-review-count">({product.reviewCount})</span>
+                    {/* Product Detail Grid */}
+                    <div className="pp-detail-grid">
+                        {/* Image Gallery */}
+                        <div className="pp-gallery">
+                            <div className="pp-main-image-wrapper">
+                                <img
+                                    src={product.images[selectedImage] || product.images[0]}
+                                    alt={product.name}
+                                    className="pp-main-image"
+                                />
                             </div>
-                        </div>
-
-                        {/* Pricing */}
-                        <div className="pp-pricing-section">
-                            <div className="pp-price-row">
-                                <span className="pp-current-price">{product.price}</span>
-                                {product.oldPrice && (
-                                    <span className="pp-old-price">{product.oldPrice}</span>
-                                )}
-                                <span className="pp-monthly">or {product.monthlyPrice}</span>
-                            </div>
-                            <p className="pp-financing-note">Suggested payments with 6 months special financing.</p>
-                        </div>
-
-                        {/* Color Picker */}
-                        <div className="pp-color-section">
-                            <h3 className="pp-section-label">Choose a Color</h3>
-                            <div className="pp-color-options">
-                                {product.colors.map((color, i) => (
+                            <div className="pp-thumbnail-row">
+                                {product.images.map((img, i) => (
                                     <button
                                         key={i}
-                                        className={`pp-color-swatch ${selectedColor === i ? 'pp-color-active' : ''}`}
-                                        style={{ backgroundColor: color }}
-                                        onClick={() => setSelectedColor(i)}
-                                        aria-label={`Color option ${i + 1}`}
-                                    />
+                                        className={`pp-thumbnail ${selectedImage === i ? 'pp-thumbnail-active' : ''}`}
+                                        onClick={() => setSelectedImage(i)}
+                                    >
+                                        <img src={img} alt={`${product.name} view ${i + 1}`} />
+                                    </button>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Quantity + Stock */}
-                        <div className="pp-quantity-section">
-                            <div className="pp-quantity-selector">
-                                <button
-                                    className="pp-qty-btn"
-                                    onClick={() => handleQuantityChange(-1)}
-                                    disabled={quantity <= 1}
-                                >
-                                    −
-                                </button>
-                                <span className="pp-qty-value">{quantity}</span>
-                                <button
-                                    className="pp-qty-btn"
-                                    onClick={() => handleQuantityChange(1)}
-                                    disabled={quantity >= product.stock}
-                                >
-                                    +
-                                </button>
-                            </div>
-                            <div className="pp-stock-info">
-                                <span className={`pp-stock-warning ${product.stock <= 12 ? 'low' : ''}`}>
-                                    {product.stock <= 12 ? `Only ${product.stock} Items Left!` : 'In Stock'}
-                                </span>
-                                <p className="pp-stock-note">
-                                    {product.stock <= 12 ? "Don't miss it" : 'Ready to ship'}
-                                </p>
-                            </div>
-                        </div>
+                        {/* Product Info */}
+                        <div className="pp-info">
+                            <div className="pp-info-header">
+                                <div className="pp-badge-row">
+                                    <span className="pp-type-badge">{product.category}</span>
+                                    <span className="pp-stock-status">
+                                        <span className="pulse-dot"></span>
+                                        {product.stock} Units Available
+                                    </span>
+                                </div>
+                                <h1 className="pp-title">{product.name}</h1>
+                                <p className="pp-summary">{product.summary}</p>
+                                <div className="pp-meta-info">
+                                    <span className="pp-sku"><b>SKU:</b> {product.skuId}</span>
+                                    <span className="pp-moq"><b>MOQ:</b> {product.moq} Units</span>
+                                </div>
 
-                        {/* Action Buttons */}
-                        <div className="pp-actions">
-                            <button
-                                className="pp-btn-buy"
-                                onClick={() => navigate('/checkout', {
-                                    state: { items: [{ productId: product.id, qty: quantity, product }] }
-                                })}
-                            >
-                                Buy Now
-                            </button>
-                            <button
-                                className="pp-btn-cart"
-                                onClick={(e) => {
-                                    e.preventDefault();
-
-                                    let safeImage = 'https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?w=500&q=80';
-                                    if (product.images && product.images.length > 0) {
-                                        safeImage = typeof product.images[0] === 'string' ? product.images[0] : product.images[0].url;
-                                    } else if (product.image) {
-                                        safeImage = typeof product.image === 'string' ? product.image : product.image.url;
-                                    }
-
-                                    addToCart({
-                                        id: product.id,
-                                        name: product.name,
-                                        price: typeof product.price === 'string' ? parseFloat(product.price.replace(/[^0-9.-]+/g, "")) : product.price,
-                                        image: safeImage,
-                                        sku: product.skuId
-                                    }, quantity);
-                                    alert(`Added ${quantity === 1 ? '1 item' : quantity + ' items'} to cart!`);
-                                }}
-                            >
-                                Add to Cart
-                            </button>
-                        </div>
-
-                        {/* Delivery Info */}
-                        <div className="pp-delivery-cards">
-                            <div className="pp-delivery-card">
-                                <span className="pp-delivery-icon pp-icon-shipping">📦</span>
-                                <div>
-                                    <h4 className="pp-delivery-title">Free Delivery</h4>
-                                    <p className="pp-delivery-text">
-                                        Enter your Postal code for Delivery Availability
-                                    </p>
+                                {/* Rating */}
+                                <div className="pp-rating">
+                                    <div className="pp-stars">
+                                        {Array(fullStars).fill(null).map((_, i) => (
+                                            <span key={`full-${i}`} className="pp-star pp-star-filled">★</span>
+                                        ))}
+                                        {hasHalf && <span className="pp-star pp-star-filled">★</span>}
+                                        {Array(emptyStars).fill(null).map((_, i) => (
+                                            <span key={`empty-${i}`} className="pp-star pp-star-empty">★</span>
+                                        ))}
+                                    </div>
+                                    <span className="pp-review-count">{product.reviewCount}+ Satisfied Buyers</span>
                                 </div>
                             </div>
-                            <div className="pp-delivery-card">
-                                <span className="pp-delivery-icon pp-icon-return">🔄</span>
-                                <div>
-                                    <h4 className="pp-delivery-title">Return Delivery</h4>
-                                    <p className="pp-delivery-text">
-                                        {product.returnPolicy}. <span className="pp-link-text">Details</span>
-                                    </p>
+
+                            {/* Pricing */}
+                            <div className="pp-pricing-section">
+                                <div className="pp-price-card">
+                                    <div className="pp-price-row">
+                                        <span className="pp-current-price">{product.price}</span>
+                                        {product.oldPrice && (
+                                            <span className="pp-old-price">{product.oldPrice}</span>
+                                        )}
+                                    </div>
+                                    <p className="pp-tax-note">Excluding GST and Shipping calculated at checkout.</p>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
 
-                {/* Similar Items Section */}
-                <section className="pp-similar-section">
-                    <div className="pp-similar-header">
-                        <div>
-                            <h2 className="pp-similar-title">Similar Items You Might Like</h2>
-                            <p className="pp-similar-subtitle">Products from the same category</p>
-                        </div>
-                        <Link to="/" className="pp-view-all">
-                            View All <span className="pp-arrow">→</span>
-                        </Link>
-                    </div>
+                            {/* Color Picker (Only if relevant) */}
+                            {product.colors.length > 0 && (
+                                <div className="pp-color-section">
+                                    <h3 className="pp-section-label">Available Variations</h3>
+                                    <div className="pp-color-options">
+                                        {product.colors.map((color, i) => (
+                                            <button
+                                                key={i}
+                                                className={`pp-color-swatch ${selectedColor === i ? 'pp-color-active' : ''}`}
+                                                style={{ backgroundColor: color }}
+                                                onClick={() => setSelectedColor(i)}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
-                    <div className="pp-similar-grid">
-                        {similarProducts.map((item) => (
-                            <Link
-                                to={`/product/${item.id}`}
-                                className="pp-similar-card"
-                                key={item.id}
-                            >
-                                <div className="pp-similar-image-wrapper">
-                                    <img src={item.image} alt={item.name} className="pp-similar-image" />
+                            {/* Quantity + Actions */}
+                            <div className="pp-purchase-zone">
+                                <div className="pp-quantity-selector">
                                     <button
-                                        className={`pp-wishlist-btn ${isInWishlist(item.id) ? 'pc-wishlist-active' : ''}`}
-                                        style={{ color: isInWishlist(item.id) ? '#ef4444' : 'inherit' }}
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            toggleWishlist({ id: item.id, ...item });
-                                        }}
+                                        className="pp-qty-btn"
+                                        onClick={() => handleQuantityChange(-1)}
+                                        disabled={quantity <= product.moq}
                                     >
-                                        ♥
+                                        −
+                                    </button>
+                                    <input 
+                                        type="number" 
+                                        className="pp-qty-input" 
+                                        value={quantity}
+                                        readOnly
+                                    />
+                                    <button
+                                        className="pp-qty-btn"
+                                        onClick={() => handleQuantityChange(1)}
+                                        disabled={quantity >= product.stock}
+                                    >
+                                        +
                                     </button>
                                 </div>
-                                <div className="pp-similar-info">
-                                    <div className="pp-similar-top-row">
-                                        <h3 className="pp-similar-name">{item.name}</h3>
-                                        <span className="pp-similar-price">{item.price}</span>
-                                    </div>
-                                    <p className="pp-similar-desc">{item.subcategory}</p>
-                                    <p className="pp-similar-sku">SKU: {item.skuId}</p>
-                                    <div className="pp-similar-rating">
-                                        {Array(Math.floor(item.rating)).fill(null).map((_, i) => (
-                                            <span key={i} className="pp-star pp-star-filled pp-star-sm">★</span>
-                                        ))}
-                                        {Array(5 - Math.floor(item.rating)).fill(null).map((_, i) => (
-                                            <span key={i} className="pp-star pp-star-empty pp-star-sm">★</span>
-                                        ))}
-                                        <span className="pp-similar-rating-text">({item.rating})</span>
-                                    </div>
+                                
+                                <div className="pp-actions-stack">
                                     <button
-                                        className="pp-similar-cart-btn"
-                                        onClick={(e) => e.preventDefault()}
+                                        className="pp-btn-cart-premium full-width"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            addToCart({
+                                                id: product.id,
+                                                name: product.name,
+                                                price: typeof product.price === 'string' ? parseFloat(product.price.replace(/[^0-9.-]+/g, "")) : product.price,
+                                                image: product.images[0],
+                                                sku: product.skuId
+                                            }, quantity);
+                                            // Simple toast would be better than alert
+                                        }}
                                     >
                                         Add to Cart
                                     </button>
                                 </div>
-                            </Link>
-                        ))}
-                    </div>
-                </section>
-            </main>
+                            </div>
 
-            <Footer />
+                            {/* Trust Badges */}
+                            <div className="pp-trust-grid">
+                                <div className="pp-trust-item">
+                                    <span className="pp-trust-icon">⚡</span>
+                                    <div className="pp-trust-content">
+                                        <h6>Standard Shipping</h6>
+                                        <p>Delivered in 4-7 Days</p>
+                                    </div>
+                                </div>
+                                <div className="pp-trust-item">
+                                    <span className="pp-trust-icon">🛡️</span>
+                                    <div className="pp-trust-content">
+                                        <h6>Buyer Protection</h6>
+                                        <p>Secure B2B Transactions</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Tabbed Info Section */}
+                    <section className="pp-detailed-tabs">
+                        <div className="pp-tab-nav">
+                            {['description', 'specifications', 'shipping'].map(tab => (
+                                <button
+                                    key={tab}
+                                    className={`pp-tab-trigger ${activeTab === tab ? 'active' : ''}`}
+                                    onClick={() => setActiveTab(tab)}
+                                >
+                                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                </button>
+                            ))}
+                        </div>
+                        
+                        <div className="pp-tab-panel">
+                            {activeTab === 'description' && (
+                                <div 
+                                    className="pp-html-content"
+                                    dangerouslySetInnerHTML={{ __html: product.descriptionHTML }}
+                                />
+                            )}
+                            {activeTab === 'specifications' && (
+                                <div className="pp-specs-list">
+                                    <div className="pp-spec-item">
+                                        <span className="spec-label">SKU ID</span>
+                                        <span className="spec-value">{product.skuId}</span>
+                                    </div>
+                                    <div className="pp-spec-item">
+                                        <span className="spec-label">Weight</span>
+                                        <span className="spec-value">{product.weight}</span>
+                                    </div>
+                                    <div className="pp-spec-item">
+                                        <span className="spec-label">MOQ</span>
+                                        <span className="spec-value">{product.moq} Units</span>
+                                    </div>
+                                    <div className="pp-spec-item">
+                                        <span className="spec-label">Brand/Vendor</span>
+                                        <span className="spec-value">{product.subcategory}</span>
+                                    </div>
+                                </div>
+                            )}
+                            {activeTab === 'shipping' && (
+                                <div className="pp-shipping-info">
+                                    <h5>B2B Logistics & Shipping</h5>
+                                    <p>We offer specialized shipping for bulk orders across India. Shipping costs are calculated based on the total weight of the order and the destination pincode.</p>
+                                    <ul>
+                                        <li>Order Processing: 24-48 Business Hours</li>
+                                        <li>Transit Time: 3-7 Business Days (Varies by load)</li>
+                                        <li>Return Policy: {product.returnPolicy}</li>
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+
+                    {/* Similar Items Section */}
+                    <section className="pp-similar-section">
+                        <div className="pp-similar-header">
+                            <div>
+                                <h2 className="pp-similar-title">Similar Items You Might Like</h2>
+                                <p className="pp-similar-subtitle">Products from the same category</p>
+                            </div>
+                            <Link to="/" className="pp-view-all">
+                                View All <span className="pp-arrow">→</span>
+                            </Link>
+                        </div>
+
+                        <div className="pp-similar-grid">
+                            {similarProducts.map((item) => (
+                                <Link
+                                    to={`/product/${item.id}`}
+                                    className="pp-similar-card"
+                                    key={item.id}
+                                >
+                                    <div className="pp-similar-image-wrapper">
+                                        <img src={item.image} alt={item.name} className="pp-similar-image" />
+                                        <button
+                                            className={`pp-wishlist-btn ${isInWishlist(item.id) ? 'pc-wishlist-active' : ''}`}
+                                            style={{ color: isInWishlist(item.id) ? '#ef4444' : 'inherit' }}
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                toggleWishlist({ id: item.id, ...item });
+                                            }}
+                                        >
+                                            ♥
+                                        </button>
+                                    </div>
+                                    <div className="pp-similar-info">
+                                        <div className="pp-similar-top-row">
+                                            <h3 className="pp-similar-name">{item.name}</h3>
+                                            <span className="pp-similar-price">{item.price}</span>
+                                        </div>
+                                        <p className="pp-similar-desc">{item.subcategory}</p>
+                                        <p className="pp-similar-sku">SKU: {item.skuId}</p>
+                                        <div className="pp-similar-rating">
+                                            {Array(Math.floor(item.rating)).fill(null).map((_, i) => (
+                                                <span key={i} className="pp-star pp-star-filled pp-star-sm">★</span>
+                                            ))}
+                                            {Array(5 - Math.floor(item.rating)).fill(null).map((_, i) => (
+                                                <span key={i} className="pp-star pp-star-empty pp-star-sm">★</span>
+                                            ))}
+                                            <span className="pp-similar-rating-text">({item.rating})</span>
+                                        </div>
+                                        <button
+                                            className="pp-similar-cart-btn"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                addToCart(item, 1);
+                                            }}
+                                        >
+                                            Add to Cart
+                                        </button>
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
+                    </section>
+                </main>
+
+                <Footer />
+            </div>
         </div>
     );
 }

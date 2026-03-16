@@ -6,6 +6,7 @@ export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
+    const [balance, setBalance] = useState(0);
     const [loading, setLoading] = useState(true);
 
     const api = axios.create({
@@ -13,11 +14,23 @@ export const AuthProvider = ({ children }) => {
         withCredentials: true 
     });
 
+    const refreshBalance = async () => {
+        try {
+            const response = await api.get('/wallet/balance');
+            if (response.data?.data) setBalance(response.data.data.balance);
+        } catch (error) {
+            console.error("Error refreshing balance:", error);
+        }
+    };
+
     useEffect(() => {
         const fetchUser = async () => {
             try {
                 const response = await api.get('/auth/me');
-                if (response.data?.data) setUser(response.data.data);
+                if (response.data?.data) {
+                    setUser(response.data.data);
+                    refreshBalance();
+                }
             } catch (error) {
                 setUser(null);
             } finally {
@@ -77,7 +90,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, loginWithOtpReq, register, logout, sendOtp, loading }}>
+        <AuthContext.Provider value={{ user, balance, refreshBalance, login, loginWithOtpReq, register, logout, sendOtp, loading }}>
             {children}
         </AuthContext.Provider>
     );

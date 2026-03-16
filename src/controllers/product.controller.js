@@ -1,10 +1,7 @@
 import mongoose from "mongoose";
 import fs from "fs";
-import path from "path";
-import csv from "csv-parser";
-import * as xlsx from "xlsx";
 import { Product } from "../models/Product.js";
-import { Category } from "../models/Category.js"; // Required for Mongoose .populate() to work
+import { Category } from "../models/Category.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -29,6 +26,12 @@ const parseCategories = async (categoryString) => {
 };
 
 const categoryCache = new Map();
+let searchLogs = []; // In-memory debug logs
+
+const getSearchLogs = asyncHandler(async (req, res) => {
+    const totalProducts = await Product.countDocuments();
+    return res.status(200).json(new ApiResponse(200, { logs: searchLogs, totalProducts }, "Search logs fetched"));
+});
 
 const getCategoryId = async (categoryString, defCatId) => {
     if (!categoryString) return defCatId;
@@ -43,15 +46,23 @@ const getCategoryId = async (categoryString, defCatId) => {
 
 const getProducts = asyncHandler(async (req, res) => {
     const { page = 1, limit = 12, query, categoryId } = req.query;
-
+    const VERSION = '2026-03-13_SEARCH_FINAL_V1';
     const filter = {};
 
-    if (query) {
-        filter.title = { $regex: query, $options: "i" };
-    }
-
-    if (categoryId) {
-        // Collect all descendant category IDs recursively to include products nested deeply
+    if (query && query.trim()) {
+        const q = query.trim();
+        const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escaped, 'i');
+        
+        // Exact SKU OR Regex on Title/SKU/Description/Tags
+        filter.$or = [
+            { sku: q },
+            { sku: regex },
+            { title: regex },
+            { descriptionHTML: regex },
+            { tags: regex }
+        ];
+    } else if (categoryId && mongoose.isValidObjectId(categoryId)) {
         const rootId = new mongoose.Types.ObjectId(categoryId);
         const categoryIds = [rootId];
         let currentLevelIds = [rootId];
@@ -65,12 +76,10 @@ const getProducts = asyncHandler(async (req, res) => {
                 currentLevelIds = [];
             }
         }
-
         filter.categoryId = { $in: categoryIds };
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
-
     const products = await Product.find(filter)
         .populate("categoryId", "name")
         .sort({ createdAt: -1 })
@@ -86,6 +95,11 @@ const getProducts = asyncHandler(async (req, res) => {
                 total,
                 page: parseInt(page),
                 pages: Math.ceil(total / parseInt(limit)),
+            },
+            debug: { 
+                VERSION,
+                query: query || null, 
+                filter: JSON.parse(JSON.stringify(filter, (k, v) => v instanceof RegExp ? v.toString() : v)) 
             }
         }, "Products fetched successfully")
     );
@@ -249,6 +263,7 @@ const bulkUploadProducts = asyncHandler(async (req, res) => {
         if (!defCat) defCat = await Category.create({ name: "Uncategorized", parentCategoryId: null });
 
         let count = 0;
+
         for (const [handle, data] of productsMap.entries()) {
             if (!data.title) continue;
 
@@ -276,6 +291,7 @@ const bulkUploadProducts = asyncHandler(async (req, res) => {
             );
             count++;
         }
+        
         return count;
     };
 
@@ -330,7 +346,7 @@ const bulkUpdateStock = asyncHandler(async (req, res) => {
     // updates = [{ id: "...", stock: 50 }, ...]
     if (!updates || !updates.length) throw new ApiError(400, "No updates provided");
 
-    const bulkOps = updates.map(u => ({
+const bulkOps = updates.map(u => ({
         updateOne: {
             filter: { _id: u.id },
             update: { $set: { "inventory.stock": Number(u.stock) } }
@@ -340,4 +356,16 @@ const bulkUpdateStock = asyncHandler(async (req, res) => {
     await Product.bulkWrite(bulkOps);
     return res.status(200).json(new ApiResponse(200, { updated: updates.length }, "Stock updated successfully"));
 });
-export { getProducts, getProductById, getBestDeals, getAdminProducts, updateAdminProduct, bulkUploadProducts, generateSampleTemplate, deleteAdminProduct, bulkUpdateStock };
+
+export { 
+    getProducts, 
+    getProductById, 
+    getBestDeals, 
+    getAdminProducts, 
+    updateAdminProduct, 
+    bulkUploadProducts, 
+    generateSampleTemplate,
+    deleteAdminProduct,
+    bulkUpdateStock,
+    getSearchLogs
+};

@@ -1,28 +1,31 @@
-import { Invoice } from '../models/Invoice.js';
 import { WalletTransaction } from '../models/WalletTransaction.js';
+import { Customer } from '../models/Customer.js';
 import { Counter } from '../models/Counter.js';
+import { Invoice } from '../models/Invoice.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { razorpayInstance } from './payment.controller.js';
 
 export const getBalance = asyncHandler(async (req, res) => {
-    const customerId = req.user._id;
+    const customer = await Customer.findOne({ userId: req.user._id });
 
-    // Calculate sum of credits minus debits
-    const transactions = await WalletTransaction.find({ customerId });
-
-    let balance = 0;
-    for (const trx of transactions) {
-        if (trx.transactionType === 'CREDIT') balance += trx.amount;
-        if (trx.transactionType === 'DEBIT') balance -= trx.amount;
+    if (!customer) {
+        throw new ApiError(404, "Customer profile not found");
     }
 
-    return res.status(200).json(new ApiResponse(200, { balance }, "Wallet balance fetched"));
+    return res.status(200).json(new ApiResponse(200, { 
+        balance: customer.walletBalance || 0 
+    }, "Wallet balance fetched"));
 });
 
 export const getTransactionHistory = asyncHandler(async (req, res) => {
-    const transactions = await WalletTransaction.find({ customerId: req.user._id })
+    const customer = await Customer.findOne({ userId: req.user._id });
+    if (!customer) {
+        throw new ApiError(404, "Customer profile not found");
+    }
+
+    const transactions = await WalletTransaction.find({ customerId: customer._id })
         .sort({ createdAt: -1 });
 
     return res.status(200).json(new ApiResponse(200, transactions, "Transaction history fetched"));
@@ -30,7 +33,14 @@ export const getTransactionHistory = asyncHandler(async (req, res) => {
 
 export const addMoney = asyncHandler(async (req, res) => {
     const { amount } = req.body;
-    const customerId = req.user._id;
+    
+    // Find the customer profile first
+    const customer = await Customer.findOne({ userId: req.user._id });
+    if (!customer) {
+        throw new ApiError(404, "Customer profile not found");
+    }
+
+    const customerId = customer._id;
 
     if (!amount || amount <= 0) {
         throw new ApiError(400, "Valid amount is required to add money");

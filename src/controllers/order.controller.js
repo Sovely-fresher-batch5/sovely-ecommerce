@@ -31,55 +31,58 @@ export const placeOrder = asyncHandler(async (req, res) => {
 
     try {
         let totalAmount = 0;
+        let totalResellerProfit = 0;
         const orderItems = [];
 
         for (const item of items) {
             const product = await Product.findById(item.productId).session(session);
             if (!product) throw new Error("Product not found");
 
-            // Stock Validation Atomic Check
             if (product.inventory.stock < item.qty) {
                 throw new Error(`Insufficient stock for ${product.title}. Only ${product.inventory.stock} remaining.`);
             }
 
-            // Decrease Stock
             await Product.findByIdAndUpdate(
                 product._id,
                 { $inc: { 'inventory.stock': -item.qty } },
                 { session }
             );
 
-            const price = product.platformSellPrice;
-            totalAmount += (price * item.qty);
+            const wholesalePrice = product.platformSellPrice;
+            const retailPrice = item.retailPrice || wholesalePrice; 
+            
+            const itemProfit = (retailPrice - wholesalePrice) * item.qty;
+            
+            totalAmount += (retailPrice * item.qty);
+            totalResellerProfit += itemProfit;
 
             orderItems.push({
                 sku: product.sku,
-                price: price,
+                price: wholesalePrice,
+                retailPrice: retailPrice,
                 qty: item.qty,
-                tax: 0 // Placeholder for tax logic
+                tax: 0
             });
         }
 
-        // Generate IDs
         const orderIdSeq = await Counter.getNextSequenceValue('orderId');
         const invoiceNumSeq = await Counter.getNextSequenceValue('invoiceNumber');
 
         const orderIdStr = `ORD-${orderIdSeq.toString().padStart(6, '0')}`;
         const invoiceNumStr = `INV-${invoiceNumSeq.toString().padStart(6, '0')}`;
 
-        // Create Order
         const newOrder = await Order.create([{
             orderId: orderIdStr,
             customerId,
-            cartId: customerId, // Bypassing strict cartId for direct checkout demo
+            cartId: customerId,
             status: 'PENDING',
             totalAmount,
+            resellerProfit: totalResellerProfit,
             items: orderItems,
             paymentMethod,
             paymentTerms
         }], { session });
 
-        // Create Invoice
         const dueDate = calculateDueDate(paymentTerms);
         const newInvoice = await Invoice.create([{
             invoiceNumber: invoiceNumStr,
@@ -92,8 +95,6 @@ export const placeOrder = asyncHandler(async (req, res) => {
             paymentTerms,
             status: paymentMethod === 'BANK_TRANSFER' ? 'UNPAID' : 'UNPAID'
         }], { session });
-
-        // Removed Cart cleanup since we accept items directly now
 
         await session.commitTransaction();
         session.endSession();
@@ -121,7 +122,6 @@ export const getOrderById = asyncHandler(async (req, res) => {
 });
 
 export const cancelOrder = asyncHandler(async (req, res) => {
-    // Basic implementation: in real world, restore stock, refund payment, etc.
     const order = await Order.findOneAndUpdate(
         { _id: req.params.id, customerId: req.user._id, status: 'PENDING' },
         { status: 'CANCELLED' },
@@ -129,10 +129,9 @@ export const cancelOrder = asyncHandler(async (req, res) => {
     );
     if (!order) throw new ApiError(404, "Order not found or cannot be cancelled");
 
-    // Also cancel matched pending invoice
     await Invoice.findOneAndUpdate(
         { orderId: order._id, status: 'UNPAID' },
-        { status: 'CANCELLED' } // Wait, 'CANCELLED' is not in Invoice schema enum. 'UNPAID' stands. Let's just leave invoice or update schema later if needed.
+        { status: 'CANCELLED' } 
     );
 
     return res.status(200).json(new ApiResponse(200, order, "Order cancelled successfully"));
@@ -141,16 +140,13 @@ export const cancelOrder = asyncHandler(async (req, res) => {
 export const updateOrderStatus = asyncHandler(async (req, res) => {
     const { status, courierName, trackingNumber } = req.body;
     
-    // Find the order
     const order = await Order.findById(req.params.id);
     if (!order) throw new ApiError(404, "Order not found");
 
-    // Update the status (Ensure it's a valid enum value)
     if (status) {
         order.status = status.toUpperCase();
     }
 
-    // Add tracking details if the warehouse worker provided them
     if (courierName || trackingNumber) {
         order.tracking = {
             courierName: courierName || order.tracking?.courierName,
@@ -159,17 +155,57 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
         };
     }
 
-    // Saving it will automatically trigger our pre-save hook to update the timeline!
     await order.save();
 
     return res.status(200).json(new ApiResponse(200, order, `Order successfully marked as ${order.status}`));
 });
 
 export const getAllOrders = asyncHandler(async (req, res) => {
-    // Fetch all orders and populate the customer details
     const orders = await Order.find()
         .populate('customerId', 'name email')
         .sort({ createdAt: -1 });
         
     return res.status(200).json(new ApiResponse(200, orders, "All orders fetched successfully"));
+});
+
+export const getAnalyticsStats = asyncHandler(async (req, res) => {
+    const stats = await Order.aggregate([
+        { $match: { customerId: req.user._id } },
+        {
+            $group: {
+                _id: "$status",
+                count: { $sum: 1 },
+                totalProfit: { $sum: "$resellerProfit" }
+            }
+        }
+    ]);
+
+    const data = {
+        totalOrders: 0,
+        confirmed: 0, 
+        shipped: 0,
+        delivered: 0,
+        cancelled: 0,
+        grossProfit: 0,
+        upcomingProfit: 0
+    };
+
+    stats.forEach(stat => {
+        data.totalOrders += stat.count;
+        
+        if (stat._id === 'PENDING' || stat._id === 'PROCESSING') {
+            data.confirmed += stat.count;
+            data.upcomingProfit += stat.totalProfit || 0;
+        } else if (stat._id === 'SHIPPED') {
+            data.shipped += stat.count;
+            data.upcomingProfit += stat.totalProfit || 0;
+        } else if (stat._id === 'DELIVERED') {
+            data.delivered += stat.count;
+            data.grossProfit += stat.totalProfit || 0;
+        } else if (stat._id === 'CANCELLED') {
+            data.cancelled += stat.count;
+        }
+    });
+
+    return res.status(200).json(new ApiResponse(200, data, "Analytics fetched successfully"));
 });

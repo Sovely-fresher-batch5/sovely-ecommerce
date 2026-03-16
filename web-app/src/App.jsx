@@ -11,6 +11,15 @@ import Checkout from './components/Checkout'
 import Orders from './components/Orders'
 import OrderTracking from './components/OrderTracking' // New Component!
 import AdminDashboard from './components/AdminDashboard'
+import Analytics from './components/Analytics'
+import ManageOrders from './components/ManageOrders'
+import ManageNDR from './components/ManageNDR'
+import WalletPortal from './components/WalletPortal'
+import FullCartPage from './components/FullCartPage'
+import BulkOrder from './components/BulkOrder'
+import Contact from './components/Contact'
+import CourierService from './components/CourierService'
+import RoleProtectedRoute from './components/RoleProtectedRoute'
 
 function App() {
   return (
@@ -26,6 +35,14 @@ function App() {
         <Route path="/orders" element={<Orders />} />
         <Route path="/orders/:id/track" element={<OrderTracking />} /> {/* New Route */}
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/analytics" element={<Analytics />} />
+        <Route path="/manage-orders" element={<ManageOrders />} />
+        <Route path="/manage-ndr" element={<ManageNDR />} />
+        <Route path="/wallet" element={<WalletPortal />} />
+        <Route path="/cart" element={<FullCartPage />} />
+        <Route path="/bulk-order" element={<BulkOrder />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/courier-service" element={<RoleProtectedRoute allowedRoles={['B2B', 'ADMIN']} element={<CourierService />} />} />
       </Routes>
     </Suspense>
   )

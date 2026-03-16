@@ -27,6 +27,7 @@ export const productApi = {
                 pages: Number(payload?.pagination?.pages) || 1,
                 limit: safeLimit,
             },
+            debug: payload?.debug
         };
     },
 

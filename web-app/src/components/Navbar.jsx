@@ -3,184 +3,158 @@ import { Link } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
 import { CartContext } from '../CartContext';
 import { WishlistContext } from '../WishlistContext';
-import { useQuery } from '@tanstack/react-query';
-import { productApi } from '../features/products/api/productApi';
-import { getCategoryIcon } from '../utils/categoryIcons';
-import CartDrawer from './CartDrawer';
+import { ShoppingCart, Heart, Bell, User, Search, Headphones, Wallet, ChevronDown } from 'lucide-react';
 import WishlistDrawer from './WishlistDrawer';
 
-function Navbar({ onToggleSidebar, onSelectCategory }) {
-  const { user, logout, loading } = useContext(AuthContext);
+function Navbar({ onSelectCategory, searchQuery, onSearchChange, onSearchSubmit }) {
+  const { user, balance, logout, loading } = useContext(AuthContext);
   const { cartItems } = useContext(CartContext);
   const { wishlistItems } = useContext(WishlistContext);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [catDropOpen, setCatDropOpen] = useState(false);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
-  const dropRef = useRef(null);
-  const hoverTimeout = useRef(null);
 
-  const { data: dbCategories = [] } = useQuery({
-    queryKey: ['categories'],
-    queryFn: productApi.getCategories
-  });
-
-  const displayCategories = dbCategories.map((cat) => {
-    const visual = getCategoryIcon(cat.name);
-    return {
-      _id: cat._id,
-      name: cat.name,
-      Icon: visual.Icon,
-      color: visual.color,
-      iconColor: visual.iconColor
-    };
-  });
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handler = (e) => {
-      if (dropRef.current && !dropRef.current.contains(e.target)) {
-        setCatDropOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const handleMouseEnter = () => {
-    clearTimeout(hoverTimeout.current);
-    setCatDropOpen(true);
-  };
-
-  const handleMouseLeave = () => {
-    hoverTimeout.current = setTimeout(() => setCatDropOpen(false), 180);
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      onSearchSubmit && onSearchSubmit(searchQuery);
+    }
   };
 
   return (
-    <nav className="navbar" id="navbar">
+    <nav className="navbar-b2b">
       <div className="navbar-container">
+        {/* Left: Logo */}
         <div className="navbar-left">
-          <div className="navbar-logo-wrapper">
-            <button
-              className="btn-menu-toggle"
-              onClick={onToggleSidebar}
-              aria-label="Toggle Navigation Menu"
-            >
-              ☰
-            </button>
-            <a href="#" className="navbar-logo">
-              <img src="https://m.media-amazon.com/images/X/bxt1/M/Bbxt1BI1cNpD5ln._SL160_QL95_FMwebp_.png" alt="Sovely Logo" className="logo-image" />
-              <span className="logo-text">Sovely</span>
-            </a>
-          </div>
-
-          <ul className={`nav-links ${mobileMenuOpen ? 'active' : ''}`}>
-            {/* Category item with dropdown */}
-            <li
-              className="nav-item-dropdown"
-              ref={dropRef}
-              onMouseEnter={handleMouseEnter}
-              onMouseLeave={handleMouseLeave}
-            >
-              <button
-                className={`nav-link nav-link-btn ${catDropOpen ? 'nav-link-active' : ''}`}
-                onClick={() => setCatDropOpen((v) => !v)}
-                aria-haspopup="true"
-                aria-expanded={catDropOpen}
-                id="nav-category-btn"
-              >
-                Category
-                <span className={`nav-arrow ${catDropOpen ? 'nav-arrow-up' : ''}`}>▾</span>
-              </button>
-
-              <div className={`cat-dropdown ${catDropOpen ? 'cat-dropdown-open' : ''}`} role="menu">
-                <div className="cat-dropdown-grid">
-                  {displayCategories.map((cat, i) => (
-                    <a
-                      href="#products"
-                      className="cat-dropdown-item"
-                      key={cat._id || i}
-                      onClick={() => {
-                        setCatDropOpen(false);
-                        if (onSelectCategory) onSelectCategory(cat.name);
-                      }}
-                      role="menuitem"
-                    >
-                      <span
-                        className="cat-dropdown-icon"
-                        style={{ backgroundColor: cat.color, color: cat.iconColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      >
-                        <cat.Icon size={18} strokeWidth={2} />
-                      </span>
-                      <span className="cat-dropdown-label">{cat.name}</span>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            </li>
-
-            <li><a href="#deals" className="nav-link">Deals</a></li>
-            <li><a href="#new" className="nav-link">What's New</a></li>
-            <li><a href="#delivery" className="nav-link">Delivery</a></li>
-          </ul>
+          <Link to="/" className="navbar-logo-b2b">
+            <img src="https://m.media-amazon.com/images/X/bxt1/M/Bbxt1BI1cNpD5ln._SL160_QL95_FMwebp_.png" alt="Sovely Logo" className="logo-image-b2b" />
+            <div className="logo-text-stack">
+              <span className="logo-brand">SOVELY</span>
+              <span className="logo-sub">PREMIUM MARKETPLACE</span>
+            </div>
+          </Link>
         </div>
 
-        <div className="navbar-right">
-          <div className="search-wrapper" id="search-wrapper">
-            <span className="search-icon">🔍</span>
-            <input
-              type="text"
-              placeholder="Search Product"
-              className="search-input"
-              id="search-input"
-            />
-          </div>
-          <div className="nav-actions">
-            <button className="nav-icon-btn" aria-label="Wishlist" onClick={() => setIsWishlistOpen(true)}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill={wishlistItems?.length > 0 ? "#ef4444" : "none"} stroke={wishlistItems?.length > 0 ? "#ef4444" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-              </svg>
-              {wishlistItems?.length > 0 && <span className="nav-badge" style={{ backgroundColor: '#ef4444' }}>{wishlistItems.length}</span>}
-            </button>
-            <button className="nav-icon-btn" aria-label="Cart" onClick={() => setIsCartOpen(true)}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 20a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"></path>
-                <path d="M20 20a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"></path>
-                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-              </svg>
-              {cartItems && cartItems.length > 0 && (
-                <span className="nav-badge">
-                  {cartItems.reduce((acc, item) => acc + item.quantity, 0)}
-                </span>
-              )}
-            </button>
+        {/* Center: Search */}
+        <div className="navbar-center" style={{ flexGrow: 1, maxWidth: '800px', margin: '0 40px' }}>
+            <div className="b2b-search-bar" style={{ 
+                width: '100%', 
+                height: '48px', 
+                backgroundColor: '#f1f5f9',
+                border: '1px solid #e2e8f0',
+                borderRadius: '12px',
+                padding: '0 8px 0 16px',
+                boxShadow: 'none',
+                gap: '12px'
+            }}>
+                <Search size={18} color="#94a3b8" />
+                <input 
+                    type="text" 
+                    placeholder="Search Orders, Products or SKU (e.g. DE124, Magic Book)" 
+                    value={searchQuery}
+                    onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    style={{ fontSize: '14px', fontWeight: 500, backgroundColor: 'transparent' }}
+                />
+                <button 
+                  className="premium-search-btn" 
+                  onClick={() => onSearchSubmit && onSearchSubmit(searchQuery)}
+                  style={{
+                    backgroundColor: 'var(--color-primary)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '0 20px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'opacity 0.2s',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}
+                >
+                    Search
+                </button>
+            </div>
+        </div>
 
-            <div className="nav-auth-buttons">
-              {loading ? (
-                <span className="nav-link">...</span>
-              ) : user ? (
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                  <Link to="/my-account" className="nav-link" style={{ fontWeight: 600 }}>Hi, {user.name.split(' ')[0]}</Link>
-                  <button onClick={logout} className="btn-nav-login" style={{ cursor: 'pointer', background: 'transparent', border: '1px solid #333' }}>Logout</button>
+        {/* Right: Actions */}
+        <div className="navbar-right-b2b">
+          <div className="b2b-nav-buttons" style={{ gap: '15px' }}>
+            {/* Combined Support Hub */}
+            <Link to="/contact" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', textDecoration: 'none' }}>
+                <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--color-primary)', letterSpacing: '0.8px' }}>CONTACT SUPPORT</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--color-text)', fontWeight: 700, fontSize: '14px' }}>
+                    <Headphones size={14} />
+                    +91 96626-86196
                 </div>
-              ) : (
-                <>
-                  <Link to="/login" className="btn-nav-login" id="btn-login">Log in</Link>
-                  <Link to="/signup" className="btn-nav-signup" id="btn-signup">Sign Up</Link>
-                </>
-              )}
+            </Link>
+
+            <div style={{ width: '1px', height: '24px', backgroundColor: '#e2e8f0', margin: '0 5px' }}></div>
+
+            <Link to="/wallet" className="nav-btn wallet-balance-nav" style={{
+                textDecoration: 'none', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '10px', 
+                backgroundColor: 'rgba(27, 67, 50, 0.05)', 
+                color: '#1b4332', 
+                border: '1.5px solid rgba(27, 67, 50, 0.2)',
+                transition: 'all 0.2s ease',
+                fontWeight: 700,
+                padding: '0 15px',
+                height: '42px',
+                borderRadius: '10px'
+            }}>
+                <div style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '6px',
+                    backgroundColor: '#1b4332',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}>
+                    <Wallet size={16} color="white" />
+                </div>
+                <span style={{ fontSize: '15px' }}>₹{balance.toFixed(2)}</span>
+            </Link>
+            
+            <Link to="/wallet?action=recharge" className="nav-btn recharge-btn" style={{
+                textDecoration: 'none', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '8px',
+                height: '42px',
+                padding: '0 18px',
+                borderRadius: '10px',
+                backgroundColor: '#1b4332',
+                border: 'none',
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: '14px'
+            }}>
+                Recharge
+            </Link>
+          </div>
+
+          <div className="b2b-icon-actions">
+            <button className="icon-action-btn" aria-label="Wishlist" onClick={() => setIsWishlistOpen(true)}>
+                <Heart size={22} fill={wishlistItems?.length > 0 ? "var(--color-primary)" : "none"} stroke={wishlistItems?.length > 0 ? "var(--color-primary)" : "currentColor"} />
+                {wishlistItems?.length > 0 && <span className="action-badge">{wishlistItems.length}</span>}
+            </button>
+            <button className="icon-action-btn" aria-label="Notifications">
+                <Bell size={22} />
+            </button>
+            <Link to="/cart" className="icon-action-btn" aria-label="Cart">
+                <ShoppingCart size={22} />
+                {cartItems?.length > 0 && <span className="action-badge">{cartItems.length}</span>}
+            </Link>
+            <div className="user-profile-toggle">
+                <User size={22} />
+                {user && <span className="user-name-small">{user.name.split(' ')[0]}</span>}
             </div>
           </div>
-          <button
-            className="mobile-menu-btn"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle menu"
-          >
-            {mobileMenuOpen ? '✕' : '☰'}
-          </button>
         </div>
       </div>
-      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
       <WishlistDrawer isOpen={isWishlistOpen} onClose={() => setIsWishlistOpen(false)} />
     </nav>
   );
