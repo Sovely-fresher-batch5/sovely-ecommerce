@@ -335,6 +335,27 @@ const generateSampleTemplate = asyncHandler(async (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename=sample_products_template.csv');
     return res.status(200).send(csvContent);
 });
+const deleteAdminProduct = asyncHandler(async (req, res) => {
+    const product = await Product.findByIdAndDelete(req.params.id);
+    if (!product) throw new ApiError(404, "Product not found");
+    return res.status(200).json(new ApiResponse(200, {}, "Product deleted successfully"));
+});
+
+const bulkUpdateStock = asyncHandler(async (req, res) => {
+    const { updates } = req.body;
+    // updates = [{ id: "...", stock: 50 }, ...]
+    if (!updates || !updates.length) throw new ApiError(400, "No updates provided");
+
+const bulkOps = updates.map(u => ({
+        updateOne: {
+            filter: { _id: u.id },
+            update: { $set: { "inventory.stock": Number(u.stock) } }
+        }
+    }));
+
+    await Product.bulkWrite(bulkOps);
+    return res.status(200).json(new ApiResponse(200, { updated: updates.length }, "Stock updated successfully"));
+});
 
 export { 
     getProducts, 
@@ -344,5 +365,7 @@ export {
     updateAdminProduct, 
     bulkUploadProducts, 
     generateSampleTemplate,
+    deleteAdminProduct,
+    bulkUpdateStock,
     getSearchLogs
 };

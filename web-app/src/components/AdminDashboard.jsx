@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, ShoppingBag, Users, Package, TrendingUp, AlertCircle, DollarSign, Edit2, Search, Filter, Upload } from 'lucide-react';
+import { ShoppingBag, Users, Package, TrendingUp, AlertCircle, DollarSign, Edit2, Search, Filter, Upload } from 'lucide-react';
 import axios from 'axios';
 import Navbar from './Navbar';
 import BulkUpload from './BulkUpload';
@@ -10,7 +10,7 @@ const api = axios.create({
 });
 
 const AdminDashboard = () => {
-    const [activeTab, setActiveTab] = useState('orders'); // 'overview', 'orders', 'products', 'users', 'bulk-upload'
+    const [activeTab, setActiveTab] = useState('orders');
 
     // Data States
     const [orders, setOrders] = useState([]);
@@ -28,7 +28,11 @@ const AdminDashboard = () => {
     // Inline Editing States
     const [updatingId, setUpdatingId] = useState(null);
     const [editForm, setEditForm] = useState({});
-    const [isSaving, setIsSaving] = useState(false); // NEW: Tracks button loading state
+    const [isSaving, setIsSaving] = useState(false);
+
+    // ✅ NEW: Bulk Select States (Shashank)
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [bulkStock, setBulkStock] = useState('');
 
     // Fetch data whenever the tab changes
     useEffect(() => {
@@ -36,7 +40,6 @@ const AdminDashboard = () => {
             setLoading(true);
             try {
                 if (activeTab === 'overview') {
-                    // NEW: Fetch both so we can do the real math for the dashboard cards!
                     const [ordersRes, productsRes] = await Promise.all([
                         api.get('/orders/admin/all'),
                         api.get('/products/admin/all')
@@ -62,7 +65,6 @@ const AdminDashboard = () => {
         fetchData();
     }, [activeTab]);
 
-    // New: Only reset filters if the user manually clicks the sidebar
     const handleSidebarClick = (tabId) => {
         setActiveTab(tabId);
         setSearchQuery('');
@@ -70,6 +72,8 @@ const AdminDashboard = () => {
         setPriceFilter('ALL');
         setStockFilter('ALL');
         setUpdatingId(null);
+        setSelectedIds([]);
+        setBulkStock('');
     };
 
     // --- SUBMIT HANDLERS ---
@@ -78,7 +82,8 @@ const AdminDashboard = () => {
         try {
             await api.put(`/orders/${id}/status`, { status: editForm.status, courierName: editForm.courierName, trackingNumber: editForm.trackingNumber });
             setUpdatingId(null);
-            const res = await api.get('/orders/admin/all'); setOrders(res.data.data);
+            const res = await api.get('/orders/admin/all');
+            setOrders(res.data.data);
         } finally { setIsSaving(false); }
     };
 
@@ -87,7 +92,8 @@ const AdminDashboard = () => {
         try {
             await api.put(`/products/admin/${id}`, { platformSellPrice: Number(editForm.price), stock: Number(editForm.stock), status: editForm.status });
             setUpdatingId(null);
-            const res = await api.get('/products/admin/all'); setProducts(res.data.data);
+            const res = await api.get('/products/admin/all');
+            setProducts(res.data.data);
         } finally { setIsSaving(false); }
     };
 
@@ -96,8 +102,49 @@ const AdminDashboard = () => {
         try {
             await api.put(`/users/admin/${id}/role`, { role: editForm.role });
             setUpdatingId(null);
-            const res = await api.get('/users/admin/all'); setUsers(res.data.data);
+            const res = await api.get('/users/admin/all');
+            setUsers(res.data.data);
         } finally { setIsSaving(false); }
+    };
+
+    // ✅ NEW: Bulk Action Handlers (Shashank)
+    const handleSelectAll = (data) => {
+        if (selectedIds.length === data.length) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(data.map(p => p._id));
+        }
+    };
+
+    const handleMassDelete = async () => {
+        if (!selectedIds.length) return;
+        if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} product(s)? This cannot be undone.`)) return;
+        try {
+            for (const id of selectedIds) {
+                await api.delete(`/products/admin/${id}`);
+            }
+            setSelectedIds([]);
+            const res = await api.get('/products/admin/all');
+            setProducts(res.data.data);
+        } catch (err) {
+            console.error('Mass delete error:', err);
+            alert('Something went wrong during deletion. Please try again.');
+        }
+    };
+
+    const handleBulkStockUpdate = async () => {
+        if (!selectedIds.length || bulkStock === '') return;
+        try {
+            const updates = selectedIds.map(id => ({ id, stock: bulkStock }));
+            await api.post('/products/admin/bulk-stock', { updates });
+            setSelectedIds([]);
+            setBulkStock('');
+            const res = await api.get('/products/admin/all');
+            setProducts(res.data.data);
+        } catch (err) {
+            console.error('Bulk stock update error:', err);
+            alert('Something went wrong. Please try again.');
+        }
     };
 
     const getStatusColor = (status) => {
@@ -113,9 +160,7 @@ const AdminDashboard = () => {
 
     const handleSort = (key) => {
         let direction = 'asc';
-        if (sortConfig.key === key && sortConfig.direction === 'asc') {
-            direction = 'desc';
-        }
+        if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
         setSortConfig({ key, direction });
     };
 
@@ -124,7 +169,6 @@ const AdminDashboard = () => {
         return sortConfig.direction === 'asc' ? ' ↑' : ' ↓';
     };
 
-    // --- UI HELPERS ---
     const renderControls = (searchPlaceholder, filterOptions) => (
         <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 300px', display: 'flex', alignItems: 'center', background: '#fff', padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
@@ -151,38 +195,101 @@ const AdminDashboard = () => {
         </div>
     );
 
-    // --- TAB RENDERERS ---
+    // ✅ UPDATED: renderOverview — more detail (Shashank)
     const renderOverview = () => {
-        // Calculate real metrics from the database!
         const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-        const processingOrdersCount = orders.filter(o => o.status === 'PROCESSING').length;
+        const totalOrders = orders.length;
+        const totalProducts = products.length;
+        const processingCount = orders.filter(o => o.status === 'PROCESSING').length;
         const lowStockCount = products.filter(p => p.inventory?.stock > 0 && p.inventory?.stock <= 10).length;
+        const outOfStockCount = products.filter(p => !p.inventory?.stock || p.inventory?.stock === 0).length;
+
+        const statCards = [
+            { label: 'Total Revenue', value: `₹${totalRevenue.toLocaleString('en-IN')}`, bg: '#f0fdf4', iconBg: '#dcfce7', icon: <DollarSign size={22} color="#166534" /> },
+            { label: 'Total Orders', value: totalOrders, bg: '#eff6ff', iconBg: '#dbeafe', icon: <ShoppingBag size={22} color="#1d4ed8" />, onClick: () => setActiveTab('orders') },
+            { label: 'Total Products', value: totalProducts, bg: '#faf5ff', iconBg: '#ede9fe', icon: <Package size={22} color="#7c3aed" />, onClick: () => setActiveTab('products') },
+            { label: 'Processing Orders', value: processingCount, bg: '#fff7ed', iconBg: '#ffedd5', icon: <TrendingUp size={22} color="#c2410c" />, onClick: () => { setActiveTab('orders'); setFilterOption('PROCESSING'); } },
+            { label: 'Low Stock Items', value: `${lowStockCount} items`, bg: '#fefce8', iconBg: '#fef9c3', icon: <AlertCircle size={22} color="#ca8a04" />, onClick: () => { setActiveTab('products'); setStockFilter('LOW_STOCK'); } },
+            { label: 'Out of Stock', value: `${outOfStockCount} items`, bg: '#fef2f2', iconBg: '#fee2e2', icon: <AlertCircle size={22} color="#b91c1c" />, onClick: () => { setActiveTab('products'); setStockFilter('OUT_OF_STOCK'); } },
+        ];
 
         return (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '24px' }}>
-                <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{ background: '#f0fdf4', padding: '16px', borderRadius: '12px' }}><DollarSign size={24} color="#166534" /></div>
-                    <div><p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>Total Revenue</p><h3 style={{ margin: 0, fontSize: '1.5rem', color: '#0f172a' }}>₹{totalRevenue.toLocaleString('en-IN')}</h3></div>
+            <div>
+                {/* Stat Cards Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+                    {statCards.map((card, i) => (
+                        <div
+                            key={i}
+                            onClick={card.onClick}
+                            style={{
+                                background: '#fff', padding: '22px', borderRadius: '12px',
+                                boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
+                                display: 'flex', alignItems: 'center', gap: '16px',
+                                cursor: card.onClick ? 'pointer' : 'default',
+                                transition: 'transform 0.15s, box-shadow 0.15s',
+                                border: '1px solid #f1f5f9'
+                            }}
+                            onMouseOver={e => { if (card.onClick) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.08)'; } }}
+                            onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.04)'; }}
+                        >
+                            <div style={{ background: card.iconBg, padding: '14px', borderRadius: '12px', flexShrink: 0 }}>
+                                {card.icon}
+                            </div>
+                            <div>
+                                <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem', marginBottom: '4px' }}>{card.label}</p>
+                                <h3 style={{ margin: 0, fontSize: '1.5rem', color: '#0f172a', fontWeight: '600' }}>{card.value}</h3>
+                            </div>
+                        </div>
+                    ))}
                 </div>
 
-                <div
-                    onClick={() => { setActiveTab('orders'); setFilterOption('PROCESSING'); }}
-                    style={{ background: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', transition: 'transform 0.2s' }}
-                    onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                    onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                >
-                    <div style={{ background: '#eff6ff', padding: '16px', borderRadius: '12px' }}><ShoppingBag size={24} color="#1d4ed8" /></div>
-                    <div><p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>Orders Processing</p><h3 style={{ margin: 0, fontSize: '1.5rem', color: '#0f172a' }}>{processingOrdersCount}</h3></div>
-                </div>
-
-                <div
-                    onClick={() => { setActiveTab('products'); setStockFilter('LOW_STOCK'); }}
-                    style={{ background: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', transition: 'transform 0.2s' }}
-                    onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                    onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                >
-                    <div style={{ background: '#fef2f2', padding: '16px', borderRadius: '12px' }}><AlertCircle size={24} color="#b91c1c" /></div>
-                    <div><p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>Low Stock Alerts</p><h3 style={{ margin: 0, fontSize: '1.5rem', color: '#0f172a' }}>{lowStockCount} Items</h3></div>
+                {/* Recent Orders Table */}
+                <div style={{ background: '#fff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 10px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.05rem', fontWeight: '600' }}>Recent Orders</h3>
+                        <button
+                            onClick={() => setActiveTab('orders')}
+                            style={{ background: 'transparent', border: '1px solid #e2e8f0', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', color: '#475569' }}
+                        >
+                            View all →
+                        </button>
+                    </div>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ background: '#f8fafc', color: '#475569', fontSize: '0.85rem' }}>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Order ID</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Customer</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Amount</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Status</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {orders.length === 0 && (
+                                    <tr><td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>No orders yet.</td></tr>
+                                )}
+                                {orders.slice(0, 8).map(o => {
+                                    const colors = getStatusColor(o.status);
+                                    return (
+                                        <tr key={o._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                            <td style={{ padding: '12px 16px', fontWeight: '500', fontSize: '0.9rem', color: '#0f172a' }}>{o.orderId}</td>
+                                            <td style={{ padding: '12px 16px', color: '#64748b', fontSize: '0.9rem' }}>{o.customerId?.name || 'Unknown'}</td>
+                                            <td style={{ padding: '12px 16px', fontWeight: '500', fontSize: '0.9rem' }}>₹{o.totalAmount?.toLocaleString('en-IN')}</td>
+                                            <td style={{ padding: '12px 16px' }}>
+                                                <span style={{ background: colors.bg, color: colors.text, padding: '3px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '600' }}>
+                                                    {o.status}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '12px 16px', color: '#94a3b8', fontSize: '0.85rem' }}>
+                                                {new Date(o.orderDate || o.createdAt).toLocaleDateString('en-IN')}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         );
@@ -232,8 +339,10 @@ const AdminDashboard = () => {
                                             {isUpdating ? (
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                     <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })} style={{ padding: '6px' }}>
-                                                        <option value="PENDING">Pending</option><option value="PROCESSING">Processing</option>
-                                                        <option value="SHIPPED">Shipped</option><option value="DELIVERED">Delivered</option>
+                                                        <option value="PENDING">Pending</option>
+                                                        <option value="PROCESSING">Processing</option>
+                                                        <option value="SHIPPED">Shipped</option>
+                                                        <option value="DELIVERED">Delivered</option>
                                                         <option value="CANCELLED">Cancelled</option>
                                                     </select>
                                                     {(editForm.status === 'SHIPPED' || editForm.status === 'DELIVERED') && (
@@ -246,11 +355,7 @@ const AdminDashboard = () => {
                                                         <button
                                                             disabled={isSaving}
                                                             onClick={() => submitOrderUpdate(order._id)}
-                                                            style={{
-                                                                background: isSaving ? '#94a3b8' : '#1b4332',
-                                                                color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px',
-                                                                cursor: isSaving ? 'not-allowed' : 'pointer'
-                                                            }}>
+                                                            style={{ background: isSaving ? '#94a3b8' : '#1b4332', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: isSaving ? 'not-allowed' : 'pointer' }}>
                                                             {isSaving ? 'Saving...' : 'Save'}
                                                         </button>
                                                         <button onClick={() => setUpdatingId(null)} style={{ background: '#e2e8f0', color: '#475569', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
@@ -270,8 +375,8 @@ const AdminDashboard = () => {
         );
     };
 
+    // ✅ UPDATED: renderProducts — now with checkboxes + bulk actions (Shashank)
     const renderProducts = () => {
-        // 1. Apply Filters
         let filteredData = products.filter(p => {
             const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase()) || p.sku.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesStatus = filterOption === 'ALL' || p.status === filterOption;
@@ -289,54 +394,92 @@ const AdminDashboard = () => {
             return matchesSearch && matchesStatus && matchesPrice && matchesStock;
         });
 
-        // 2. Apply Sorting
         if (sortConfig.key) {
             filteredData.sort((a, b) => {
                 let aValue = sortConfig.key === 'stock' ? (a.inventory?.stock || 0) : a[sortConfig.key];
                 let bValue = sortConfig.key === 'stock' ? (b.inventory?.stock || 0) : b[sortConfig.key];
-
-                // String comparison for titles
                 if (typeof aValue === 'string') {
                     return sortConfig.direction === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
                 }
-                // Number comparison for price/stock
                 return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
             });
         }
 
         return (
             <>
-                {/* Reusing your standard search bar, but adding our new custom dropdowns next to it */}
-                <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
+                {/* Filter Bar */}
+                <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
                     <div style={{ flex: '1 1 250px', display: 'flex', alignItems: 'center', background: '#fff', padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                         <Search size={18} color="#94a3b8" />
                         <input type="text" placeholder="Search Title or SKU..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ border: 'none', outline: 'none', marginLeft: '12px', width: '100%' }} />
                     </div>
-
                     <select value={filterOption} onChange={(e) => setFilterOption(e.target.value)} style={{ padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff' }}>
                         <option value="ALL">All Statuses</option>
                         <option value="active">Active</option>
                         <option value="draft">Draft</option>
                     </select>
-
                     <select value={priceFilter} onChange={(e) => setPriceFilter(e.target.value)} style={{ padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff' }}>
                         <option value="ALL">All Prices</option>
                         <option value="UNDER_500">Under ₹500</option>
                         <option value="OVER_1000">Over ₹1,000</option>
                     </select>
-
                     <select value={stockFilter} onChange={(e) => setStockFilter(e.target.value)} style={{ padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff' }}>
                         <option value="ALL">All Stock Levels</option>
-                        <option value="IN_STOCK">In Stock {"(>10)"}</option>
-                        <option value="LOW_STOCK">Low Stock (1-10)</option>
+                        <option value="IN_STOCK">In Stock ({'>'}10)</option>
+                        <option value="LOW_STOCK">Low Stock (1–10)</option>
                         <option value="OUT_OF_STOCK">Out of Stock (0)</option>
                     </select>
                 </div>
 
+                {/* ✅ Bulk Action Bar — shows only when items are selected */}
+                {selectedIds.length > 0 && (
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', padding: '12px 16px', background: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe', flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: '600', color: '#1d4ed8', fontSize: '0.9rem' }}>{selectedIds.length} product(s) selected</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input
+                                type="number"
+                                placeholder="Set stock qty"
+                                value={bulkStock}
+                                onChange={e => setBulkStock(e.target.value)}
+                                min="0"
+                                style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '130px', fontSize: '0.9rem' }}
+                            />
+                            <button
+                                onClick={handleBulkStockUpdate}
+                                style={{ background: '#1b4332', color: '#fff', border: 'none', padding: '7px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: '500', fontSize: '0.9rem' }}
+                            >
+                                Update Stock
+                            </button>
+                        </div>
+                        <button
+                            onClick={handleMassDelete}
+                            style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '7px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: '500', fontSize: '0.9rem' }}
+                        >
+                            Delete Selected
+                        </button>
+                        <button
+                            onClick={() => { setSelectedIds([]); setBulkStock(''); }}
+                            style={{ background: '#e2e8f0', color: '#475569', border: 'none', padding: '7px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem' }}
+                        >
+                            Clear Selection
+                        </button>
+                    </div>
+                )}
+
+                {/* Products Table */}
                 <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
                             <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '0.9rem' }}>
+                                {/* ✅ Checkbox column */}
+                                <th style={{ padding: '16px', width: '48px' }}>
+                                    <input
+                                        type="checkbox"
+                                        onChange={() => handleSelectAll(filteredData)}
+                                        checked={selectedIds.length === filteredData.length && filteredData.length > 0}
+                                        style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                    />
+                                </th>
                                 <th onClick={() => handleSort('title')} style={{ padding: '16px', cursor: 'pointer', userSelect: 'none' }}>Product {getSortIcon('title')}</th>
                                 <th onClick={() => handleSort('platformSellPrice')} style={{ padding: '16px', cursor: 'pointer', userSelect: 'none' }}>Price (₹) {getSortIcon('platformSellPrice')}</th>
                                 <th onClick={() => handleSort('stock')} style={{ padding: '16px', cursor: 'pointer', userSelect: 'none' }}>Stock {getSortIcon('stock')}</th>
@@ -345,22 +488,38 @@ const AdminDashboard = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredData.length === 0 ? <tr><td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>No products found.</td></tr> : null}
+                            {filteredData.length === 0 ? <tr><td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>No products found.</td></tr> : null}
                             {filteredData.map(p => {
                                 const isEdit = updatingId === p._id;
+                                const isSelected = selectedIds.includes(p._id);
                                 return (
-                                    <tr key={p._id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                    <tr key={p._id} style={{ borderBottom: '1px solid #e2e8f0', background: isSelected ? '#f0f9ff' : 'transparent' }}>
+                                        {/* ✅ Per-row checkbox */}
+                                        <td style={{ padding: '16px' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={() => {
+                                                    setSelectedIds(prev =>
+                                                        prev.includes(p._id)
+                                                            ? prev.filter(id => id !== p._id)
+                                                            : [...prev, p._id]
+                                                    );
+                                                }}
+                                                style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                            />
+                                        </td>
                                         <td style={{ padding: '16px' }}>
                                             <div style={{ fontWeight: '500', color: '#0f172a' }}>{p.title.substring(0, 40)}...</div>
                                             <div style={{ fontSize: '0.8rem', color: '#64748b' }}>SKU: {p.sku}</div>
                                         </td>
                                         <td style={{ padding: '16px' }}>
-                                            {isEdit ? <input type="number" value={editForm.price} onChange={e => setEditForm({ ...editForm, price: e.target.value })} style={{ width: '80px', padding: '4px' }} /> : p.platformSellPrice}
+                                            {isEdit ? <input type="number" value={editForm.price} onChange={e => setEditForm({ ...editForm, price: e.target.value })} style={{ width: '80px', padding: '4px' }} /> : `₹${p.platformSellPrice}`}
                                         </td>
                                         <td style={{ padding: '16px' }}>
                                             {isEdit ? <input type="number" value={editForm.stock} onChange={e => setEditForm({ ...editForm, stock: e.target.value })} style={{ width: '60px', padding: '4px' }} /> : (
                                                 <span style={{ color: p.inventory?.stock === 0 ? '#dc2626' : p.inventory?.stock <= 10 ? '#ca8a04' : 'inherit', fontWeight: p.inventory?.stock <= 10 ? '600' : 'normal' }}>
-                                                    {p.inventory?.stock}
+                                                    {p.inventory?.stock ?? 0}
                                                 </span>
                                             )}
                                         </td>
@@ -371,7 +530,9 @@ const AdminDashboard = () => {
                                                     <option value="draft">Draft</option>
                                                 </select>
                                             ) : (
-                                                <span style={{ background: p.status === 'active' ? '#dcfce7' : '#f1f5f9', color: p.status === 'active' ? '#166534' : '#475569', padding: '4px 8px', borderRadius: '12px', fontSize: '0.8rem' }}>{p.status}</span>
+                                                <span style={{ background: p.status === 'active' ? '#dcfce7' : '#f1f5f9', color: p.status === 'active' ? '#166534' : '#475569', padding: '4px 8px', borderRadius: '12px', fontSize: '0.8rem' }}>
+                                                    {p.status}
+                                                </span>
                                             )}
                                         </td>
                                         <td style={{ padding: '16px' }}>
@@ -379,18 +540,16 @@ const AdminDashboard = () => {
                                                 <div style={{ display: 'flex', gap: '8px' }}>
                                                     <button
                                                         disabled={isSaving}
-                                                        onClick={() => submitProductUpdate(p._id)} // Change this depending on which table you are in!
-                                                        style={{
-                                                            background: isSaving ? '#94a3b8' : '#1b4332',
-                                                            color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px',
-                                                            cursor: isSaving ? 'not-allowed' : 'pointer'
-                                                        }}>
+                                                        onClick={() => submitProductUpdate(p._id)}
+                                                        style={{ background: isSaving ? '#94a3b8' : '#1b4332', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: isSaving ? 'not-allowed' : 'pointer' }}>
                                                         {isSaving ? 'Saving...' : 'Save'}
                                                     </button>
                                                     <button onClick={() => setUpdatingId(null)} style={{ background: '#e2e8f0', color: '#475569', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
                                                 </div>
                                             ) : (
-                                                <button onClick={() => { setUpdatingId(p._id); setEditForm({ price: p.platformSellPrice, stock: p.inventory?.stock, status: p.status }); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#1d4ed8' }}><Edit2 size={18} /></button>
+                                                <button onClick={() => { setUpdatingId(p._id); setEditForm({ price: p.platformSellPrice, stock: p.inventory?.stock, status: p.status }); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#1d4ed8' }}>
+                                                    <Edit2 size={18} />
+                                                </button>
                                             )}
                                         </td>
                                     </tr>
@@ -450,12 +609,8 @@ const AdminDashboard = () => {
                                                 <div style={{ display: 'flex', gap: '8px' }}>
                                                     <button
                                                         disabled={isSaving}
-                                                        onClick={() => submitUserUpdate(u._id)} // Change this depending on which table you are in!
-                                                        style={{
-                                                            background: isSaving ? '#94a3b8' : '#1b4332',
-                                                            color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px',
-                                                            cursor: isSaving ? 'not-allowed' : 'pointer'
-                                                        }}>
+                                                        onClick={() => submitUserUpdate(u._id)}
+                                                        style={{ background: isSaving ? '#94a3b8' : '#1b4332', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: isSaving ? 'not-allowed' : 'pointer' }}>
                                                         {isSaving ? 'Saving...' : 'Save'}
                                                     </button>
                                                     <button onClick={() => setUpdatingId(null)} style={{ background: '#e2e8f0', color: '#475569', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
@@ -514,9 +669,19 @@ const AdminDashboard = () => {
                         <h2 style={{ fontSize: '2rem', color: '#0f172a', margin: 0, textTransform: 'capitalize' }}>
                             {activeTab.replace('-', ' ')}
                         </h2>
+                        {/* ✅ Show selected count badge in header when on products tab */}
+                        {activeTab === 'products' && selectedIds.length > 0 && (
+                            <span style={{ background: '#dbeafe', color: '#1d4ed8', padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600' }}>
+                                {selectedIds.length} selected
+                            </span>
+                        )}
                     </div>
 
-                    {loading ? <p>Loading Data...</p> : (
+                    {loading ? (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: '#94a3b8', fontSize: '1rem' }}>
+                            Loading data...
+                        </div>
+                    ) : (
                         <>
                             {activeTab === 'overview' && renderOverview()}
                             {activeTab === 'orders' && renderOrders()}
