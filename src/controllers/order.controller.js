@@ -17,17 +17,32 @@ const calculateDueDate = (paymentTerms) => {
     return dueDate;
 };
 
+const calculateTaxBreakdown = (inclusivePrice, taxPercentage) => {
+    const basePrice = inclusivePrice / (1 + (taxPercentage / 100));
+    const taxAmount = inclusivePrice - basePrice;
+
+    return {
+        basePrice: parseFloat(basePrice.toFixed(2)),
+        taxAmount: parseFloat(taxAmount.toFixed(2))
+    };
+};
+
 export const placeOrder = asyncHandler(async (req, res) => {
     const { items, paymentMethod = 'RAZORPAY', paymentTerms = 'DUE_ON_RECEIPT' } = req.body;
     const userId = req.user._id;
 
     if (!items || !items.length) throw new ApiError(400, 'Items list is empty');
 
+    const buyer = await User.findById(userId);
+    if (!buyer) throw new ApiError(404, 'User not found');
+
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-        let totalAmount = 0;
+        let globalSubTotal = 0;
+        let globalTaxTotal = 0;
+        let globalGrandTotal = 0;
         const orderItems = [];
 
         for (const item of items) {
@@ -43,14 +58,37 @@ export const placeOrder = asyncHandler(async (req, res) => {
                 throw new Error(`Insufficient stock for ${title}.`);
             }
 
-            totalAmount += product.platformSellPrice * item.qty;
+            const inclusivePrice = product.platformSellPrice;
+            const taxSlab = product.taxSlab !== undefined ? product.taxSlab : 18; 
+            const hsnCode = product.hsnCode || '0000';
+
+            const { basePrice, taxAmount } = calculateTaxBreakdown(inclusivePrice, taxSlab);
+
+            const itemTotalBase = basePrice * item.qty;
+            const itemTotalTax = taxAmount * item.qty;
+            const itemGrandTotal = inclusivePrice * item.qty;
+
+            globalSubTotal += itemTotalBase;
+            globalTaxTotal += itemTotalTax;
+            globalGrandTotal += itemGrandTotal;
+
             orderItems.push({
+                productId: product._id,
                 sku: product.sku,
-                price: product.platformSellPrice,
+                title: product.title,
+                image: product.images?.[0]?.url || '',
+                hsnCode,
+                taxSlab,
+                basePrice,
+                taxAmountPerUnit: taxAmount,
                 qty: item.qty,
-                tax: 0,
+                totalItemPrice: itemGrandTotal,
             });
         }
+
+        globalSubTotal = parseFloat(globalSubTotal.toFixed(2));
+        globalTaxTotal = parseFloat(globalTaxTotal.toFixed(2));
+        globalGrandTotal = parseFloat(globalGrandTotal.toFixed(2));
 
         const orderIdSeq = await Counter.getNextSequenceValue('orderId');
         const invoiceNumSeq = await Counter.getNextSequenceValue('invoiceNumber');
@@ -62,20 +100,38 @@ export const placeOrder = asyncHandler(async (req, res) => {
             orderId: orderIdStr,
             userId,
             status: 'PENDING',
-            totalAmount,
-            items: orderItems,
             paymentMethod,
             paymentTerms,
+            subTotal: globalSubTotal,
+            taxTotal: globalTaxTotal,
+            totalAmount: globalGrandTotal, 
+            grandTotal: globalGrandTotal,
+            items: orderItems,
         });
         await newOrder.save({ session });
 
         const dueDate = calculateDueDate(paymentTerms);
+
+        const taxBreakdown = {
+            cgstTotal: parseFloat((globalTaxTotal / 2).toFixed(2)),
+            sgstTotal: parseFloat((globalTaxTotal / 2).toFixed(2)),
+            igstTotal: 0
+        };
+
         const newInvoice = new Invoice({
             invoiceNumber: invoiceNumStr,
             userId,
             orderId: newOrder._id,
             invoiceType: 'ORDER_BILL',
-            totalAmount,
+            buyerDetails: {
+                companyName: buyer.companyName || buyer.name,
+                gstin: buyer.gstin || 'UNREGISTERED',
+                billingAddress: buyer.addresses?.find(a => a.isDefault) || 'No Address Provided'
+            },
+            subTotal: globalSubTotal,
+            taxBreakdown,
+            totalAmount: globalGrandTotal, 
+            grandTotal: globalGrandTotal,
             dueDate,
             paymentMethod,
             paymentTerms,
@@ -85,20 +141,14 @@ export const placeOrder = asyncHandler(async (req, res) => {
 
         if (paymentMethod === 'WALLET') {
             const updatedUser = await User.findOneAndUpdate(
-                { _id: userId, walletBalance: { $gte: totalAmount } },
-                { $inc: { walletBalance: -totalAmount } },
+                { _id: userId, walletBalance: { $gte: globalGrandTotal } },
+                { $inc: { walletBalance: -globalGrandTotal } },
                 { session, returnDocument: 'after' }
             );
 
             if (!updatedUser) {
                 throw new Error('Insufficient wallet balance for this purchase.');
             }
-
-            await User.findByIdAndUpdate(
-                userId,
-                { $inc: { walletBalance: -totalAmount } },
-                { session, returnDocument: 'after' }
-            );
 
             const walletPayment = new Payment({
                 userId,
@@ -110,15 +160,13 @@ export const placeOrder = asyncHandler(async (req, res) => {
             await walletPayment.save({ session });
 
             await WalletTransaction.create(
-                [
-                    {
-                        userId,
-                        paymentId: walletPayment._id,
-                        amount: totalAmount,
-                        transactionType: 'DEBIT',
-                        description: `Order Payment for ${orderIdStr}`,
-                    },
-                ],
+                [{
+                    userId,
+                    paymentId: walletPayment._id,
+                    amount: globalGrandTotal,
+                    transactionType: 'DEBIT',
+                    description: `Order Payment for ${orderIdStr}`,
+                }],
                 { session }
             );
 
@@ -132,19 +180,10 @@ export const placeOrder = asyncHandler(async (req, res) => {
         await session.commitTransaction();
         session.endSession();
 
-        return res
-            .status(201)
-            .json(
-                new ApiResponse(
-                    201,
-                    { order: newOrder, invoice: newInvoice },
-                    'Order placed successfully'
-                )
-            );
+        return res.status(201).json(new ApiResponse(201, { order: newOrder, invoice: newInvoice }, 'Order placed successfully'));
     } catch (error) {
         await session.abortTransaction();
         session.endSession();
-
         throw new ApiError(400, error.message || 'Failed to place order');
     }
 });
@@ -161,39 +200,92 @@ export const getOrderById = asyncHandler(async (req, res) => {
 });
 
 export const cancelOrder = asyncHandler(async (req, res) => {
-    const order = await Order.findOneAndUpdate(
-        { _id: req.params.id, userId: req.user._id, status: 'PENDING' },
-        { status: 'CANCELLED' },
-        { new: true }
-    );
-    if (!order) throw new ApiError(404, 'Order not found or cannot be cancelled');
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    await Invoice.findOneAndUpdate(
-        { orderId: order._id, status: 'UNPAID' },
-        { status: 'CANCELLED' }
-    );
-    return res.status(200).json(new ApiResponse(200, order, 'Order cancelled successfully'));
+    try {
+
+        const order = await Order.findOne({ _id: req.params.id, userId: req.user._id, status: 'PENDING' }).session(session);
+        if (!order) throw new ApiError(404, 'Order not found or cannot be cancelled');
+
+        order.status = 'CANCELLED';
+        await order.save({ session });
+
+        await Invoice.findOneAndUpdate(
+            { orderId: order._id, status: 'UNPAID' },
+            { status: 'CANCELLED' },
+            { session }
+        );
+
+        for (const item of order.items) {
+            await Product.findByIdAndUpdate(
+                item.productId,
+                { $inc: { 'inventory.stock': item.qty } },
+                { session }
+            );
+        }
+
+        await session.commitTransaction();
+        session.endSession();
+
+        return res.status(200).json(new ApiResponse(200, order, 'Order cancelled and stock restored successfully'));
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        throw new ApiError(500, error.message || 'Failed to cancel order');
+    }
 });
 
 export const updateOrderStatus = asyncHandler(async (req, res) => {
     const { status, courierName, trackingNumber } = req.body;
-    const order = await Order.findById(req.params.id);
-    if (!order) throw new ApiError(404, 'Order not found');
 
-    if (status) order.status = status.toUpperCase();
-    if (courierName || trackingNumber) {
-        order.tracking = {
-            ...order.tracking,
-            courierName: courierName || order.tracking?.courierName,
-            trackingNumber: trackingNumber || order.tracking?.trackingNumber,
-            trackingUrl: `https://${(courierName || order.tracking?.courierName || 'courier').toLowerCase()}.com/track/${trackingNumber || order.tracking?.trackingNumber}`,
-        };
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        const order = await Order.findById(req.params.id).session(session);
+        if (!order) throw new ApiError(404, 'Order not found');
+
+        const isNewlyCancelled = status && status.toUpperCase() === 'CANCELLED' && order.status !== 'CANCELLED';
+
+        if (status) order.status = status.toUpperCase();
+
+        if (courierName || trackingNumber) {
+            order.tracking = {
+                ...order.tracking,
+                courierName: courierName || order.tracking?.courierName,
+                trackingNumber: trackingNumber || order.tracking?.trackingNumber,
+                trackingUrl: `https://${(courierName || order.tracking?.courierName || 'courier').toLowerCase()}.com/track/${trackingNumber || order.tracking?.trackingNumber}`,
+            };
+        }
+
+        await order.save({ session });
+
+        if (isNewlyCancelled) {
+            await Invoice.findOneAndUpdate(
+                { orderId: order._id, status: 'UNPAID' },
+                { status: 'CANCELLED' },
+                { session }
+            );
+
+            for (const item of order.items) {
+                await Product.findByIdAndUpdate(
+                    item.productId,
+                    { $inc: { 'inventory.stock': item.qty } },
+                    { session }
+                );
+            }
+        }
+
+        await session.commitTransaction();
+        session.endSession();
+
+        return res.status(200).json(new ApiResponse(200, order, `Order successfully marked as ${order.status}`));
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        throw new ApiError(500, error.message || 'Failed to update order status');
     }
-
-    await order.save();
-    return res
-        .status(200)
-        .json(new ApiResponse(200, order, `Order successfully marked as ${order.status}`));
 });
 
 export const getAllOrders = asyncHandler(async (req, res) => {

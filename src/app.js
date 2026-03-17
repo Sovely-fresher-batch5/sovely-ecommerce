@@ -20,6 +20,7 @@ import analyticsRouter from './routes/analytics.routes.js';
 const app = express();
 
 app.use(helmet());
+
 const allowedOrigins = [
     process.env.CORS_ORIGIN, 
     'http://localhost:5173', 
@@ -32,7 +33,7 @@ app.use(
 
             if (!origin) return callback(null, true);
 
-            if (allowedOrigins.indexOf(origin) !== -1 || process.env.CORS_ORIGIN === '*') {
+            if (allowedOrigins.indexOf(origin) !== -1) {
                 callback(null, true);
             } else {
                 callback(new Error('Not allowed by CORS'));
@@ -44,8 +45,8 @@ app.use(
 );
 
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
+    windowMs: 15 * 60 * 1000, 
+    max: 1000, 
     message: 'Too many requests from this IP, please try again later.',
 });
 

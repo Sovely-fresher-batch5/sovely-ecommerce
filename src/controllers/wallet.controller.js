@@ -8,7 +8,6 @@ import { razorpayInstance } from './payment.controller.js';
 
 export const getBalance = asyncHandler(async (req, res) => {
     const balance = req.user.walletBalance || 0;
-
     return res.status(200).json(new ApiResponse(200, { balance }, 'Wallet balance fetched'));
 });
 
@@ -16,7 +15,6 @@ export const getTransactionHistory = asyncHandler(async (req, res) => {
     const transactions = await WalletTransaction.find({ userId: req.user._id })
         .sort({ createdAt: -1 })
         .limit(50);
-
     return res.status(200).json(new ApiResponse(200, transactions, 'Transaction history fetched'));
 });
 
@@ -51,6 +49,9 @@ export const addMoney = asyncHandler(async (req, res) => {
     try {
         const order = await razorpayInstance.orders.create(options);
 
+        invoice.razorpayOrderId = order.id;
+        await invoice.save();
+
         return res.status(200).json(
             new ApiResponse(
                 200,
@@ -65,6 +66,8 @@ export const addMoney = asyncHandler(async (req, res) => {
             )
         );
     } catch (error) {
+
+        await Invoice.findByIdAndDelete(invoice._id); 
         throw new ApiError(500, error.message || 'Failed to initialize Razorpay payment');
     }
 });

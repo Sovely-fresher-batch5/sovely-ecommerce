@@ -13,7 +13,7 @@ import Footer from './Footer';
 function ProductPage() {
     const { productId } = useParams();
     const navigate = useNavigate();
-    const { addToCart, cartItems } = useContext(CartContext);
+    const { addToCart, cartItems, setExactQuantity } = useContext(CartContext);
     const { isInWishlist, toggleWishlist } = useContext(WishlistContext);
 
     const { data: p } = useSuspenseQuery({
@@ -226,9 +226,17 @@ function ProductPage() {
                                             className="flex-1 w-full h-full text-center font-extrabold text-lg text-slate-900 outline-none bg-transparent"
                                             value={quantity}
                                             onChange={(e) => handleQuantityChange(parseInt(e.target.value) || product.moq)}
-                                            onBlur={() => {
-                                                if(quantity < product.moq) setQuantity(product.moq);
-                                            }}
+                                            onBlur={(e) => {
+    let val = parseInt(e.target.value);
+    if (isNaN(val) || val < product.moq) {
+        setQuantity(product.moq);
+    } else {
+        const remainder = val % product.moq;
+        if (remainder !== 0) {
+            setQuantity(val - remainder); 
+        }
+    }
+}}
                                         />
                                         <button 
                                             className="w-14 h-full flex items-center justify-center bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 font-bold transition-colors disabled:opacity-50" 

@@ -59,7 +59,7 @@ const AdminOrders = () => {
                 trackingNumber: editForm.trackingNumber 
             });
             setOrders(prev => prev.map(o => o._id === id ? res.data.data : o));
-            setUpdatingId(null);
+            setSelectedOrder(null);
         } catch (err) {
             const errorMsg = err.response?.data?.message || err.message;
             alert(`Update Failed: ${errorMsg}`);
@@ -130,7 +130,9 @@ const AdminOrders = () => {
                                         <div className="font-bold text-slate-900">{order.customerId?.name || order.userId?.name || 'Unknown'}</div>
                                         <div className="text-xs font-medium text-slate-500">{order.customerId?.email || order.userId?.email}</div>
                                     </td>
-                                    <td className="p-4 font-extrabold text-slate-900">₹{order.totalAmount.toLocaleString('en-IN')}</td>
+                                    <td className="p-4 font-extrabold text-slate-900">
+    ₹{(order.totalAmount || order.grandTotal || 0).toLocaleString('en-IN')}
+</td>
                                     <td className="p-4">
                                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-extrabold tracking-widest uppercase ${
                                             order.status === 'DELIVERED' ? 'bg-green-100 text-green-700' :

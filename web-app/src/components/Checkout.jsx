@@ -33,25 +33,28 @@ const Checkout = () => {
     const financials = useMemo(() => {
         if (!items) return { subtotal: 0, totalGst: 0, totalAmount: 0 };
 
-        let subtotal = 0;
+        let subtotalBase = 0;
         let totalGst = 0;
+        let grandTotal = 0;
 
         items.forEach(item => {
-            const price = item.product?.price || 0;
+
+            const inclusivePrice = item.product?.platformSellPrice || item.product?.price || 0;
             const qty = item.qty || 1;
-            const gstPercent = item.product?.gstPercent || 18; 
+            const taxSlab = item.product?.taxSlab !== undefined ? item.product.taxSlab : 18; 
 
-            const itemSubtotal = price * qty;
-            const itemGst = itemSubtotal * (gstPercent / 100);
+            const basePrice = inclusivePrice / (1 + (taxSlab / 100));
+            const taxAmount = inclusivePrice - basePrice;
 
-            subtotal += itemSubtotal;
-            totalGst += itemGst;
+            subtotalBase += (basePrice * qty);
+            totalGst += (taxAmount * qty);
+            grandTotal += (inclusivePrice * qty);
         });
 
         return {
-            subtotal,
-            totalGst,
-            totalAmount: subtotal + totalGst
+            subtotal: parseFloat(subtotalBase.toFixed(2)),
+            totalGst: parseFloat(totalGst.toFixed(2)),
+            totalAmount: parseFloat(grandTotal.toFixed(2))
         };
     }, [items]);
 
@@ -81,7 +84,7 @@ const Checkout = () => {
         setLoading(true);
 
         try {
-            const rawItems = items.map(i => ({ productId: i.productId, qty: i.qty }));
+            const rawItems = items.map(i => ({ productId: i.productId || i.product._id, qty: i.qty }));
 
             const backendPaymentMethod = ['UPI', 'CARD', 'NETBANKING'].includes(paymentMethod) 
                 ? 'RAZORPAY' 
@@ -165,9 +168,7 @@ const Checkout = () => {
 
                 <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-start">
 
-                    {}
                     <div className="flex-1 w-full space-y-8">
-
                         {}
                         <div className="bg-white rounded-[2.5rem] p-6 sm:p-10 shadow-sm border border-slate-100">
                              <div className="flex items-center justify-between mb-8">
@@ -271,16 +272,14 @@ const Checkout = () => {
                         </div>
                     </div>
 
-                    {}
                     <div className="w-full lg:w-[400px] xl:w-[450px] lg:sticky lg:top-28">
                         <div className="bg-white rounded-[2.5rem] p-6 sm:p-8 shadow-sm border border-slate-100">
                             <h3 className="text-xl font-extrabold text-slate-900 tracking-tight mb-6">Procurement Summary</h3>
 
-                            {}
                             <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                                 {items.map((item, idx) => {
                                     const product = item.product || item;
-                                    const price = product.price || 0;
+                                    const price = product.platformSellPrice || product.price || 0;
                                     let safeThumb = 'https://via.placeholder.com/64';
                                     if (product.image) safeThumb = typeof product.image === 'string' ? product.image : product.image.url;
                                     else if (product.images?.[0]) safeThumb = typeof product.images[0] === 'string' ? product.images[0] : product.images[0].url;
@@ -291,8 +290,8 @@ const Checkout = () => {
                                                 <img src={safeThumb} alt="Product" className="w-full h-full object-cover" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h4 className="text-sm font-bold text-slate-900 truncate">{product.name || 'Product Item'}</h4>
-                                                <p className="text-xs font-medium text-slate-500">Qty: {item.qty} x ₹{price.toLocaleString('en-IN')}</p>
+                                                <h4 className="text-sm font-bold text-slate-900 truncate">{product.title || product.name || 'Product Item'}</h4>
+                                                <p className="text-xs font-medium text-slate-500">Qty: {item.qty} x ₹{price.toLocaleString('en-IN')} (Incl. Tax)</p>
                                             </div>
                                             <div className="text-sm font-extrabold text-slate-900 whitespace-nowrap">
                                                 ₹{(price * item.qty).toLocaleString('en-IN')}
@@ -302,10 +301,9 @@ const Checkout = () => {
                                 })}
                             </div>
 
-                            {}
                             <div className="space-y-3 pb-6 border-b border-slate-100 text-sm font-medium text-slate-500">
                                 <div className="flex justify-between">
-                                    <span>Subtotal (Excl. GST)</span>
+                                    <span>Subtotal (Base Value)</span>
                                     <span className="text-slate-900 font-bold">₹{financials.subtotal.toLocaleString('en-IN')}</span>
                                 </div>
                                 <div className="flex justify-between items-center text-green-600">

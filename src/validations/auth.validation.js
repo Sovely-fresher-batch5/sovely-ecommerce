@@ -12,6 +12,10 @@ export const authValidation = {
                     .min(6, 'Password must be at least 6 characters long')
                     .optional(),
                 otpCode: z.string().length(4, 'OTP must be 4 digits').optional(),
+
+                accountType: z.enum(['B2B', 'B2C']).default('B2C'),
+                companyName: z.string().optional(),
+                gstin: z.string().regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid GSTIN format').optional(),
             })
             .refine((data) => data.email || data.phoneNumber, {
                 message: 'Either Email or Phone Number is required',
@@ -20,6 +24,15 @@ export const authValidation = {
             .refine((data) => !(data.phoneNumber && !data.otpCode), {
                 message: 'OTP is required when registering with a phone number',
                 path: ['otpCode'],
+            })
+
+            .refine((data) => !(data.accountType === 'B2B' && !data.companyName), {
+                message: 'Company Name is required for B2B accounts',
+                path: ['companyName'],
+            })
+            .refine((data) => !(data.accountType === 'B2B' && !data.gstin), {
+                message: 'Valid GSTIN is required for B2B accounts',
+                path: ['gstin'],
             }),
     }),
     login: z.object({

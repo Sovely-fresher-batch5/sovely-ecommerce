@@ -1,5 +1,6 @@
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
+import mongoose from 'mongoose';
 import { Payment } from '../models/Payment.js';
 import { Invoice } from '../models/Invoice.js';
 import { Order } from '../models/Order.js';
@@ -61,67 +62,82 @@ export const verifyPaymentSignature = asyncHandler(async (req, res) => {
         console.log('[MOCK RAZORPAY] Bypassing signature validation for dummy environment.');
     }
 
-    const invoice = await Invoice.findById(invoiceId);
-    if (!invoice) throw new ApiError(404, 'Invoice not found');
-    if (invoice.status === 'PAID') throw new ApiError(400, 'Invoice already marked as PAID');
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    if (invoice.razorpayOrderId !== razorpay_order_id) {
-        throw new ApiError(
-            400,
-            'Payment origin mismatch: Invoice does not match the Razorpay order'
-        );
-    }
+    try {
+        const invoice = await Invoice.findById(invoiceId).session(session);
+        if (!invoice) throw new ApiError(404, 'Invoice not found');
+        if (invoice.status === 'PAID') throw new ApiError(400, 'Invoice already marked as PAID');
 
-    const existingPayment = await Payment.findOne({ referenceId: razorpay_payment_id });
-    if (existingPayment) {
+        if (invoice.razorpayOrderId !== razorpay_order_id) {
+            throw new ApiError(
+                400,
+                'Payment origin mismatch: Invoice does not match the Razorpay order'
+            );
+        }
+
+        const existingPayment = await Payment.findOne({ referenceId: razorpay_payment_id }).session(session);
+        if (existingPayment) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(200).json(new ApiResponse(200, existingPayment, 'Payment already processed'));
+        }
+
+        const paymentArray = await Payment.create([{
+            userId,
+            invoiceId,
+            paymentMethod: 'RAZORPAY',
+            status: 'SUCCESS',
+            referenceId: razorpay_payment_id,
+        }], { session });
+        const payment = paymentArray[0];
+
+        invoice.status = 'PAID';
+        await invoice.save({ session });
+
+        if (invoice.invoiceType === 'ORDER_BILL' && invoice.orderId) {
+            const order = await Order.findById(invoice.orderId).session(session);
+            if (order) {
+                order.status = 'PROCESSING';
+                await order.save({ session });
+            }
+        } else if (invoice.invoiceType === 'WALLET_TOPUP') {
+            await WalletTransaction.create([{
+                userId,
+                paymentId: payment._id,
+                amount: invoice.totalAmount,
+                transactionType: 'CREDIT',
+                description: `Wallet top-up via Razorpay (${razorpay_payment_id})`,
+            }], { session });
+
+            await User.findByIdAndUpdate(
+                userId,
+                { $inc: { walletBalance: invoice.totalAmount } },
+                { session }
+            );
+        }
+
+        await session.commitTransaction();
+        session.endSession();
+
         return res
             .status(200)
-            .json(new ApiResponse(200, existingPayment, 'Payment already processed'));
+            .json(new ApiResponse(200, { payment, invoice }, 'Payment verified securely'));
+
+    } catch (error) {
+
+        await session.abortTransaction();
+        session.endSession();
+        throw new ApiError(500, `Payment processing failed: ${error.message}`);
     }
-
-    const payment = await Payment.create({
-        userId,
-        invoiceId,
-        paymentMethod: 'RAZORPAY',
-        status: 'SUCCESS',
-        referenceId: razorpay_payment_id,
-    });
-
-    invoice.status = 'PAID';
-    await invoice.save();
-
-    if (invoice.invoiceType === 'ORDER_BILL' && invoice.orderId) {
-        const order = await Order.findById(invoice.orderId);
-        if (order) {
-            order.status = 'PROCESSING';
-            await order.save();
-        }
-    } else if (invoice.invoiceType === 'WALLET_TOPUP') {
-        await WalletTransaction.create({
-            userId,
-            paymentId: payment._id,
-            amount: invoice.totalAmount,
-            transactionType: 'CREDIT',
-            description: `Wallet top-up via Razorpay (${razorpay_payment_id})`,
-        });
-
-        await User.findByIdAndUpdate(userId, {
-            $inc: { walletBalance: invoice.totalAmount },
-        });
-    }
-
-    return res
-        .status(200)
-        .json(new ApiResponse(200, { payment, invoice }, 'Payment verified securely'));
 });
 
 export const createRazorpayOrder = asyncHandler(async (req, res) => {
     const { invoiceId } = req.body;
     const userId = req.user._id;
 
-    if (!invoiceId) {
-        throw new ApiError(400, 'invoiceId is required');
-    }
+    if (!invoiceId) throw new ApiError(400, 'invoiceId is required');
 
     const invoice = await Invoice.findOne({ _id: invoiceId, userId });
 
@@ -138,9 +154,7 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
 
     const order = await razorpayInstance.orders.create(options);
 
-    if (!order) {
-        throw new ApiError(500, 'Failed to create Razorpay order');
-    }
+    if (!order) throw new ApiError(500, 'Failed to create Razorpay order');
 
     invoice.razorpayOrderId = order.id;
     await invoice.save();

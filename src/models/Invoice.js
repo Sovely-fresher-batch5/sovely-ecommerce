@@ -7,6 +7,12 @@ const invoiceSchema = new mongoose.Schema(
         orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', default: null },
         invoiceType: { type: String, enum: ['ORDER_BILL', 'WALLET_TOPUP'], required: true },
 
+        buyerDetails: {
+            companyName: { type: String },
+            gstin: { type: String },
+            billingAddress: { type: String }, 
+        },
+
         razorpayOrderId: { type: String, sparse: true },
 
         paymentTerms: {
@@ -19,7 +25,17 @@ const invoiceSchema = new mongoose.Schema(
             enum: ['RAZORPAY', 'WALLET', 'BANK_TRANSFER'],
             default: 'RAZORPAY',
         },
-        totalAmount: { type: Number, required: true },
+
+        subTotal: { type: Number, required: true },
+
+        taxBreakdown: {
+            cgstTotal: { type: Number, default: 0 },
+            sgstTotal: { type: Number, default: 0 },
+            igstTotal: { type: Number, default: 0 },
+        },
+
+        grandTotal: { type: Number, required: true },
+
         dueDate: { type: Date, required: true },
         status: {
             type: String,

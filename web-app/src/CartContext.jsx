@@ -26,6 +26,19 @@ export const CartProvider = ({ children }) => {
         });
     };
 
+    const setExactQuantity = (productId, newQuantity) => {
+        setCartItems(prev => {
+            return prev.map(item => {
+                if (item.product._id === productId) {
+
+                    const safeQuantity = Math.max(1, parseInt(newQuantity) || 1);
+                    return { ...item, quantity: safeQuantity };
+                }
+                return item;
+            });
+        });
+    };
+
     const removeFromCart = (productId) => {
         setCartItems(prev => prev.filter(item => item.product._id !== productId));
     };
@@ -48,8 +61,10 @@ export const CartProvider = ({ children }) => {
     };
 
     return (
-        <CartContext.Provider value={{ cartItems, addToCart, removeFromCart, updateQuantity, clearCart }}>
-            {children}
-        </CartContext.Provider>
-    );
+    <CartContext.Provider value={{ 
+        cartItems, addToCart, removeFromCart, updateQuantity, setExactQuantity, clearCart 
+    }}>
+        {children}
+    </CartContext.Provider>
+);
 };

@@ -4,7 +4,8 @@ import { CartContext } from '../CartContext';
 import { X, Trash2, Package, ArrowRight, ShieldCheck } from 'lucide-react';
 
 function CartDrawer({ isOpen, onClose }) {
-    const { cartItems, updateQuantity, removeFromCart } = useContext(CartContext);
+
+    const { cartItems, updateQuantity, removeFromCart, setExactQuantity } = useContext(CartContext);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -39,9 +40,7 @@ function CartDrawer({ isOpen, onClose }) {
     if (!isOpen) return null;
 
     return (
-
         <div className="fixed inset-0 z-[9999] flex justify-end">
-
             {}
             <div 
                 className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-300" 
@@ -94,10 +93,10 @@ function CartDrawer({ isOpen, onClose }) {
                     ) : (
                         <div className="space-y-4">
                             {cartItems.map((item) => {
-
                                 const product = item.product || item;
                                 const itemKey = product._id || product.id;
                                 const price = product.price || 0;
+
                                 const moq = product.minQuantity || product.moq || 1; 
 
                                 let safeThumb = 'https://via.placeholder.com/150';
@@ -115,9 +114,9 @@ function CartDrawer({ isOpen, onClose }) {
                                             <img src={safeThumb} alt={product.name} className="w-full h-full object-cover" />
                                         </div>
 
-                                        {}
                                         <div className="flex flex-col flex-1 justify-between py-1 pr-1">
 
+                                            {}
                                             <div className="flex justify-between items-start gap-2 pr-6">
                                                 <div>
                                                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{product.category || 'Item'}</span>
@@ -142,30 +141,52 @@ function CartDrawer({ isOpen, onClose }) {
                                                     </span>
                                                 </div>
 
-                                                {}
                                                 <div className="flex items-center justify-between">
+                                                    {}
                                                     <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg p-0.5 h-8">
                                                         <button 
                                                             className="w-7 h-full flex items-center justify-center rounded bg-white text-slate-600 shadow-sm hover:text-slate-900 hover:bg-slate-100 font-bold transition-colors disabled:opacity-50" 
-
                                                             onClick={() => updateQuantity(itemKey, -moq)}
                                                             disabled={item.quantity <= moq}
                                                         >
                                                             −
                                                         </button>
-                                                        <span className="text-xs font-bold text-slate-900 w-10 text-center">
-                                                            {item.quantity}
-                                                        </span>
+
+                                                        {}
+                                                        <input 
+                                                            type="number"
+                                                            min={moq}
+                                                            step={moq}
+                                                            value={item.quantity}
+                                                            onChange={(e) => {
+                                                                const val = parseInt(e.target.value);
+                                                                if (!isNaN(val)) {
+                                                                    setExactQuantity(itemKey, val);
+                                                                }
+                                                            }}
+                                                            onBlur={(e) => {
+                                                                let val = parseInt(e.target.value);
+                                                                if (isNaN(val) || val < moq) {
+                                                                    val = moq; 
+                                                                } else {
+                                                                    const remainder = val % moq;
+                                                                    if (remainder !== 0) {
+                                                                         val = val - remainder; 
+                                                                    }
+                                                                }
+                                                                setExactQuantity(itemKey, val);
+                                                            }}
+                                                            className="w-12 text-sm font-bold text-slate-900 text-center bg-transparent border-none outline-none appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none m-0"
+                                                        />
+
                                                         <button 
                                                             className="w-7 h-full flex items-center justify-center rounded bg-white text-slate-600 shadow-sm hover:text-slate-900 hover:bg-slate-100 font-bold transition-colors" 
-
                                                             onClick={() => updateQuantity(itemKey, moq)}
                                                         >
                                                             +
                                                         </button>
                                                     </div>
 
-                                                    {}
                                                     <span className="text-sm font-bold text-primary">
                                                         ₹{(price * item.quantity).toLocaleString('en-IN')}
                                                     </span>
@@ -185,8 +206,6 @@ function CartDrawer({ isOpen, onClose }) {
                 {}
                 {cartItems.length > 0 && (
                     <div className="p-6 border-t border-slate-200 bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
-
-                        {}
                         <div className="flex items-center gap-2 mb-4 p-2 bg-green-50 border border-green-100 rounded-lg text-green-700 text-xs font-bold">
                             <ShieldCheck size={14} /> GST Invoice generated at checkout
                         </div>

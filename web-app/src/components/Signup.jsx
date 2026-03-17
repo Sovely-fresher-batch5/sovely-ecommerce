@@ -4,11 +4,16 @@ import { AuthContext } from '../AuthContext';
 
 const Signup = () => {
     const [contactMethod, setContactMethod] = useState('email');
+    const [accountType, setAccountType] = useState('B2C'); 
+
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [otpCode, setOtpCode] = useState('');
     const [password, setPassword] = useState('');
+
+    const [companyName, setCompanyName] = useState('');
+    const [gstin, setGstin] = useState('');
 
     const [otpSent, setOtpSent] = useState(false);
     const [cooldown, setCooldown] = useState(0);
@@ -64,6 +69,14 @@ const Signup = () => {
             setError("Please request and enter an OTP first.");
             return; 
         }
+
+        if (accountType === 'B2B') {
+            const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+            if (!gstinRegex.test(gstin.toUpperCase())) {
+                return setError("Please enter a valid 15-character GSTIN");
+            }
+        }
+
         setError('');
         setIsLoading(true);
 
@@ -71,6 +84,8 @@ const Signup = () => {
             const userData = {
                 name,
                 password,
+                accountType,
+                ...(accountType === 'B2B' && { companyName, gstin: gstin.toUpperCase() }),
                 ...(contactMethod === 'email' ? { email } : { phoneNumber, otpCode })
             };
 
@@ -88,7 +103,6 @@ const Signup = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-accent/30 py-12">
-            {}
             <div className="absolute top-[10%] right-[-10%] w-96 h-96 bg-accent/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
             <div className="absolute bottom-[10%] left-[-10%] w-96 h-96 bg-pink-300/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-4000"></div>
 
@@ -101,9 +115,27 @@ const Signup = () => {
                     Back
                 </button>
 
-                <div className="mb-8">
+                <div className="mb-6">
                     <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-2">Create Account</h1>
                     <p className="text-slate-500 font-medium">Join us and start shopping premium collections.</p>
+                </div>
+
+                {}
+                <div className="flex bg-slate-100 p-1 rounded-2xl mb-6">
+                    <button 
+                        type="button" 
+                        onClick={() => setAccountType('B2C')} 
+                        className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all ${accountType === 'B2C' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        Individual
+                    </button>
+                    <button 
+                        type="button" 
+                        onClick={() => setAccountType('B2B')} 
+                        className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all ${accountType === 'B2B' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        Business (B2B)
+                    </button>   
                 </div>
 
                 <div className="flex bg-slate-100 p-1 rounded-2xl mb-8">
@@ -141,6 +173,35 @@ const Signup = () => {
                             className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-medium text-slate-900 outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all placeholder:text-slate-400"
                         />
                     </div>
+
+                    {}
+                    {accountType === 'B2B' && (
+                        <div className="space-y-5 animate-[fadeIn_0.3s_ease-out]">
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">Company Name *</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="Acme Corp Ltd." 
+                                    value={companyName} 
+                                    onChange={(e) => setCompanyName(e.target.value)} 
+                                    required={accountType === 'B2B'}
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-medium text-slate-900 outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all placeholder:text-slate-400"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">GSTIN *</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="22AAAAA0000A1Z5" 
+                                    value={gstin} 
+                                    onChange={(e) => setGstin(e.target.value)} 
+                                    maxLength="15"
+                                    required={accountType === 'B2B'}
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm font-medium text-slate-900 outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all placeholder:text-slate-400 uppercase"
+                                />
+                            </div>
+                        </div>
+                    )}
 
                     {contactMethod === 'email' ? (
                         <div className="space-y-2 animate-[fadeIn_0.3s_ease-out]">

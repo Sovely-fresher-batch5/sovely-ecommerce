@@ -5,6 +5,12 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const getInvoice = asyncHandler(async (req, res) => {
     const invoice = await Invoice.findOne({
@@ -72,8 +78,16 @@ export const generateInvoicePDF = async (req, res, next) => {
             }
         });
 
-        doc.fontSize(16).font('Helvetica-Bold').text('TAX INVOICE', { align: 'center' });
-        doc.moveDown(1.5);
+        const logoPath = path.join(__dirname, '../../public/images/sovely-logo.png');
+        if (fs.existsSync(logoPath)) {
+            doc.image(logoPath, 40, 30, { width: 120 });
+        } else {
+
+            doc.fontSize(20).font('Helvetica-Bold').text('SOVELY', 40, 40);
+        }
+
+        doc.fontSize(16).font('Helvetica-Bold').text('TAX INVOICE', 0, 40, { align: 'right', width: 555 });
+        doc.moveDown(2);
 
         const topY = doc.y;
 
@@ -85,17 +99,17 @@ export const generateInvoicePDF = async (req, res, next) => {
             .text('GSTIN: ', { continued: true })
             .font('Helvetica')
             .text('29ABCDE1234F1Z5');
-        doc.font('Helvetica-Bold')
-            .text('PAN: ', { continued: true })
-            .font('Helvetica')
-            .text('ABCDE1234F');
         doc.text('State Code: 29 (Karnataka)');
 
         doc.font('Helvetica-Bold').text('Billed To:', 320, topY);
-        doc.font('Helvetica').text(req.user.name || 'Valued Customer');
+        doc.font('Helvetica').text(invoice.buyerDetails?.companyName || req.user.name);
+        if(invoice.buyerDetails?.gstin && invoice.buyerDetails?.gstin !== 'UNREGISTERED') {
+             doc.font('Helvetica-Bold')
+                .text('GSTIN: ', { continued: true })
+                .font('Helvetica')
+                .text(invoice.buyerDetails.gstin);
+        }
         doc.text(req.user.email);
-        doc.text('Bengaluru, Karnataka');
-        doc.text('State Code: 29 (Karnataka)');
         doc.text('Place of Supply: Karnataka');
 
         doc.moveDown(2);
@@ -140,58 +154,47 @@ export const generateInvoicePDF = async (req, res, next) => {
                 doc.rect(40, currentY - 5, 515, 20).fillAndStroke('#f0f0f0', '#cccccc');
                 doc.fillColor('#000000');
                 doc.text('S.No', 45, currentY);
-                doc.text('Product / SKU', 75, currentY);
+                doc.text('Product', 75, currentY);
                 doc.text('HSN', 230, currentY);
                 doc.text('Qty', 270, currentY);
-                doc.text('Base (Rs)', 300, currentY);
-                doc.text('CGST 9%', 360, currentY);
-                doc.text('SGST 9%', 420, currentY);
-                doc.text('Total (Rs)', 480, currentY);
+                doc.text('Base Price', 300, currentY);
+                doc.text('Tax Rate', 370, currentY);
+                doc.text('Tax Amt', 430, currentY);
+                doc.text('Total (Rs)', 490, currentY);
                 doc.font('Helvetica').fontSize(8);
                 return currentY + 20;
             };
 
             y = drawHeaders(y);
 
-            let totalBase = 0;
-            let totalTax = 0;
             let index = 1;
 
             for (const item of invoice.orderId.items) {
-                if (y > 750) {
+                if (y > 700) {
                     doc.addPage();
                     y = 50;
                     y = drawHeaders(y);
                 }
 
-                const qty = item.qty;
-                const finalTotal = item.price * qty;
-
-                const baseTotal = finalTotal / 1.18;
-                const taxAmount = finalTotal - baseTotal;
-                const cgst = taxAmount / 2;
-                const sgst = taxAmount / 2;
-
-                totalBase += baseTotal;
-                totalTax += taxAmount;
-
-                const displaySku =
-                    item.sku.length > 30 ? item.sku.substring(0, 27) + '...' : item.sku;
+                const displayTitle = item.title.length > 30 ? item.title.substring(0, 27) + '...' : item.title;
+                const baseTotal = item.basePrice * item.qty;
+                const taxTotal = item.taxAmountPerUnit * item.qty;
+                const finalTotal = item.totalItemPrice;
 
                 doc.text(index.toString(), 45, y);
-                doc.text(displaySku, 75, y);
-                doc.text('39269099', 230, y);
-                doc.text(qty.toString(), 270, y);
+                doc.text(displayTitle, 75, y);
+                doc.text(item.hsnCode || '0000', 230, y);
+                doc.text(item.qty.toString(), 270, y);
                 doc.text(baseTotal.toFixed(2), 300, y);
-                doc.text(cgst.toFixed(2), 360, y);
-                doc.text(sgst.toFixed(2), 420, y);
-                doc.text(finalTotal.toFixed(2), 480, y);
+                doc.text(`${item.taxSlab || 18}%`, 370, y);
+                doc.text(taxTotal.toFixed(2), 430, y);
+                doc.text(finalTotal.toFixed(2), 490, y);
 
                 y += 20;
                 index++;
             }
 
-            if (y > 720) {
+            if (y > 680) {
                 doc.addPage();
                 y = 50;
             }
@@ -202,19 +205,30 @@ export const generateInvoicePDF = async (req, res, next) => {
             y += 5;
 
             doc.font('Helvetica-Bold').fontSize(9);
-            doc.text('Total Taxable Value:', 360, y);
-            doc.text(`Rs. ${totalBase.toFixed(2)}`, 480, y);
+            doc.text('Subtotal (Base Value):', 360, y);
+            doc.text(`Rs. ${invoice.subTotal?.toFixed(2) || '0.00'}`, 480, y, { align: 'right' });
             y += 15;
-            doc.text('Total Tax Amount:', 360, y);
-            doc.text(`Rs. ${totalTax.toFixed(2)}`, 480, y);
-            y += 15;
+
+            if (invoice.taxBreakdown?.igstTotal > 0) {
+                 doc.text('IGST Amount:', 360, y);
+                 doc.text(`Rs. ${invoice.taxBreakdown.igstTotal.toFixed(2)}`, 480, y, { align: 'right' });
+                 y += 15;
+            } else {
+                 doc.text('CGST Amount:', 360, y);
+                 doc.text(`Rs. ${invoice.taxBreakdown?.cgstTotal?.toFixed(2) || '0.00'}`, 480, y, { align: 'right' });
+                 y += 15;
+                 doc.text('SGST Amount:', 360, y);
+                 doc.text(`Rs. ${invoice.taxBreakdown?.sgstTotal?.toFixed(2) || '0.00'}`, 480, y, { align: 'right' });
+                 y += 15;
+            }
+
             doc.fontSize(11).text('Grand Total:', 360, y);
-            doc.text(`Rs. ${invoice.totalAmount.toFixed(2)}`, 480, y);
+            doc.text(`Rs. ${invoice.grandTotal?.toFixed(2) || invoice.totalAmount.toFixed(2)}`, 480, y, { align: 'right' });
 
             doc.moveDown(2);
 
             doc.fontSize(9).font('Helvetica-Bold').text('Amount in Words:');
-            doc.font('Helvetica').text(amountToWords(invoice.totalAmount));
+            doc.font('Helvetica').text(amountToWords(invoice.grandTotal || invoice.totalAmount));
         }
 
         doc.moveDown(2);
@@ -222,7 +236,7 @@ export const generateInvoicePDF = async (req, res, next) => {
         const footerY = doc.y;
 
         try {
-            const upiString = `upi://pay?pa=sovely@upi&pn=Sovely+ECommerce&tr=${invoice.invoiceNumber}&am=${invoice.totalAmount.toFixed(2)}&cu=INR`;
+            const upiString = `upi://pay?pa=sovely@upi&pn=Sovely+ECommerce&tr=${invoice.invoiceNumber}&am=${(invoice.grandTotal || invoice.totalAmount).toFixed(2)}&cu=INR`;
             const qrImage = await QRCode.toDataURL(upiString);
 
             doc.image(qrImage, 40, footerY, { width: 70 });

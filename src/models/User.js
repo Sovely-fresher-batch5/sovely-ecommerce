@@ -25,6 +25,16 @@ const userSchema = new mongoose.Schema(
 
         customerId: { type: String, sparse: true },
         accountType: { type: String, enum: ['B2B', 'B2C'], default: 'B2C' },
+
+        companyName: { type: String, trim: true },
+        gstin: { 
+            type: String, 
+            trim: true, 
+            uppercase: true,
+            match: [/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid GSTIN format'] 
+        },
+        isVerifiedB2B: { type: Boolean, default: false }, 
+
         walletBalance: { type: Number, default: 0 },
         addresses: [addressSchema],
     },
@@ -33,7 +43,6 @@ const userSchema = new mongoose.Schema(
 
 userSchema.pre('save', async function () {
     if (!this.isModified('passwordHash')) return;
-
     this.passwordHash = await bcrypt.hash(this.passwordHash, 10);
 });
 
@@ -48,6 +57,8 @@ userSchema.methods.generateAccessToken = function () {
             email: this.email,
             name: this.name,
             role: this.role,
+            accountType: this.accountType, 
+            isVerifiedB2B: this.isVerifiedB2B
         },
         process.env.ACCESS_TOKEN_SECRET || 'fallback_secret',
         {
