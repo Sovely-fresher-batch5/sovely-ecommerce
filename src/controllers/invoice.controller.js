@@ -31,6 +31,49 @@ export const listMyInvoices = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, invoices, 'Invoices fetched successfully'));
 });
 
+export const getAllInvoices = asyncHandler(async (req, res) => {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
+    const search = req.query.search || '';
+    const status = req.query.status || 'ALL';
+
+    const query = {};
+
+    if (status !== 'ALL') {
+        if (status === 'OVERDUE') {
+            query.status = 'UNPAID';
+            query.dueDate = { $lt: new Date() };
+        } else {
+            query.status = status;
+        }
+    }
+
+    if (search) {
+        query['$or'] = [
+            { invoiceNumber: { $regex: search, $options: 'i' } },
+            { 'buyerDetails.companyName': { $regex: search, $options: 'i' } },
+            { 'buyerDetails.gstin': { $regex: search, $options: 'i' } }
+        ];
+    }
+
+    const total = await Invoice.countDocuments(query);
+    const invoices = await Invoice.find(query)
+        .populate('orderId')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            { data: invoices, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } },
+            'All invoices fetched'
+        )
+    );
+});
+
 export const markAsPaidManual = asyncHandler(async (req, res) => {
     const invoice = await Invoice.findById(req.params.id);
     if (!invoice) throw new ApiError(404, 'Invoice not found');
@@ -55,10 +98,10 @@ const amountToWords = (amount) => {
 
 export const generateInvoicePDF = async (req, res, next) => {
     try {
-        const invoice = await Invoice.findOne({
-            _id: req.params.id,
-            userId: req.user._id,
-        }).populate('orderId');
+        const query = { _id: req.params.id };
+if (req.user.role !== 'ADMIN') query.userId = req.user._id;
+
+const invoice = await Invoice.findOne(query).populate('orderId');
 
         if (!invoice) throw new ApiError(404, 'Invoice not found');
 

@@ -29,6 +29,7 @@ const SORT_OPTIONS = [
 function DropshipProducts({
     filters = {},
     globalSearchQuery = '',
+    initialCategory = 'All Categories',
     customTitle = 'Verified Wholesale Inventory',
     customSubtitle = 'Source direct from manufacturers. Maximize your retail margins.',
     hideTitle = false,
@@ -43,6 +44,12 @@ function DropshipProducts({
     const [maxPrice, setMaxPrice] = useState('');
     const [minRating, setMinRating] = useState(0);
     const [addedIds, setAddedIds] = useState([]);
+
+    useEffect(() => {
+        if (initialCategory) {
+            setCategory(initialCategory);
+        }
+    }, [initialCategory]);
 
     const { data: rawCategories = [] } = useQuery({
         queryKey: ['categories'],

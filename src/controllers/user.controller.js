@@ -126,6 +126,8 @@ export const getAllUsers = asyncHandler(async (req, res) => {
 
     const search = req.query.search || '';
     const role = req.query.role || 'ALL';
+    const accountType = req.query.accountType || 'ALL'; // New B2B Filter
+    const b2bStatus = req.query.b2bStatus || 'ALL'; // New Status Filter
 
     const query = {};
 
@@ -134,11 +136,21 @@ export const getAllUsers = asyncHandler(async (req, res) => {
         query['$or'] = [
             { name: { $regex: safeSearch, $options: 'i' } },
             { email: { $regex: safeSearch, $options: 'i' } },
+            { phoneNumber: { $regex: safeSearch, $options: 'i' } },
+            { companyName: { $regex: safeSearch, $options: 'i' } }, // Search by Company
+            { gstin: { $regex: safeSearch, $options: 'i' } } // Search by GSTIN
         ];
     }
 
-    if (role !== 'ALL') {
-        query.role = role;
+    if (role !== 'ALL') query.role = role;
+    if (accountType !== 'ALL') query.accountType = accountType;
+    
+    if (b2bStatus === 'PENDING') {
+        query.accountType = 'B2B';
+        query.isVerifiedB2B = false;
+    } else if (b2bStatus === 'VERIFIED') {
+        query.accountType = 'B2B';
+        query.isVerifiedB2B = true;
     }
 
     const total = await User.countDocuments(query);
@@ -157,6 +169,23 @@ export const getAllUsers = asyncHandler(async (req, res) => {
             },
             'Users fetched successfully'
         )
+    );
+});
+
+// NEW: Controller for B2B Verification
+export const verifyB2BUser = asyncHandler(async (req, res) => {
+    const { isVerifiedB2B } = req.body;
+    
+    const user = await User.findByIdAndUpdate(
+        req.params.id, 
+        { isVerifiedB2B }, 
+        { new: true }
+    ).select('-passwordHash');
+
+    if (!user) throw new ApiError(404, 'User not found');
+
+    return res.status(200).json(
+        new ApiResponse(200, user, `User B2B status updated to ${isVerifiedB2B ? 'Verified' : 'Pending'}`)
     );
 });
 

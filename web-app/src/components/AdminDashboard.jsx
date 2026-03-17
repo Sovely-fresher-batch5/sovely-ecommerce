@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, ShoppingBag, Users, Package, TrendingUp, Upload } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Users, Package, TrendingUp, Upload, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from './Navbar';
 import BulkUpload from './BulkUpload';
+import AdminInvoices from './admin/AdminInvoices';
 
 import AdminOverview from './admin/AdminOverview';
 import AdminOrders from './admin/AdminOrders';
@@ -24,6 +25,8 @@ const AdminDashboard = () => {
                 return <BulkUpload />;
             case 'users':
                 return <AdminUsers />;
+            case 'invoices':
+                return <AdminInvoices />;
             default:
                 return <AdminOrders />;
         }
@@ -48,6 +51,7 @@ const AdminDashboard = () => {
                         { id: 'overview', icon: TrendingUp, label: 'Telemetry' },
                         { id: 'orders', icon: ShoppingBag, label: 'Fulfillment' },
                         { id: 'products', icon: Package, label: 'Inventory' },
+                        { id: 'invoices', icon: FileText, label: 'Ledger / Bills' },
                         { id: 'bulk-upload', icon: Upload, label: 'Mass Import' },
                         { id: 'users', icon: Users, label: 'User Matrix' },
                     ].map((tab) => (

@@ -6,6 +6,7 @@ import {
     loginWithOtp,
     getAllUsers,
     updateUserRole,
+    verifyB2BUser // IMPORT THIS
 } from '../controllers/user.controller.js';
 import { verifyJWT, authorize } from '../middlewares/auth.middleware.js';
 
@@ -18,5 +19,8 @@ router.post('/register', registerUser);
 
 router.get('/admin/all', verifyJWT, authorize('ADMIN'), getAllUsers);
 router.put('/admin/:id/role', verifyJWT, authorize('ADMIN'), updateUserRole);
+
+// ADD THIS NEW ROUTE
+router.put('/admin/:id/b2b-verify', verifyJWT, authorize('ADMIN'), verifyB2BUser);
 
 export default router;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import DropshipProducts from './DropshipProducts';
 import { Search, ArrowLeft } from 'lucide-react';
@@ -6,14 +6,16 @@ import { Search, ArrowLeft } from 'lucide-react';
 function SearchResults() {
     const [searchParams] = useSearchParams();
     const query = searchParams.get('q') || '';
-    const [selectedCat, setSelectedCat] = useState('All');
+    const categoryParam = searchParams.get('category') || 'All Categories';
+    
     const navigate = useNavigate();
 
     useEffect(() => {
         window.scrollTo(0, 0);
-    }, [query]);
+    }, [query, categoryParam]);
 
-    if (!query) {
+    // Show empty state ONLY if there's no search query AND no category selected
+    if (!query && categoryParam === 'All Categories') {
         return (
             <div className="mx-auto w-full max-w-7xl px-4 py-24 text-center sm:px-6 lg:px-8">
                 <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100 text-slate-400">
@@ -37,20 +39,21 @@ function SearchResults() {
 
     return (
         <div className="animate-in fade-in z-10 mx-auto w-full max-w-7xl px-4 py-8 duration-300 sm:px-6 lg:px-8 lg:py-12">
-            {}
             <div className="mb-8 border-b border-slate-200 pb-6">
                 <p className="text-primary mb-2 text-sm font-bold tracking-wider uppercase">
-                    Search Results
+                    {query ? 'Search Results' : 'Category View'}
                 </p>
-                <h1 className="text-3xl font-extrabold text-slate-900">Matches for "{query}"</h1>
+                <h1 className="text-3xl font-extrabold text-slate-900">
+                    {query ? `Matches for "${query}"` : `${categoryParam} Products`}
+                </h1>
                 <p className="mt-2 text-slate-500">
                     Showing wholesale availability and bulk pricing.
                 </p>
             </div>
 
+            {/* We pass initialCategory down to the grid */}
             <DropshipProducts
-                externalCategory={selectedCat}
-                onCategoryChange={setSelectedCat}
+                initialCategory={categoryParam}
                 globalSearchQuery={query}
                 hideTitle={true}
             />
