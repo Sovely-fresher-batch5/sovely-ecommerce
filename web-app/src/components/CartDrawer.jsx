@@ -1,10 +1,14 @@
-import React, { useContext, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CartContext } from '../CartContext';
+import { useCartStore } from '../store/cartStore';
 import { X, Trash2, Package, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 
 function CartDrawer({ isOpen, onClose }) {
-    const { cartItems, updateQuantity, removeFromCart, setExactQuantity } = useContext(CartContext);
+    const cartItems = useCartStore((state) => state.cartItems);
+    const updateQuantity = useCartStore((state) => state.updateQuantity);
+    const removeFromCart = useCartStore((state) => state.removeFromCart);
+    const setExactQuantity = useCartStore((state) => state.setExactQuantity);
+
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -18,7 +22,6 @@ function CartDrawer({ isOpen, onClose }) {
         };
     }, [isOpen]);
 
-    // Calculate totals using the dynamically updated item price
     const totals = cartItems.reduce(
         (acc, item) => {
             const itemTotal = (item.price || item.product.price) * item.quantity;
@@ -38,7 +41,7 @@ function CartDrawer({ isOpen, onClose }) {
         const checkoutItems = cartItems.map((item) => ({
             productId: item.product?._id || item.product?.id || item.id,
             qty: item.quantity,
-            price: item.price, // Ensure the negotiated tier price goes to checkout
+            price: item.price,
             product: item.product || item,
         }));
         navigate('/checkout', { state: { items: checkoutItems } });
@@ -47,18 +50,20 @@ function CartDrawer({ isOpen, onClose }) {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[9999] flex justify-end">
+        <>
+            {}
             <div
-                className="animate-in fade-in absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300"
+                className="animate-in fade-in fixed inset-0 z-[9998] bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300"
                 onClick={onClose}
                 aria-hidden="true"
             ></div>
 
+            {}
             <div
-                className="animate-in slide-in-from-right relative flex h-full w-full max-w-md flex-col bg-white shadow-2xl duration-300"
+                className="animate-in slide-in-from-right fixed inset-y-0 right-0 z-[9999] flex h-[100dvh] w-full max-w-md flex-col bg-white shadow-2xl duration-300"
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* Header */}
+                {}
                 <div className="flex items-center justify-between border-b border-slate-100 bg-white p-6">
                     <div>
                         <h2 className="flex items-center gap-2 text-xl font-extrabold text-slate-900">
@@ -79,7 +84,7 @@ function CartDrawer({ isOpen, onClose }) {
                     </button>
                 </div>
 
-                {/* Cart Items List */}
+                {}
                 <div className="custom-scrollbar flex-1 overflow-y-auto bg-slate-50/50 p-4 sm:p-6">
                     {cartItems.length === 0 ? (
                         <div className="flex h-full flex-col items-center justify-center space-y-4 text-center">
@@ -107,7 +112,6 @@ function CartDrawer({ isOpen, onClose }) {
                             {cartItems.map((item) => {
                                 const product = item.product || item;
                                 const itemKey = product._id || product.id;
-                                // Use the dynamically calculated price stored on the cart item level
                                 const price = item.price || product.price || 0;
                                 const moq = product.minQuantity || product.moq || 1;
 
@@ -164,7 +168,6 @@ function CartDrawer({ isOpen, onClose }) {
                                                             / unit
                                                         </span>
                                                     </span>
-                                                    {/* Show a badge if they hit a tier discount */}
                                                     {price <
                                                         (product.basePrice || product.price) && (
                                                         <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700">
@@ -194,9 +197,8 @@ function CartDrawer({ isOpen, onClose }) {
                                                                 const val = parseInt(
                                                                     e.target.value
                                                                 );
-                                                                if (!isNaN(val)) {
+                                                                if (!isNaN(val))
                                                                     setExactQuantity(itemKey, val);
-                                                                }
                                                             }}
                                                             onBlur={(e) => {
                                                                 let val = parseInt(e.target.value);
@@ -204,9 +206,8 @@ function CartDrawer({ isOpen, onClose }) {
                                                                     val = moq;
                                                                 } else {
                                                                     const remainder = val % moq;
-                                                                    if (remainder !== 0) {
+                                                                    if (remainder !== 0)
                                                                         val = val - remainder;
-                                                                    }
                                                                 }
                                                                 setExactQuantity(itemKey, val);
                                                             }}
@@ -245,7 +246,7 @@ function CartDrawer({ isOpen, onClose }) {
                     )}
                 </div>
 
-                {/* Footer Totals */}
+                {}
                 {cartItems.length > 0 && (
                     <div className="relative z-10 border-t border-slate-200 bg-white p-6 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
                         <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-100 bg-green-50 p-2 text-xs font-bold text-green-700">
@@ -284,7 +285,7 @@ function CartDrawer({ isOpen, onClose }) {
                     </div>
                 )}
             </div>
-        </div>
+        </>
     );
 }
 

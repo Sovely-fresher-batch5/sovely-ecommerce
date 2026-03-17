@@ -1,16 +1,28 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { WishlistContext } from '../WishlistContext';
-import { CartContext } from '../CartContext';
 import { X, Trash2, Heart, ShoppingCart } from 'lucide-react';
-import { productApi } from '../features/products/api/productApi';
+import { useCartStore } from '../store/cartStore';
 
 function WishlistDrawer({ isOpen, onClose }) {
     const { wishlistItems, toggleWishlist } = useContext(WishlistContext);
-    const { addToCart } = useContext(CartContext);
+
+    const addToCart = useCartStore((state) => state.addToCart);
+
     const navigate = useNavigate();
     const [fullWishlistProducts, setFullWishlistProducts] = useState([]);
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [isOpen]);
 
     useEffect(() => {
         const fetchFullProducts = async () => {
@@ -59,16 +71,17 @@ function WishlistDrawer({ isOpen, onClose }) {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex justify-end">
+        <>
             {}
             <div
-                className="absolute inset-0 animate-[fadeIn_0.2s_ease-out] bg-slate-900/40 backdrop-blur-sm transition-opacity"
+                className="fixed inset-0 z-[9998] animate-[fadeIn_0.2s_ease-out] bg-slate-900/40 backdrop-blur-sm transition-opacity"
                 onClick={onClose}
+                aria-hidden="true"
             ></div>
 
             {}
             <div
-                className="relative flex h-full w-full max-w-md animate-[slideInRight_0.3s_ease-out] flex-col bg-white shadow-2xl"
+                className="fixed inset-y-0 right-0 z-[9999] flex h-[100dvh] w-full max-w-md animate-[slideInRight_0.3s_ease-out] flex-col bg-white shadow-2xl"
                 onClick={(e) => e.stopPropagation()}
             >
                 {}
@@ -188,7 +201,7 @@ function WishlistDrawer({ isOpen, onClose }) {
                     )}
                 </div>
             </div>
-        </div>
+        </>
     );
 }
 

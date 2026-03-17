@@ -14,7 +14,7 @@ import {
     Clock,
 } from 'lucide-react';
 import api from '../utils/api.js';
-import { CartContext } from '../CartContext';
+import { useCartStore } from '../store/cartStore';
 import Navbar from './Navbar';
 import Footer from './Footer';
 
@@ -33,7 +33,8 @@ const Checkout = () => {
     const navigate = useNavigate();
     const items = location.state?.items;
 
-    const { clearCart } = useContext(CartContext);
+    const cartItems = useCartStore((state) => state.cartItems);
+    const addToCart = useCartStore((state) => state.addToCart);
 
     const [paymentMethod, setPaymentMethod] = useState('UPI');
     const [paymentTerms, setPaymentTerms] = useState('DUE_ON_RECEIPT');
@@ -43,12 +44,10 @@ const Checkout = () => {
     const [companyName, setCompanyName] = useState('');
     const [formError, setFormError] = useState('');
 
-    // --- B2B GSTIN Validation Regex ---
     const isGstinValid =
         gstin.length === 0 ||
         /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(gstin.toUpperCase());
 
-    // --- FIXED: Math now matches CartDrawer (Exclusive Base + GST = Total) ---
     const financials = useMemo(() => {
         if (!items) return { subtotal: 0, totalGst: 0, totalAmount: 0 };
 
@@ -56,7 +55,6 @@ const Checkout = () => {
         let totalGst = 0;
 
         items.forEach((item) => {
-            // Use the negotiated tier price passed from the cart!
             const basePrice =
                 item.price || item.product?.price || item.product?.platformSellPrice || 0;
             const qty = item.qty || 1;
@@ -213,7 +211,7 @@ const Checkout = () => {
 
                 <div className="flex flex-col items-start gap-8 lg:flex-row lg:gap-12">
                     <div className="w-full flex-1 space-y-8">
-                        {/* Billing Details */}
+                        {}
                         <div className="rounded-[2.5rem] border border-slate-100 bg-white p-6 shadow-sm sm:p-10">
                             <div className="mb-8 flex items-center justify-between">
                                 <div>
@@ -272,7 +270,7 @@ const Checkout = () => {
                             </div>
                         </div>
 
-                        {/* Payment Method */}
+                        {}
                         <div className="rounded-[2.5rem] border border-slate-100 bg-white p-6 shadow-sm sm:p-10">
                             <div className="mb-8 flex items-center justify-between">
                                 <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">
@@ -281,7 +279,7 @@ const Checkout = () => {
                                 <ShieldCheck className="text-green-500" size={28} />
                             </div>
 
-                            {/* Terms Selector */}
+                            {}
                             <div className="mb-6 flex inline-flex gap-3 rounded-xl bg-slate-100 p-1.5">
                                 <button
                                     onClick={() => setPaymentTerms('DUE_ON_RECEIPT')}
@@ -429,7 +427,7 @@ const Checkout = () => {
                         </div>
                     </div>
 
-                    {/* Order Summary Sidebar */}
+                    {}
                     <div className="w-full lg:sticky lg:top-28 lg:w-[400px] xl:w-[450px]">
                         <div className="rounded-[2.5rem] border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
                             <h3 className="mb-6 text-xl font-extrabold tracking-tight text-slate-900">
@@ -439,7 +437,7 @@ const Checkout = () => {
                             <div className="custom-scrollbar mb-6 max-h-[300px] space-y-4 overflow-y-auto border-b border-slate-100 pr-2 pb-6">
                                 {items.map((item, idx) => {
                                     const product = item.product || item;
-                                    // Use the negotiated price, fallback to platform price
+
                                     const price =
                                         item.price ||
                                         product.price ||

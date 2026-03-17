@@ -6,8 +6,6 @@ import './index.css';
 import App from './App.jsx';
 import ErrorBoundary from './ErrorBoundary.jsx';
 import { AuthProvider } from './AuthContext.jsx';
-
-import { CartProvider } from './CartContext.jsx';
 import { WishlistProvider } from './WishlistContext.jsx';
 
 const queryClient = new QueryClient({
@@ -24,12 +22,9 @@ createRoot(document.getElementById('root')).render(
         <ErrorBoundary>
             <QueryClientProvider client={queryClient}>
                 <BrowserRouter>
-                    {}
                     <AuthProvider>
                         <WishlistProvider>
-                            <CartProvider>
-                                <App />
-                            </CartProvider>
+                            <App />
                         </WishlistProvider>
                     </AuthProvider>
                 </BrowserRouter>

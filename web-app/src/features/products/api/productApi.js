@@ -12,32 +12,27 @@ export const productApi = {
         shipping,
         minRating,
         sort,
-        // --- NEW B2B FILTERS ---
+
         inStock,
         moqTier,
         marginFilter,
     } = {}) => {
         const params = new URLSearchParams();
 
-        // Pagination & Search
         if (page) params.append('page', page);
         if (limit) params.append('limit', limit);
         if (query) params.append('query', query);
         if (categoryId && categoryId !== 'All') params.append('categoryId', categoryId);
 
-        // Sidebar Pricing & Rating Filters
         if (minPrice) params.append('minPrice', minPrice);
         if (maxPrice) params.append('maxPrice', maxPrice);
         if (minRating) params.append('minRating', minRating);
 
-        // Legacy Filters (kept for backward compatibility)
         if (saleOnly) params.append('saleOnly', 'true');
         if (shipping && shipping.length > 0) params.append('shipping', shipping.join(','));
 
-        // Sort
         if (sort && sort !== 'default') params.append('sort', sort);
 
-        // --- NEW B2B FILTERS (Top Bar) ---
         if (inStock) params.append('inStock', 'true');
         if (moqTier && moqTier !== 'all') params.append('moqTier', moqTier);
         if (marginFilter && marginFilter !== 'all') params.append('marginFilter', marginFilter);

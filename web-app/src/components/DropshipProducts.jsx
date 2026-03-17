@@ -15,7 +15,7 @@ import {
     Percent,
 } from 'lucide-react';
 import { productApi } from '../features/products/api/productApi.js';
-import { CartContext } from '../CartContext.jsx';
+import { useCartStore } from '../store/cartStore';
 import { WishlistContext } from '../WishlistContext.jsx';
 
 const SORT_OPTIONS = [
@@ -33,16 +33,15 @@ function DropshipProducts({
     customSubtitle = 'Source direct from manufacturers. Maximize your retail margins.',
     hideTitle = false,
 }) {
-    const { cartItems, addToCart, updateQuantity } = useContext(CartContext);
+    const addToCart = useCartStore((state) => state.addToCart);
     const { isInWishlist, toggleWishlist } = useContext(WishlistContext);
-    const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
+    const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
     const [category, setCategory] = useState('All Categories');
     const [sort, setSort] = useState('default');
     const [minPrice, setMinPrice] = useState('');
     const [maxPrice, setMaxPrice] = useState('');
     const [minRating, setMinRating] = useState(0);
-
     const [addedIds, setAddedIds] = useState([]);
 
     const { data: rawCategories = [] } = useQuery({
@@ -146,28 +145,33 @@ function DropshipProducts({
         setMinPrice('');
         setMaxPrice('');
         setMinRating(0);
-        if (globalSearchQuery) window.history.pushState({}, '', window.location.pathname);
+
+        if (globalSearchQuery) {
+            window.history.pushState({}, '', window.location.pathname);
+        }
     };
 
     const handleAdd = (product, e) => {
         e.preventDefault();
         e.stopPropagation();
         setAddedIds((prev) => [...prev, product.id]);
-        addToCart({
-            _id: product.id,
-            id: product.id,
-            name: product.name,
-            price: product.price,
-            image: product.image,
-            sku: product.skuId,
-            minQuantity: product.moq,
-        });
+        addToCart(
+            {
+                _id: product.id,
+                id: product.id,
+                name: product.name,
+                price: product.price,
+                image: product.image,
+                sku: product.skuId,
+                minQuantity: product.moq,
+            },
+            product.moq
+        );
         setTimeout(() => setAddedIds((prev) => prev.filter((x) => x !== product.id)), 1800);
     };
 
     return (
         <section className="relative z-10 w-full">
-            {}
             {!hideTitle && (
                 <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-center">
                     <div>
@@ -223,7 +227,6 @@ function DropshipProducts({
             )}
 
             <div className="flex flex-col items-start gap-8 md:flex-row">
-                {}
                 {isMobileFilterOpen && (
                     <div
                         className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm md:hidden"
@@ -231,7 +234,6 @@ function DropshipProducts({
                     />
                 )}
 
-                {}
                 <aside
                     className={`fixed inset-y-0 left-0 z-50 w-72 transform overflow-y-auto bg-white p-6 shadow-2xl transition-transform duration-300 md:relative md:sticky md:top-32 md:z-0 md:h-fit md:w-64 md:translate-x-0 md:rounded-2xl md:border md:border-slate-200 md:bg-white md:p-6 md:shadow-sm ${isMobileFilterOpen ? 'translate-x-0' : '-translate-x-full'}`}
                 >
@@ -254,7 +256,6 @@ function DropshipProducts({
                     </div>
 
                     <div className="space-y-8">
-                        {}
                         <div className="space-y-3">
                             <h4 className="flex items-center gap-2 text-xs font-bold tracking-wider text-slate-400 uppercase">
                                 <Box size={14} /> Categories
@@ -290,7 +291,6 @@ function DropshipProducts({
                             </div>
                         </div>
 
-                        {}
                         <div className="space-y-3">
                             <h4 className="text-xs font-bold tracking-wider text-slate-400 uppercase">
                                 Unit Price (₹)
@@ -318,7 +318,6 @@ function DropshipProducts({
                             </div>
                         </div>
 
-                        {}
                         <div className="space-y-3">
                             <h4 className="text-xs font-bold tracking-wider text-slate-400 uppercase">
                                 Supplier Rating
@@ -344,7 +343,6 @@ function DropshipProducts({
                     </div>
                 </aside>
 
-                {}
                 <div className="w-full flex-1">
                     {isLoading ? (
                         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -384,18 +382,12 @@ function DropshipProducts({
                                 {displayProducts.map((product) => {
                                     const isAdded = addedIds.includes(product.id);
                                     const isWishlisted = isInWishlist(product.id);
-                                    const cartItem = cartItems.find(
-                                        (item) =>
-                                            item.product?.id === product.id ||
-                                            item.id === product.id
-                                    );
 
                                     return (
                                         <div
                                             className="group hover:border-primary/50 relative flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-xl"
                                             key={product.id}
                                         >
-                                            {}
                                             <Link to={`/product/${product.id}`} className="block">
                                                 <div className="relative mb-4 aspect-[4/3] overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
                                                     <img
@@ -405,7 +397,6 @@ function DropshipProducts({
                                                         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                                                     />
 
-                                                    {}
                                                     <div className="absolute top-2 left-2 flex flex-col gap-1.5">
                                                         {product.isVerified && (
                                                             <span className="flex items-center gap-1 rounded-md border border-slate-200 bg-white/95 px-2 py-1 text-[10px] font-bold text-slate-800 shadow-sm backdrop-blur">
@@ -425,7 +416,6 @@ function DropshipProducts({
                                                 </div>
                                             </Link>
 
-                                            {}
                                             <button
                                                 className={`absolute top-6 right-6 rounded-full border p-2 shadow-md transition-all duration-300 ${isWishlisted ? 'bg-danger border-danger text-white' : 'hover:text-danger border-white bg-white/90 text-slate-400 backdrop-blur hover:scale-110'}`}
                                                 onClick={(e) => {
@@ -439,7 +429,6 @@ function DropshipProducts({
                                                 />
                                             </button>
 
-                                            {}
                                             <div className="flex flex-1 flex-col">
                                                 <div className="mb-1 flex items-start justify-between">
                                                     <span className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">
@@ -457,7 +446,6 @@ function DropshipProducts({
                                                     </h3>
                                                 </Link>
 
-                                                {}
                                                 <div className="mb-3 grid grid-cols-3 gap-2 divide-x divide-slate-200 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs">
                                                     <div className="pl-1">
                                                         <span className="mb-0.5 block text-[10px] font-bold tracking-wider text-slate-400 uppercase">
@@ -485,7 +473,6 @@ function DropshipProducts({
                                                     </div>
                                                 </div>
 
-                                                {}
                                                 <div className="mt-auto border-t border-slate-100 pt-4">
                                                     <div className="mb-4 flex items-end justify-between">
                                                         <div className="flex flex-col">
@@ -509,55 +496,20 @@ function DropshipProducts({
                                                         </div>
                                                     </div>
 
-                                                    {cartItem ? (
-                                                        <div className="flex flex-col gap-1">
-                                                            <span className="text-center text-[10px] font-bold text-green-600">
-                                                                In Cart ({cartItem.quantity} units)
-                                                            </span>
-                                                            <div className="bg-primary/5 border-primary/20 flex h-11 items-center justify-between rounded-xl border p-1">
-                                                                <button
-                                                                    className="text-primary hover:bg-primary flex h-9 w-9 items-center justify-center rounded-lg bg-white font-bold shadow-sm transition-colors hover:text-white"
-                                                                    onClick={() =>
-                                                                        updateQuantity(
-                                                                            product.id,
-                                                                            -product.moq
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    -
-                                                                </button>
-                                                                <span className="text-primary text-sm font-extrabold">
-                                                                    {cartItem.quantity}
-                                                                </span>
-                                                                <button
-                                                                    className="text-primary hover:bg-primary flex h-9 w-9 items-center justify-center rounded-lg bg-white font-bold shadow-sm transition-colors hover:text-white"
-                                                                    onClick={() =>
-                                                                        updateQuantity(
-                                                                            product.id,
-                                                                            product.moq
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    +
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            className={`flex h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-bold shadow-sm transition-all duration-300 ${isAdded ? 'border-green-500 bg-green-500 text-white shadow-green-500/20' : 'bg-primary border-primary hover:bg-primary-light text-white'}`}
-                                                            onClick={(e) => handleAdd(product, e)}
-                                                        >
-                                                            {isAdded ? (
-                                                                <>
-                                                                    <Check size={16} /> Added Bulk
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <Box size={16} /> Add Bulk Order
-                                                                </>
-                                                            )}
-                                                        </button>
-                                                    )}
+                                                    <button
+                                                        className={`flex h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-bold shadow-sm transition-all duration-300 ${isAdded ? 'border-green-500 bg-green-500 text-white shadow-green-500/20' : 'bg-primary border-primary hover:bg-primary-light text-white'}`}
+                                                        onClick={(e) => handleAdd(product, e)}
+                                                    >
+                                                        {isAdded ? (
+                                                            <>
+                                                                <Check size={16} /> Added Bulk
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Box size={16} /> Add Bulk Order
+                                                            </>
+                                                        )}
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>

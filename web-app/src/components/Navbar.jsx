@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { CartContext } from '../CartContext';
 import { WishlistContext } from '../WishlistContext';
 import { useQuery } from '@tanstack/react-query';
 import { productApi } from '../features/products/api/productApi';
@@ -9,11 +8,12 @@ import { getCategoryIcon } from '../utils/categoryIcons';
 import CartDrawer from './CartDrawer';
 import WishlistDrawer from './WishlistDrawer';
 import { Search, X, Clock, TrendingUp } from 'lucide-react';
+import { useCartStore } from '../store/cartStore';
 
 function Navbar({ onToggleSidebar, onSelectCategory }) {
     const { user, logout, loading } = useContext(AuthContext);
-    const { cartItems } = useContext(CartContext);
     const { wishlistItems } = useContext(WishlistContext);
+    const cartItems = useCartStore((state) => state.cartItems);
 
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [catDropOpen, setCatDropOpen] = useState(false);
@@ -21,16 +21,28 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
     const [isWishlistOpen, setIsWishlistOpen] = useState(false);
 
     const [searchInput, setSearchInput] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const searchRef = useRef(null);
 
+    const searchRef = useRef(null);
     const dropRef = useRef(null);
     const hoverTimeout = useRef(null);
     const navigate = useNavigate();
 
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(searchInput), 300);
+        return () => clearTimeout(timer);
+    }, [searchInput]);
+
     const { data: dbCategories = [] } = useQuery({
         queryKey: ['categories'],
         queryFn: productApi.getCategories,
+    });
+
+    const { data: liveSearchData, isFetching: isSearching } = useQuery({
+        queryKey: ['liveSearch', debouncedSearch],
+        queryFn: () => productApi.getProducts({ query: debouncedSearch, limit: 3 }),
+        enabled: debouncedSearch.trim().length >= 2,
     });
 
     const displayCategories = dbCategories.map((cat) => {
@@ -61,6 +73,13 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
 
     const handleMouseLeave = () => {
         hoverTimeout.current = setTimeout(() => setCatDropOpen(false), 180);
+    };
+
+    const executeSearch = (term) => {
+        if (!term.trim()) return;
+        setIsSearchOpen(false);
+        setSearchInput(term);
+        navigate(`/search?q=${encodeURIComponent(term.trim())}`);
     };
 
     return (
@@ -126,7 +145,6 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                                         ></path>
                                     </svg>
                                 </button>
-
                                 <div
                                     className={`absolute top-full -left-4 mt-2 w-screen max-w-md origin-top-left rounded-2xl border border-slate-100 bg-white shadow-xl transition-all duration-200 ${catDropOpen ? 'visible scale-100 opacity-100' : 'invisible scale-95 opacity-0'}`}
                                 >
@@ -138,6 +156,10 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                                                     setCatDropOpen(false);
                                                     if (onSelectCategory)
                                                         onSelectCategory(cat.name);
+
+                                                    navigate(
+                                                        `/search?category=${encodeURIComponent(cat.name)}`
+                                                    );
                                                 }}
                                                 className="group flex flex-col items-center gap-2 rounded-xl p-3 transition-colors hover:bg-slate-50"
                                             >
@@ -183,10 +205,18 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                                     value={searchInput}
                                     onChange={(e) => setSearchInput(e.target.value)}
                                     onFocus={() => setIsSearchOpen(true)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            executeSearch(searchInput);
+                                        }
+                                    }}
                                 />
                                 {searchInput && (
                                     <button
-                                        onClick={() => setSearchInput('')}
+                                        onClick={() => {
+                                            setSearchInput('');
+                                            searchRef.current?.querySelector('input')?.focus();
+                                        }}
                                         className="text-slate-400 hover:text-slate-600"
                                     >
                                         <X size={16} />
@@ -197,28 +227,63 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                             {}
                             {isSearchOpen && (
                                 <div className="animate-in fade-in slide-in-from-top-2 absolute top-full right-0 z-50 mt-3 flex w-[500px] flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl">
-                                    {searchInput ? (
+                                    {searchInput.trim().length > 0 ? (
                                         <div className="p-4">
-                                            <p className="mb-3 text-xs font-bold tracking-wider text-slate-400 uppercase">
-                                                Live Results for "{searchInput}"
-                                            </p>
-                                            {}
+                                            <div className="mb-3 flex items-center justify-between">
+                                                <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+                                                    Live Results for "{searchInput}"
+                                                </p>
+                                                {isSearching && (
+                                                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600"></div>
+                                                )}
+                                            </div>
+
                                             <div className="space-y-2">
-                                                <div className="flex cursor-pointer items-center gap-3 rounded-xl border border-transparent p-3 transition-colors hover:border-slate-100 hover:bg-slate-50">
-                                                    <div className="h-10 w-10 rounded-lg bg-slate-100"></div>
-                                                    <div>
-                                                        <p className="text-sm font-bold text-slate-900">
-                                                            Sample B2B Product ({searchInput})
-                                                        </p>
-                                                        <p className="text-xs text-slate-500">
-                                                            MOQ: 50 units • ₹450/unit
-                                                        </p>
-                                                    </div>
-                                                </div>
+                                                {liveSearchData?.products?.length > 0
+                                                    ? liveSearchData.products.map((prod) => (
+                                                          <div
+                                                              key={prod._id}
+                                                              onClick={() => {
+                                                                  setIsSearchOpen(false);
+                                                                  navigate(`/product/${prod._id}`);
+                                                              }}
+                                                              className="flex cursor-pointer items-center gap-3 rounded-xl border border-transparent p-2 transition-colors hover:border-slate-100 hover:bg-slate-50"
+                                                          >
+                                                              <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                                                                  <img
+                                                                      src={
+                                                                          prod.images?.[0]?.url ||
+                                                                          'https://via.placeholder.com/40'
+                                                                      }
+                                                                      alt={prod.title}
+                                                                      className="h-full w-full object-cover"
+                                                                  />
+                                                              </div>
+                                                              <div className="flex-1 overflow-hidden">
+                                                                  <p className="truncate text-sm font-bold text-slate-900">
+                                                                      {prod.title}
+                                                                  </p>
+                                                                  <p className="text-xs text-slate-500">
+                                                                      MOQ: {prod.moq || 10} units •
+                                                                      ₹
+                                                                      {prod.platformSellPrice?.toLocaleString(
+                                                                          'en-IN'
+                                                                      ) || 0}
+                                                                      /unit
+                                                                  </p>
+                                                              </div>
+                                                          </div>
+                                                      ))
+                                                    : !isSearching && (
+                                                          <div className="py-4 text-center text-sm text-slate-500">
+                                                              No direct matches found. Try hitting
+                                                              Enter to search all catalogs.
+                                                          </div>
+                                                      )}
                                             </div>
                                             <button
-                                                onClick={() => setIsSearchOpen(false)}
-                                                className="text-accent hover:text-accent/80 mt-4 w-full text-center text-sm font-bold"
+                                                onClick={() => executeSearch(searchInput)}
+                                                className="text-accent hover:text-accent/80 mt-4 w-full rounded-lg bg-slate-50 py-2 text-center text-sm font-bold transition-colors hover:bg-slate-100"
                                             >
                                                 View all results ➔
                                             </button>
@@ -227,15 +292,22 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                                         <div className="flex bg-slate-50/50">
                                             <div className="w-1/2 border-r border-slate-100 p-4">
                                                 <p className="mb-3 flex items-center gap-1 text-xs font-bold tracking-wider text-slate-400 uppercase">
-                                                    <Clock size={14} /> Recent
+                                                    <Clock size={14} /> Quick Searches
                                                 </p>
                                                 <ul className="space-y-2">
-                                                    <li className="hover:text-accent cursor-pointer text-sm font-medium text-slate-600">
-                                                        Wholesale electronics
-                                                    </li>
-                                                    <li className="hover:text-accent cursor-pointer text-sm font-medium text-slate-600">
-                                                        Corporate gifting sets
-                                                    </li>
+                                                    {[
+                                                        'Wholesale electronics',
+                                                        'Corporate gifting sets',
+                                                        'Industrial supplies',
+                                                    ].map((term) => (
+                                                        <li
+                                                            key={term}
+                                                            onClick={() => executeSearch(term)}
+                                                            className="hover:text-accent cursor-pointer rounded-lg px-2 py-1 text-sm font-medium text-slate-600 transition-colors hover:bg-white"
+                                                        >
+                                                            {term}
+                                                        </li>
+                                                    ))}
                                                 </ul>
                                             </div>
                                             <div className="w-1/2 p-4">
@@ -243,12 +315,19 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                                                     <TrendingUp size={14} /> Trending B2B
                                                 </p>
                                                 <ul className="space-y-2">
-                                                    <li className="hover:text-accent cursor-pointer text-sm font-medium text-slate-600">
-                                                        Office Laptops Bulk
-                                                    </li>
-                                                    <li className="hover:text-accent cursor-pointer text-sm font-medium text-slate-600">
-                                                        Industrial Packaging
-                                                    </li>
+                                                    {[
+                                                        'Office Laptops Bulk',
+                                                        'Industrial Packaging',
+                                                        'Bulk T-Shirts',
+                                                    ].map((term) => (
+                                                        <li
+                                                            key={term}
+                                                            onClick={() => executeSearch(term)}
+                                                            className="hover:text-accent cursor-pointer rounded-lg px-2 py-1 text-sm font-medium text-slate-600 transition-colors hover:bg-white"
+                                                        >
+                                                            {term}
+                                                        </li>
+                                                    ))}
                                                 </ul>
                                             </div>
                                         </div>
@@ -258,7 +337,6 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                         </div>
 
                         <div className="flex items-center gap-3">
-                            {}
                             <button
                                 onClick={() => setIsWishlistOpen(true)}
                                 className="hover:text-danger hover:bg-danger/10 relative rounded-full p-2 text-slate-600 transition-colors"
@@ -307,7 +385,6 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                                 )}
                             </button>
 
-                            {}
                             <div className="ml-2 hidden border-l border-slate-200 pl-4 lg:block">
                                 {loading ? (
                                     <div className="border-t-accent h-8 w-8 animate-spin rounded-full border-2 border-slate-200"></div>
@@ -348,7 +425,6 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                 </div>
             </div>
 
-            {}
             {isSearchOpen && (
                 <div
                     className="fixed inset-0 top-20 z-40 bg-slate-900/20 backdrop-blur-sm transition-opacity"
