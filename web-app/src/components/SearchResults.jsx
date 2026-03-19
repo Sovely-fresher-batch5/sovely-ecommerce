@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import DropshipProducts from './DropshipProducts';
 import { Search, ArrowLeft } from 'lucide-react';
 
@@ -38,6 +38,15 @@ function SearchResults() {
 
     return (
         <div className="animate-in fade-in z-10 mx-auto w-full max-w-7xl px-4 py-8 duration-300 sm:px-6 lg:px-8 lg:py-12">
+            
+            {/* --- NEW: Back to Catalog Button --- */}
+            <Link
+                to="/"
+                className="mb-8 inline-flex items-center gap-2 text-sm font-bold text-slate-400 transition-colors hover:text-slate-900"
+            >
+                <ArrowLeft size={16} /> Back to Catalog
+            </Link>
+
             <div className="mb-8 border-b border-slate-200 pb-6">
                 <p className="text-primary mb-2 text-sm font-bold tracking-wider uppercase">
                     {query ? 'Search Results' : 'Category View'}
@@ -50,7 +59,7 @@ function SearchResults() {
                 </p>
             </div>
 
-            {}
+            {/* Render the Products Grid */}
             <DropshipProducts
                 initialCategory={categoryParam}
                 globalSearchQuery={query}
