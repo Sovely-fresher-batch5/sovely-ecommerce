@@ -30,13 +30,19 @@ function LandingPage() {
         }
     };
 
+    // --- NEW: Handle the High Margin Hero Click ---
+    const handleViewHighMargin = () => {
+        setB2bFilters((prev) => ({ ...prev, margin: 'high-margin' }));
+        scrollToProducts();
+    };
+
     const handleFilterChange = (key, value) => {
         setB2bFilters((prev) => ({ ...prev, [key]: value }));
     };
 
     return (
         <div className="relative flex min-h-screen w-full flex-col">
-            {}
+            {/* Top Banner */}
             <div className="bg-primary relative z-20 flex flex-wrap justify-center gap-6 px-4 py-2.5 text-xs font-medium text-slate-100 shadow-sm md:gap-12 md:text-sm">
                 <span className="flex items-center gap-2 tracking-wide">
                     <Truck size={16} className="text-emerald-400" /> Pan-India Delivery (Tier 1-3)
@@ -51,9 +57,9 @@ function LandingPage() {
             </div>
 
             <main className="z-10 flex w-full flex-1 flex-col">
-                <Hero onShopNow={scrollToProducts} />
+                <Hero onShopNow={scrollToProducts} onViewHighMargin={handleViewHighMargin} />
 
-                {}
+                {/* Features Grid */}
                 <div className="relative z-20 border-y border-slate-200 bg-white py-10 shadow-sm">
                     <div className="mx-auto grid max-w-7xl grid-cols-2 gap-8 divide-x divide-slate-100 px-4 text-center sm:px-6 md:grid-cols-4 lg:px-8">
                         <div className="group flex flex-col items-center gap-3">
@@ -109,7 +115,7 @@ function LandingPage() {
                     </div>
                 </div>
 
-                {}
+                {/* Filter Section */}
                 <div
                     ref={productsRef}
                     className="sticky top-0 z-30 w-full border-b border-slate-200/60 bg-slate-50 bg-slate-50/90 pt-8 pb-4 shadow-sm backdrop-blur-xl"
@@ -134,9 +140,8 @@ function LandingPage() {
                     </div>
                 </div>
 
-                {}
+                {/* Products */}
                 <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-                    {}
                     <DropshipProducts filters={b2bFilters} globalSearchQuery={globalSearchQuery} />
                 </div>
             </main>

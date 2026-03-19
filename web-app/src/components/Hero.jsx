@@ -1,19 +1,19 @@
 import heroImg from '../assets/hero-shopping.png';
 import { ShieldCheck, Truck, TrendingUp, Building2 } from 'lucide-react';
 
-function Hero({ onShopNow }) {
+function Hero({ onShopNow, onViewHighMargin }) {
     return (
         <section
             className="relative overflow-hidden bg-slate-50 pt-16 pb-24 lg:pt-24 lg:pb-32"
             id="hero"
         >
-            {}
+            {/* Background Blobs */}
             <div className="animate-blob absolute top-0 -left-4 h-72 w-72 rounded-full bg-blue-300 opacity-60 mix-blend-multiply blur-2xl filter"></div>
             <div className="animate-blob animation-delay-2000 absolute top-0 -right-4 h-72 w-72 rounded-full bg-emerald-300 opacity-60 mix-blend-multiply blur-2xl filter"></div>
             <div className="animate-blob animation-delay-4000 absolute -bottom-8 left-20 h-72 w-72 rounded-full bg-indigo-300 opacity-60 mix-blend-multiply blur-2xl filter"></div>
 
             <div className="relative mx-auto flex max-w-7xl flex-col items-center gap-12 px-4 sm:px-6 lg:flex-row lg:gap-8 lg:px-8">
-                {}
+                {/* Left Content */}
                 <div className="z-10 w-full text-center lg:w-1/2 lg:text-left">
                     <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/60 px-4 py-2 shadow-sm backdrop-blur-md">
                         <span className="bg-primary flex h-2 w-2 animate-pulse rounded-full"></span>
@@ -41,12 +41,17 @@ function Hero({ onShopNow }) {
                         >
                             Browse Wholesale Catalog
                         </button>
-                        <button className="flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white/80 px-8 py-4 font-bold tracking-wide text-slate-900 shadow-sm backdrop-blur-sm transition-all duration-300 hover:border-slate-300 hover:bg-white sm:w-auto">
-                            <TrendingUp size={18} /> View High-Margin Deals
+                        
+                        {/* UPDATED: High Margin Button with sleek hover effects! */}
+                        <button 
+                            onClick={onViewHighMargin}
+                            className="group flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white/80 px-8 py-4 font-bold tracking-wide text-slate-900 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:bg-white hover:text-primary hover:shadow-md sm:w-auto"
+                        >
+                            <TrendingUp size={18} className="transition-transform duration-300 group-hover:scale-110" /> View High-Margin Deals
                         </button>
                     </div>
 
-                    {}
+                    {/* Trust Badges */}
                     <div className="mx-auto mt-12 grid max-w-lg grid-cols-2 gap-4 lg:mx-0">
                         <div className="flex cursor-default items-center gap-4 rounded-2xl border border-white/60 bg-white/40 p-4 shadow-sm backdrop-blur-md transition-colors hover:bg-white/60">
                             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 text-green-600 shadow-sm">
@@ -75,7 +80,7 @@ function Hero({ onShopNow }) {
                     </div>
                 </div>
 
-                {}
+                {/* Right Image */}
                 <div className="relative z-10 mt-16 flex w-full justify-center lg:mt-0 lg:w-1/2">
                     <div className="animate-float relative aspect-[4/5] w-full max-w-md overflow-hidden rounded-[2.5rem] border-[8px] border-white/60 shadow-2xl shadow-slate-900/20 backdrop-blur-sm">
                         <img
@@ -86,7 +91,7 @@ function Hero({ onShopNow }) {
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent mix-blend-overlay"></div>
                     </div>
 
-                    {}
+                    {/* Floating Badge */}
                     <div className="absolute -bottom-6 -left-2 flex items-center gap-4 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur-xl sm:left-4">
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-tr from-green-500 to-emerald-400 font-bold text-white shadow-inner">
                             GST
