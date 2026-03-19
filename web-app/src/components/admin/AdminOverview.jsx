@@ -17,8 +17,6 @@ import {
 } from 'recharts';
 import api from '../../utils/api.js';
 
-const COLORS = ['#0f172a', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-
 const AdminOverview = ({ setActiveTab }) => {
     const [analytics, setAnalytics] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -53,11 +51,23 @@ const AdminOverview = ({ setActiveTab }) => {
     const outOfStockData = inventoryHealth.find((item) => item.name === 'Out of Stock');
     const totalAlerts = (lowStockData?.value || 0) + (outOfStockData?.value || 0);
 
+    // --- NEW: Standardize Pie Chart Colors based on Status ---
+    const getStatusColor = (status) => {
+        switch (status?.toUpperCase()) {
+            case 'DELIVERED': return '#10b981'; // Green
+            case 'PROCESSING': return '#f59e0b'; // Yellow
+            case 'SHIPPED': return '#3b82f6'; // Blue
+            case 'PENDING': return '#8b5cf6'; // Purple
+            case 'CANCELLED': return '#ef4444'; // Red
+            default: return '#64748b'; // Slate
+        }
+    };
+
     return (
         <div className="flex flex-col gap-6">
-            {}
+            {/* KPIs */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-                <div className="flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
+                <div className="flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm transition-all hover:border-green-500 hover:shadow-md cursor-default">
                     <div className="rounded-2xl bg-green-50 p-4">
                         <DollarSign size={24} className="text-green-600" />
                     </div>
@@ -124,9 +134,9 @@ const AdminOverview = ({ setActiveTab }) => {
                 </div>
             </div>
 
-            {}
+            {/* Charts Row */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                {}
+                {/* Revenue Trend */}
                 <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm lg:col-span-2">
                     <h3 className="mb-6 text-sm font-bold tracking-wider text-slate-900 uppercase">
                         30-Day Revenue Trend
@@ -182,7 +192,7 @@ const AdminOverview = ({ setActiveTab }) => {
                     </div>
                 </div>
 
-                {}
+                {/* Lifetime Order Status */}
                 <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
                     <h3 className="mb-6 text-sm font-bold tracking-wider text-slate-900 uppercase">
                         Lifetime Order Status
@@ -202,7 +212,7 @@ const AdminOverview = ({ setActiveTab }) => {
                                     {orderStatus.map((entry, index) => (
                                         <Cell
                                             key={`cell-${index}`}
-                                            fill={COLORS[index % COLORS.length]}
+                                            fill={getStatusColor(entry.name)}
                                         />
                                     ))}
                                 </Pie>
@@ -228,7 +238,7 @@ const AdminOverview = ({ setActiveTab }) => {
                     </div>
                 </div>
 
-                {}
+                {/* Inventory Health */}
                 <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm lg:col-span-3">
                     <h3 className="mb-6 text-sm font-bold tracking-wider text-slate-900 uppercase">
                         Inventory Health Snapshot

@@ -70,7 +70,7 @@ const AdminOrders = () => {
 
     return (
         <>
-            {}
+            {/* Top Bar */}
             <div className="mb-6 flex flex-col gap-4 md:flex-row">
                 <div className="focus-within:border-primary focus-within:ring-primary flex flex-1 items-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm transition-all focus-within:ring-1">
                     <Search size={18} className="text-slate-400" />
@@ -99,7 +99,7 @@ const AdminOrders = () => {
                 </div>
             </div>
 
-            {}
+            {/* Table */}
             <div className="mb-6 overflow-hidden rounded-[2rem] border border-slate-100 bg-white shadow-sm">
                 <div className="relative min-h-[300px] overflow-x-auto">
                     {loading && (
@@ -141,7 +141,10 @@ const AdminOrders = () => {
                                     </td>
                                 </tr>
                             ) : null}
-                            {orders.map((order, index) => (
+                            {orders.map((order, index) => {
+                                const isCompleted = ['SHIPPED', 'DELIVERED', 'CANCELLED'].includes(order.status);
+                                
+                                return (
                                 <motion.tr
                                     key={order._id}
                                     initial={{ opacity: 0, y: 10 }}
@@ -214,19 +217,23 @@ const AdminOrders = () => {
                                                         order.tracking?.trackingNumber || '',
                                                 });
                                             }}
-                                            className="text-primary bg-primary/10 hover:bg-primary rounded-xl px-4 py-2 text-sm font-bold shadow-sm transition-colors hover:text-white"
+                                            className={`rounded-xl px-4 py-2 text-sm font-bold shadow-sm transition-colors ${
+                                                isCompleted 
+                                                ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' 
+                                                : 'text-primary bg-primary/10 hover:bg-primary hover:text-white'
+                                            }`}
                                         >
-                                            Process
+                                            {isCompleted ? 'View' : 'Process'}
                                         </motion.button>
                                     </td>
                                 </motion.tr>
-                            ))}
+                            )})}
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            {}
+            {/* Pagination */}
             <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                 <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -248,11 +255,11 @@ const AdminOrders = () => {
                 </button>
             </div>
 
-            {}
+            {/* Edit Modal */}
             <AnimatePresence>
                 {selectedOrder && (
                     <>
-                        {}
+                        {/* Backdrop */}
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -261,7 +268,7 @@ const AdminOrders = () => {
                             className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm"
                         />
 
-                        {}
+                        {/* Slide-over Panel */}
                         <motion.div
                             initial={{ x: '100%', opacity: 0.5 }}
                             animate={{ x: 0, opacity: 1 }}
@@ -269,7 +276,7 @@ const AdminOrders = () => {
                             transition={{ type: 'spring', stiffness: 200, damping: 25 }}
                             className="fixed top-0 right-0 bottom-0 z-50 flex w-full max-w-md flex-col border-l border-slate-100 bg-white shadow-2xl"
                         >
-                            {}
+                            {/* Header */}
                             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 p-6">
                                 <div>
                                     <h3 className="text-xl font-black text-slate-900">
@@ -289,7 +296,7 @@ const AdminOrders = () => {
                             </div>
 
                             <div className="custom-scrollbar flex flex-1 flex-col gap-6 overflow-y-auto p-6">
-                                {}
+                                {/* Buyer Info */}
                                 <div>
                                     <h4 className="mb-3 flex items-center gap-2 text-xs font-bold tracking-wider text-slate-400 uppercase">
                                         <User size={14} /> Buyer Information
@@ -309,7 +316,7 @@ const AdminOrders = () => {
                                     </div>
                                 </div>
 
-                                {}
+                                {/* Items */}
                                 <div>
                                     <h4 className="mb-3 flex items-center gap-2 text-xs font-bold tracking-wider text-slate-400 uppercase">
                                         <Package size={14} /> Commercial Manifest
@@ -338,7 +345,7 @@ const AdminOrders = () => {
                                     </div>
                                 </div>
 
-                                {}
+                                {/* Totals */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                                         <p className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
@@ -366,7 +373,7 @@ const AdminOrders = () => {
 
                                 <div className="my-2 border-t border-dashed border-slate-200"></div>
 
-                                {}
+                                {/* Tracking Form */}
                                 <div>
                                     <h4 className="mb-3 flex items-center gap-2 text-xs font-bold tracking-wider text-slate-400 uppercase">
                                         <Truck size={14} /> Dispatch & Tracking
@@ -450,7 +457,7 @@ const AdminOrders = () => {
                                 </div>
                             </div>
 
-                            {}
+                            {/* Footer Buttons */}
                             <div className="flex gap-3 border-t border-slate-100 bg-slate-50 p-6">
                                 <motion.button
                                     whileHover={{ scale: 1.02 }}
@@ -467,7 +474,7 @@ const AdminOrders = () => {
                                     onClick={() => submitOrderUpdate(selectedOrder._id)}
                                     className="hover:bg-primary-light bg-primary flex-1 rounded-xl px-4 py-3 text-sm font-bold text-white shadow-md transition-colors disabled:opacity-50"
                                 >
-                                    {isSaving ? 'Saving...' : 'Confirm Dispatch'}
+                                    {isSaving ? 'Saving...' : 'Confirm Update'}
                                 </motion.button>
                             </div>
                         </motion.div>

@@ -24,7 +24,6 @@ export class ProductService {
             shipping,
             minRating,
             sort,
-
             moqTier,
             marginFilter,
             inStock,
@@ -40,13 +39,9 @@ export class ProductService {
 
             filter.$or = [
                 { sku: { $regex: safeSearch, $options: 'i' } },
-
                 { title: { $regex: safeSearch, $options: 'i' } },
-
                 { vendor: { $regex: safeSearch, $options: 'i' } },
-
                 { tags: { $regex: safeSearch, $options: 'i' } },
-
                 { productType: { $regex: safeSearch, $options: 'i' } },
             ];
         }
@@ -87,6 +82,8 @@ export class ProductService {
             if (sort === 'price-desc') sortOption = { platformSellPrice: -1 };
             if (sort === 'rating') sortOption = { averageRating: -1 };
             if (sort === 'margin') sortOption = { discountPercent: -1 };
+            if (sort === 'stock_asc') sortOption = { 'inventory.stock': 1 };
+            if (sort === 'stock_desc') sortOption = { 'inventory.stock': -1 };
         }
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -149,6 +146,7 @@ export class ProductService {
         const status = queryParams.status || 'ALL';
         const price = queryParams.price || 'ALL';
         const stock = queryParams.stock || 'ALL';
+        const sort = queryParams.sort; // Catch the sort parameter
 
         const filter = {};
 
@@ -169,8 +167,19 @@ export class ProductService {
         if (stock === 'LOW_STOCK') filter['inventory.stock'] = { $gt: 0, $lte: 10 };
         if (stock === 'IN_STOCK') filter['inventory.stock'] = { $gt: 10 };
 
+        // Determine correct sorting logic
+        let sortOption = { createdAt: -1 }; // Default to newest first
+        if (sort === 'stock_asc') {
+            sortOption = { 'inventory.stock': 1 }; // Lowest stock first
+        } else if (sort === 'stock_desc') {
+            sortOption = { 'inventory.stock': -1 }; // Highest stock first
+        }
+
         const total = await Product.countDocuments(filter);
-        const products = await Product.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit);
+        const products = await Product.find(filter)
+            .sort(sortOption) // Apply the dynamic sort
+            .skip(skip)
+            .limit(limit);
 
         return {
             data: products,

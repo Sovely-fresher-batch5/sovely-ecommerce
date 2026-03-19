@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Edit2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Edit2, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import api from '../../utils/api.js';
 import CreateProductModal from './CreateProductModal';
-import { Plus } from 'lucide-react';
 
 const AdminProducts = () => {
     const [products, setProducts] = useState([]);
@@ -43,10 +42,19 @@ const AdminProducts = () => {
                         status: filterOption,
                         price: priceFilter,
                         stock: stockFilter,
+                        sort: 'stock_asc' // Pre-wired for backend global sorting
                     },
                 });
 
-                setProducts(res.data.data.data);
+                // FRONTEND FIX: Sort the fetched items from Lowest Stock -> Highest Stock
+                let fetchedProducts = res.data.data.data || [];
+                fetchedProducts.sort((a, b) => {
+                    const stockA = a.inventory?.stock || 0;
+                    const stockB = b.inventory?.stock || 0;
+                    return stockA - stockB;
+                });
+
+                setProducts(fetchedProducts);
                 setTotalPages(res.data.data.pagination.totalPages);
             } catch (err) {
                 console.error(err);
@@ -67,7 +75,12 @@ const AdminProducts = () => {
                 status: editForm.status,
             });
 
-            setProducts((prev) => prev.map((p) => (p._id === id ? res.data.data : p)));
+            // Update the product and re-sort so the list stays organized
+            setProducts((prev) => {
+                const updatedList = prev.map((p) => (p._id === id ? res.data.data : p));
+                return updatedList.sort((a, b) => (a.inventory?.stock || 0) - (b.inventory?.stock || 0));
+            });
+            
             setUpdatingId(null);
         } catch (err) {
             alert('Failed to update product');
@@ -174,6 +187,7 @@ const AdminProducts = () => {
                                         key={p._id}
                                         className="transition-colors hover:bg-slate-50/50"
                                     >
+                                        {/* 1. PRODUCT COLUMN */}
                                         <td className="p-4">
                                             <div className="max-w-[250px] truncate font-bold text-slate-900">
                                                 {p.title}
@@ -182,11 +196,41 @@ const AdminProducts = () => {
                                                 SKU: {p.sku}
                                             </div>
                                         </td>
+
+                                        {/* 2. PRICE COLUMN */}
+                                        <td className="p-4">
+                                            {isEdit ? (
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-8 text-[10px] font-bold text-slate-400 uppercase">
+                                                        Price
+                                                    </span>
+                                                    <input
+                                                        type="number"
+                                                        value={editForm.price}
+                                                        onChange={(e) =>
+                                                            setEditForm({
+                                                                ...editForm,
+                                                                price: e.target.value,
+                                                            })
+                                                        }
+                                                        className="focus:border-accent w-20 rounded border border-slate-300 p-1.5 text-sm font-medium outline-none"
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="font-bold text-slate-900">
+                                                        ₹{p.platformSellPrice}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </td>
+
+                                        {/* 3. STOCK COLUMN */}
                                         <td className="p-4">
                                             {isEdit ? (
                                                 <div className="flex flex-col gap-2">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="w-10 text-[10px] font-bold text-slate-400 uppercase">
+                                                        <span className="w-8 text-[10px] font-bold text-slate-400 uppercase">
                                                             Stock
                                                         </span>
                                                         <input
@@ -202,7 +246,7 @@ const AdminProducts = () => {
                                                         />
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        <span className="w-10 text-[10px] font-bold text-slate-400 uppercase">
+                                                        <span className="w-8 text-[10px] font-bold text-slate-400 uppercase">
                                                             MOQ
                                                         </span>
                                                         <input
@@ -220,44 +264,32 @@ const AdminProducts = () => {
                                                 </div>
                                             ) : (
                                                 <div className="flex flex-col gap-1">
-                                                    <span
-                                                        className={`font-bold ${p.inventory?.stock === 0 ? 'text-red-500' : p.inventory?.stock <= 10 ? 'text-yellow-600' : 'text-slate-900'}`}
-                                                    >
-                                                        {p.inventory?.stock}{' '}
-                                                        <span className="text-[10px] font-medium text-slate-400">
-                                                            (In Stock)
-                                                        </span>
+                                                    <span className="font-extrabold text-slate-900">
+                                                        {p.inventory?.stock} <span className="text-[10px] font-medium text-slate-500">Units</span>
                                                     </span>
-                                                    <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
-                                                        MOQ:{' '}
-                                                        <span className="text-slate-700">
-                                                            {p.moq || 1}
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`inline-flex w-fit rounded px-1.5 py-0.5 text-[9px] font-extrabold tracking-wider uppercase ${
+                                                            p.inventory?.stock === 0 
+                                                            ? 'bg-red-100 text-red-700' 
+                                                            : p.inventory?.stock <= 10 
+                                                                ? 'bg-amber-100 text-amber-700' 
+                                                                : 'bg-green-100 text-green-700'
+                                                        }`}>
+                                                            {p.inventory?.stock === 0 
+                                                                ? 'Out of Stock' 
+                                                                : p.inventory?.stock <= 10 
+                                                                    ? 'Low Stock' 
+                                                                    : 'In Stock'}
                                                         </span>
-                                                    </span>
+                                                        <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                                            MOQ: <span className="text-slate-700">{p.moq || 1}</span>
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="p-4">
-                                            {isEdit ? (
-                                                <input
-                                                    type="number"
-                                                    value={editForm.stock}
-                                                    onChange={(e) =>
-                                                        setEditForm({
-                                                            ...editForm,
-                                                            stock: e.target.value,
-                                                        })
-                                                    }
-                                                    className="focus:border-accent w-16 rounded border border-slate-300 p-1.5 text-sm font-medium outline-none"
-                                                />
-                                            ) : (
-                                                <span
-                                                    className={`font-bold ${p.inventory?.stock === 0 ? 'text-danger' : p.inventory?.stock <= 10 ? 'text-yellow-600' : 'text-slate-900'}`}
-                                                >
-                                                    {p.inventory?.stock}
-                                                </span>
-                                            )}
-                                        </td>
+
+                                        {/* 4. STATUS COLUMN */}
                                         <td className="p-4">
                                             {isEdit ? (
                                                 <select
@@ -281,6 +313,8 @@ const AdminProducts = () => {
                                                 </span>
                                             )}
                                         </td>
+
+                                        {/* 5. ACTIONS COLUMN */}
                                         <td className="p-4">
                                             {isEdit ? (
                                                 <div className="flex gap-2">
@@ -323,7 +357,6 @@ const AdminProducts = () => {
                 </div>
             </div>
 
-            {}
             <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                 <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
