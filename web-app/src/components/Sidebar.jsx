@@ -1,7 +1,19 @@
 import React, { useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { Home, UploadCloud, FileText, Package, Wallet, Settings, Building2, X } from 'lucide-react';
+import {
+    Home,
+    UploadCloud,
+    FileText,
+    Package,
+    Wallet,
+    Settings,
+    Building2,
+    X,
+    ShieldAlert,
+    ShieldCheck,
+    Shield,
+} from 'lucide-react'; // Added Shield icons
 
 function Sidebar({ isOpen, onClose }) {
     const navigate = useNavigate();
@@ -25,6 +37,30 @@ function Sidebar({ isOpen, onClose }) {
             document.body.style.overflow = 'auto';
         };
     }, [isOpen]);
+
+    // Helper for dynamic KYC badging
+    const getKycBadge = () => {
+        if (!user) return null;
+        if (user.kycStatus === 'APPROVED') {
+            return (
+                <p className="mt-1 flex w-fit items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-emerald-700 uppercase">
+                    <ShieldCheck size={12} /> GST Verified
+                </p>
+            );
+        }
+        if (user.kycStatus === 'PENDING') {
+            return (
+                <p className="mt-1 flex w-fit items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-amber-700 uppercase">
+                    <Clock size={12} /> Pending Review
+                </p>
+            );
+        }
+        return (
+            <p className="mt-1 flex w-fit items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-red-700 uppercase">
+                <ShieldAlert size={12} /> Action Required
+            </p>
+        );
+    };
 
     return (
         <div className="relative z-[100]">
@@ -60,6 +96,26 @@ function Sidebar({ isOpen, onClose }) {
                 </div>
 
                 <div className="custom-scrollbar flex-1 space-y-8 overflow-y-auto px-4 py-6">
+                    {/* --- NEW: ADMIN BLOCK --- */}
+                    {user && user.role === 'ADMIN' && (
+                        <div>
+                            <h3 className="mb-3 px-2 text-xs font-bold tracking-wider text-blue-500 uppercase">
+                                Platform Management
+                            </h3>
+                            <ul className="space-y-1">
+                                <li>
+                                    <Link
+                                        to="/admin"
+                                        onClick={onClose}
+                                        className="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 font-bold text-blue-700 transition-colors hover:bg-blue-100"
+                                    >
+                                        <Shield size={20} /> Admin Console
+                                    </Link>
+                                </li>
+                            </ul>
+                        </div>
+                    )}
+
                     <div>
                         <h3 className="mb-3 px-2 text-xs font-bold tracking-wider text-slate-400 uppercase">
                             Procurement Portal
@@ -69,14 +125,14 @@ function Sidebar({ isOpen, onClose }) {
                                 <Link
                                     to="/"
                                     onClick={onClose}
-                                    className="text-accent flex items-center gap-3 rounded-xl bg-slate-100 px-4 py-3 font-bold"
+                                    className="flex items-center gap-3 rounded-xl px-4 py-3 font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                                 >
                                     <Home size={20} /> Home
                                 </Link>
                             </li>
                             <li>
                                 <Link
-                                    to="/bulk-order"
+                                    to="/quick-order"
                                     onClick={onClose}
                                     className="flex items-center gap-3 rounded-xl px-4 py-3 font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                                 >
@@ -85,7 +141,7 @@ function Sidebar({ isOpen, onClose }) {
                             </li>
                             <li>
                                 <Link
-                                    to="/my-account/invoices"
+                                    to="/invoices" // FIXED: Removed /my-account/ prefix
                                     onClick={onClose}
                                     className="flex items-center gap-3 rounded-xl px-4 py-3 font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                                 >
@@ -120,16 +176,16 @@ function Sidebar({ isOpen, onClose }) {
                         <ul className="space-y-1">
                             <li>
                                 <Link
-                                    to="/my-account"
+                                    to="/my-account" // FIXED: Changed from /my-account
                                     onClick={onClose}
                                     className="flex items-center gap-3 rounded-xl px-4 py-3 font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                                 >
-                                    <Building2 size={20} /> Company Profile
+                                    <Building2 size={20} /> Dashboard & Profile
                                 </Link>
                             </li>
                             <li>
                                 <Link
-                                    to="/my-account/settings"
+                                    to="/account/settings" // Adjusted to match new pattern
                                     onClick={onClose}
                                     className="flex items-center gap-3 rounded-xl px-4 py-3 font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                                 >
@@ -165,13 +221,13 @@ function Sidebar({ isOpen, onClose }) {
                                         {user.companyName || user.name}
                                     </span>
                                 </p>
-                                <p className="mt-1 flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-emerald-700 uppercase">
-                                    GST Verified
-                                </p>
+
+                                {/* --- NEW: DYNAMIC KYC BADGE --- */}
+                                {getKycBadge()}
                             </div>
                             <button
                                 onClick={handleLogout}
-                                className="bg-danger/10 text-danger hover:bg-danger w-full rounded-full py-3 font-bold shadow-sm transition-colors hover:text-white"
+                                className="w-full rounded-full bg-red-50 py-3 font-bold text-red-600 shadow-sm transition-colors hover:bg-red-600 hover:text-white"
                             >
                                 Secure Log Out
                             </button>
@@ -192,7 +248,7 @@ function Sidebar({ isOpen, onClose }) {
                                 <Link
                                     to="/signup"
                                     onClick={onClose}
-                                    className="hover:bg-primary hover:shadow-primary/30 w-full rounded-full bg-slate-900 py-3 font-bold text-white transition-all hover:shadow-lg"
+                                    className="w-full rounded-full bg-slate-900 py-3 font-bold text-white transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-900/20"
                                 >
                                     Apply for Wholesale
                                 </Link>

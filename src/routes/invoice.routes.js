@@ -5,6 +5,7 @@ import {
     markAsPaidManual,
     generateInvoicePDF,
     getAllInvoices,
+    getMyInvoices,
 } from '../controllers/invoice.controller.js';
 
 import { verifyJWT, authorizeRoles } from '../middlewares/auth.middleware.js';
@@ -23,6 +24,7 @@ router.get('/admin/all', authorizeRoles('ADMIN'), getAllInvoices);
 // GENERAL USER ROUTES
 // ==========================================
 router.get('/', listMyInvoices);
+router.route('/me').get(verifyJWT, getMyInvoices);
 
 // ==========================================
 // DYNAMIC ID ROUTES (Must go LAST)

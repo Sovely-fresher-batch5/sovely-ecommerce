@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, ShoppingBag, AlertCircle, Users } from 'lucide-react';
+import { DollarSign, ShoppingBag, AlertCircle, Users, ShieldAlert } from 'lucide-react';
 import {
     AreaChart,
     Area,
@@ -27,6 +27,7 @@ const AdminOverview = ({ setActiveTab }) => {
         const fetchAnalytics = async () => {
             setLoading(true);
             try {
+                // IMPORTANT: Ensure this matches the route you established!
                 const res = await api.get('/analytics/admin');
                 setAnalytics(res.data.data);
             } catch (err) {
@@ -55,8 +56,8 @@ const AdminOverview = ({ setActiveTab }) => {
 
     return (
         <div className="flex flex-col gap-6">
-            {}
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {/* --- UPDATED KPI GRID (Now 5 columns on large screens to fit KYC) --- */}
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
                 <div className="flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
                     <div className="rounded-2xl bg-green-50 p-4">
                         <DollarSign size={24} className="text-green-600" />
@@ -66,7 +67,7 @@ const AdminOverview = ({ setActiveTab }) => {
                             Total Revenue
                         </p>
                         <h3 className="text-xl font-black text-slate-900">
-                            ₹{kpis.totalRevenue.toLocaleString('en-IN')}
+                            ₹{kpis.totalRevenue?.toLocaleString('en-IN') || 0}
                         </h3>
                     </div>
                 </div>
@@ -83,37 +84,34 @@ const AdminOverview = ({ setActiveTab }) => {
                             Total Customers
                         </p>
                         <h3 className="text-xl font-black text-slate-900">
-                            {kpis.totalCustomers.toLocaleString('en-IN')}
+                            {kpis.totalCustomers?.toLocaleString('en-IN') || 0}
                         </h3>
                     </div>
                 </div>
 
                 <div
                     onClick={() => setActiveTab('orders')}
-                    className="hover:border-accent group flex cursor-pointer items-center gap-4 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm transition-all hover:shadow-md"
+                    className="group flex cursor-pointer items-center gap-4 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm transition-all hover:border-indigo-500 hover:shadow-md"
                 >
-                    <div className="group-hover:bg-accent/10 rounded-2xl bg-indigo-50 p-4 transition-colors">
-                        <ShoppingBag
-                            size={24}
-                            className="group-hover:text-accent text-indigo-600"
-                        />
+                    <div className="rounded-2xl bg-indigo-50 p-4 transition-colors group-hover:bg-indigo-100">
+                        <ShoppingBag size={24} className="text-indigo-600" />
                     </div>
                     <div>
                         <p className="mb-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                             Orders Processing
                         </p>
                         <h3 className="text-xl font-black text-slate-900">
-                            {kpis.processingOrders}
+                            {kpis.processingOrders || 0}
                         </h3>
                     </div>
                 </div>
 
                 <div
                     onClick={() => setActiveTab('products')}
-                    className="hover:border-danger group flex cursor-pointer items-center gap-4 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm transition-all hover:shadow-md"
+                    className="group flex cursor-pointer items-center gap-4 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm transition-all hover:border-red-500 hover:shadow-md"
                 >
-                    <div className="group-hover:bg-danger/10 rounded-2xl bg-red-50 p-4 transition-colors">
-                        <AlertCircle size={24} className="group-hover:text-danger text-red-600" />
+                    <div className="rounded-2xl bg-red-50 p-4 transition-colors group-hover:bg-red-100">
+                        <AlertCircle size={24} className="text-red-600" />
                     </div>
                     <div>
                         <p className="mb-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
@@ -122,11 +120,28 @@ const AdminOverview = ({ setActiveTab }) => {
                         <h3 className="text-xl font-black text-slate-900">{totalAlerts} Items</h3>
                     </div>
                 </div>
+
+                {/* NEW: Pending KYC Card */}
+                <div
+                    onClick={() => setActiveTab('users')}
+                    className="group flex cursor-pointer items-center gap-4 rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm transition-all hover:bg-amber-100 hover:shadow-md"
+                >
+                    <div className="rounded-2xl bg-amber-200/50 p-4 transition-colors group-hover:bg-amber-200">
+                        <ShieldAlert size={24} className="text-amber-700" />
+                    </div>
+                    <div>
+                        <p className="mb-1 text-[10px] font-bold tracking-wider text-amber-700 uppercase">
+                            Pending KYC
+                        </p>
+                        <h3 className="text-xl font-black text-amber-900">
+                            {kpis.pendingKycCount || 0} Req
+                        </h3>
+                    </div>
+                </div>
             </div>
 
-            {}
+            {/* Rest of your existing charts remain unchanged! */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                {}
                 <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm lg:col-span-2">
                     <h3 className="mb-6 text-sm font-bold tracking-wider text-slate-900 uppercase">
                         30-Day Revenue Trend
@@ -182,7 +197,6 @@ const AdminOverview = ({ setActiveTab }) => {
                     </div>
                 </div>
 
-                {}
                 <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
                     <h3 className="mb-6 text-sm font-bold tracking-wider text-slate-900 uppercase">
                         Lifetime Order Status
@@ -228,7 +242,6 @@ const AdminOverview = ({ setActiveTab }) => {
                     </div>
                 </div>
 
-                {}
                 <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm lg:col-span-3">
                     <h3 className="mb-6 text-sm font-bold tracking-wider text-slate-900 uppercase">
                         Inventory Health Snapshot
@@ -267,12 +280,7 @@ const AdminOverview = ({ setActiveTab }) => {
                                         boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                                     }}
                                 />
-                                <Bar
-                                    dataKey="value"
-                                    fill="#3b82f6"
-                                    radius={[0, 8, 8, 0]}
-                                    barSize={30}
-                                >
+                                <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={30}>
                                     {inventoryHealth.map((entry, index) => (
                                         <Cell
                                             key={`cell-${index}`}

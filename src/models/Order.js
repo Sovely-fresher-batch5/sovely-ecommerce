@@ -7,12 +7,15 @@ const orderItemSnapshotSchema = new mongoose.Schema(
         title: { type: String, required: true },
         image: { type: String },
         hsnCode: { type: String, required: true },
-
         qty: { type: Number, required: true, min: 1 },
 
-        // Financials per item
         platformBasePrice: { type: Number, required: true },
         resellerSellingPrice: { type: Number, required: true },
+
+        // --- NEW: Exact Tax & Shipping Snapshots ---
+        taxAmountPerUnit: { type: Number, required: true },
+        gstSlab: { type: Number, required: true },
+        shippingCost: { type: Number, required: true },
     },
     { _id: false }
 );
@@ -43,13 +46,11 @@ const ndrSchema = new mongoose.Schema(
 const orderSchema = new mongoose.Schema(
     {
         orderId: { type: String, required: true, unique: true },
-
         resellerId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User',
             required: true,
         },
-
         endCustomerDetails: {
             name: { type: String },
             phone: { type: String },
@@ -60,7 +61,6 @@ const orderSchema = new mongoose.Schema(
                 zip: { type: String },
             },
         },
-
         status: {
             type: String,
             enum: [
@@ -91,12 +91,12 @@ const orderSchema = new mongoose.Schema(
             default: 'COD',
         },
 
+        // --- FIXED: Accurate Totals per split order ---
         subTotal: { type: Number, required: true, default: 0 },
         taxTotal: { type: Number, required: true, default: 0 },
-        shippingTotal: { type: Number, default: 0 },
-
-        // The core math of the transaction
+        shippingTotal: { type: Number, required: true, default: 0 },
         totalPlatformCost: { type: Number, required: true },
+
         amountToCollect: { type: Number, required: true },
         resellerProfitMargin: { type: Number, required: true },
 
@@ -108,8 +108,5 @@ const orderSchema = new mongoose.Schema(
 
 orderSchema.index({ resellerId: 1, status: 1 });
 orderSchema.index({ 'endCustomerDetails.phone': 1 });
-
-// Note: Removed the pre('save') hook for statusHistory.
-// Status updates are now safely appended explicitly in the controllers using ACID transactions.
 
 export const Order = mongoose.model('Order', orderSchema);

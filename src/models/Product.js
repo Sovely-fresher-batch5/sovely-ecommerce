@@ -65,6 +65,13 @@ const productSchema = new mongoose.Schema(
             default: 'NO_RETURNS',
         },
 
+        // Predictive Analytics
+        historicalRtoRate: {
+            type: Number,
+            default: 0,
+            index: true,
+        },
+
         // --- Status, Tracking & Soft Deletes ---
         status: { type: String, enum: ['active', 'draft', 'archived'], default: 'active' },
         deletedAt: { type: Date, default: null }, // NEW: True soft deletes for audit integrity

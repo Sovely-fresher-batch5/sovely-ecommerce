@@ -4,25 +4,22 @@ import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
-/**
- * Helper Function: Recalculates the entire cart's math.
- * Applies B2B tiered pricing and Indian GST dynamically.
- */
 const recalculateCart = async (cart) => {
     let subTotal = 0;
     let totalTax = 0;
+    let totalShippingCost = 0;
     let totalExpectedProfit = 0;
+
+    const SHIPPING_RATE_PER_KG = 50; // Base rate: ₹50/kg
 
     for (let item of cart.items) {
         const product = await Product.findById(item.productId);
 
-        // FIX: Handle deleted/archived "Ghost Products"
         if (!product || product.status !== 'active') {
             item.toBeRemoved = true;
             continue;
         }
 
-        // 1. Determine Base Price based on Order Intent
         let unitCost = product.dropshipBasePrice;
 
         if (
@@ -30,7 +27,6 @@ const recalculateCart = async (cart) => {
             product.tieredPricing &&
             product.tieredPricing.length > 0
         ) {
-            // FIX: Prevent array mutation by spreading into a new array before sorting
             const applicableTier = [...product.tieredPricing]
                 .sort((a, b) => b.minQty - a.minQty)
                 .find((tier) => item.qty >= tier.minQty);
@@ -42,23 +38,22 @@ const recalculateCart = async (cart) => {
 
         item.platformUnitCost = unitCost;
         item.gstSlab = product.gstSlab;
-
-        // 2. Calculate Taxes (GST)
         item.taxAmountPerUnit = Number(((unitCost * product.gstSlab) / 100).toFixed(2));
 
-        // 3. Calculate Item Totals
+        // Calculate Shipping based on weight
+        const itemWeightKg = (product.weightGrams / 1000) * item.qty;
+        item.shippingCost = Math.ceil(Math.max(1, itemWeightKg)) * SHIPPING_RATE_PER_KG;
+
         item.totalItemPlatformCost = Number(
             ((unitCost + item.taxAmountPerUnit) * item.qty).toFixed(2)
         );
 
-        // 4. Calculate Dropship Profit
         if (item.orderType === 'DROPSHIP') {
-            // FIX: Negative Profit Floor validation
-            const minimumSellingPrice = unitCost + item.taxAmountPerUnit;
+            const minimumSellingPrice =
+                unitCost + item.taxAmountPerUnit + item.shippingCost / item.qty;
             if (item.resellerSellingPrice < minimumSellingPrice) {
-                item.resellerSellingPrice = minimumSellingPrice; // Auto-correct to prevent negative margins
+                item.resellerSellingPrice = minimumSellingPrice;
             }
-
             const profitPerUnit = item.resellerSellingPrice - minimumSellingPrice;
             item.expectedProfit = Number((profitPerUnit * item.qty).toFixed(2));
         } else {
@@ -66,31 +61,27 @@ const recalculateCart = async (cart) => {
             item.resellerSellingPrice = 0;
         }
 
-        // Add to Cart Grand Totals
         subTotal += unitCost * item.qty;
         totalTax += item.taxAmountPerUnit * item.qty;
+        totalShippingCost += item.shippingCost;
         totalExpectedProfit += item.expectedProfit;
     }
 
-    // FIX: Physically remove the ghost items outside the loop
     cart.items = cart.items.filter((item) => !item.toBeRemoved);
 
     cart.subTotalPlatformCost = Number(subTotal.toFixed(2));
     cart.totalTax = Number(totalTax.toFixed(2));
-    cart.grandTotalPlatformCost = Number((subTotal + totalTax).toFixed(2));
+    cart.totalShippingCost = Number(totalShippingCost.toFixed(2));
+    cart.grandTotalPlatformCost = Number((subTotal + totalTax + totalShippingCost).toFixed(2));
     cart.totalExpectedProfit = Number(totalExpectedProfit.toFixed(2));
 
     return cart;
 };
 
-/**
- * @desc    Get the current user's cart
- * @route   GET /api/cart
- */
 export const getCart = asyncHandler(async (req, res) => {
     let cart = await Cart.findOne({ resellerId: req.user._id }).populate(
         'items.productId',
-        'title images sku inventory moq'
+        'title images sku inventory moq weightGrams'
     );
 
     if (!cart) {
@@ -100,10 +91,6 @@ export const getCart = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, cart, 'Cart fetched successfully'));
 });
 
-/**
- * @desc    Add an item to the cart (Handles both Dropship & Wholesale logic)
- * @route   POST /api/cart
- */
 export const addToCart = asyncHandler(async (req, res) => {
     const { productId, qty, orderType, resellerSellingPrice } = req.body;
 
@@ -118,7 +105,6 @@ export const addToCart = asyncHandler(async (req, res) => {
         throw new ApiError(400, `Only ${product.inventory.stock} units available in stock`);
     }
 
-    // FIX: Wholesale MOQ validation
     if (orderType === 'WHOLESALE' && qty < product.moq) {
         throw new ApiError(
             400,
@@ -153,19 +139,14 @@ export const addToCart = asyncHandler(async (req, res) => {
     cart = await recalculateCart(cart);
     await cart.save();
 
-    // FIX: Populate the payload before returning to the frontend
     const populatedCart = await Cart.findById(cart._id).populate(
         'items.productId',
-        'title images sku inventory moq'
+        'title images sku inventory moq weightGrams'
     );
 
     return res.status(200).json(new ApiResponse(200, populatedCart, 'Item added to cart'));
 });
 
-/**
- * @desc    Update item quantity or selling price in cart
- * @route   PUT /api/cart/:productId
- */
 export const updateCartItem = asyncHandler(async (req, res) => {
     const { qty, resellerSellingPrice } = req.body;
     const { productId } = req.params;
@@ -181,7 +162,6 @@ export const updateCartItem = asyncHandler(async (req, res) => {
         throw new ApiError(400, `Cannot exceed available stock (${product.inventory.stock} units)`);
     }
 
-    // FIX: Prevent updating quantity below Wholesale MOQ
     if (cart.items[itemIndex].orderType === 'WHOLESALE' && qty < product.moq) {
         throw new ApiError(400, `Quantity cannot be less than the MOQ of ${product.moq} units.`);
     }
@@ -194,19 +174,14 @@ export const updateCartItem = asyncHandler(async (req, res) => {
     cart = await recalculateCart(cart);
     await cart.save();
 
-    // FIX: Populate the payload before returning
     const populatedCart = await Cart.findById(cart._id).populate(
         'items.productId',
-        'title images sku inventory moq'
+        'title images sku inventory moq weightGrams'
     );
 
     return res.status(200).json(new ApiResponse(200, populatedCart, 'Cart updated'));
 });
 
-/**
- * @desc    Remove an item from the cart
- * @route   DELETE /api/cart/:productId
- */
 export const removeFromCart = asyncHandler(async (req, res) => {
     const { productId } = req.params;
 
@@ -218,10 +193,9 @@ export const removeFromCart = asyncHandler(async (req, res) => {
     cart = await recalculateCart(cart);
     await cart.save();
 
-    // FIX: Populate the payload before returning
     const populatedCart = await Cart.findById(cart._id).populate(
         'items.productId',
-        'title images sku inventory moq'
+        'title images sku inventory moq weightGrams'
     );
 
     return res.status(200).json(new ApiResponse(200, populatedCart, 'Item removed from cart'));

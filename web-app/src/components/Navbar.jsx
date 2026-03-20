@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getCategoryIcon } from '../utils/categoryIcons';
 import api from '../utils/api';
 import CartDrawer from './CartDrawer';
-import { Search, X, Clock, TrendingUp, Wallet, FileText, Menu } from 'lucide-react';
+import { Search, X, Clock, TrendingUp, Wallet, Menu, Shield } from 'lucide-react'; // Removed unused FileText
 import { useCartStore } from '../store/cartStore';
 
 function Navbar({ onToggleSidebar, onSelectCategory }) {
@@ -115,7 +115,7 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                                 onMouseLeave={handleMouseLeave}
                             >
                                 <button
-                                    className={`flex items-center gap-1 font-semibold transition-colors ${catDropOpen ? 'text-accent' : 'text-slate-600 hover:text-slate-900'}`}
+                                    className={`flex items-center gap-1 font-semibold transition-colors ${catDropOpen ? 'text-emerald-600' : 'text-slate-600 hover:text-slate-900'}`}
                                     onClick={() => setCatDropOpen((v) => !v)}
                                 >
                                     Categories
@@ -169,7 +169,7 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                             </li>
                             <li>
                                 <Link
-                                    to="/bulk-order"
+                                    to="/quick-order"
                                     className="font-semibold text-slate-600 transition-colors hover:text-slate-900"
                                 >
                                     Quick Order
@@ -179,9 +179,17 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                     </div>
 
                     <div className="flex items-center gap-4 sm:gap-6">
+                        {/* --- ENHANCED MOBILE SEARCH ICON --- */}
+                        <button
+                            className="p-2 text-slate-600 hover:text-slate-900 sm:hidden"
+                            onClick={() => setIsSearchOpen(!isSearchOpen)}
+                        >
+                            <Search size={20} />
+                        </button>
+
                         <div ref={searchRef} className="relative hidden sm:block">
                             <div
-                                className={`flex items-center rounded-full border bg-slate-100 px-4 py-2 transition-all ${isSearchOpen ? 'border-accent ring-accent/20 bg-white shadow-md ring-2' : 'border-transparent hover:bg-slate-200'}`}
+                                className={`flex items-center rounded-full border bg-slate-100 px-4 py-2 transition-all ${isSearchOpen ? 'border-emerald-500 bg-white shadow-md ring-2 ring-emerald-500/20' : 'border-transparent hover:bg-slate-200'}`}
                             >
                                 <Search size={18} className="text-slate-400" />
                                 <input
@@ -269,7 +277,7 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                                             </div>
                                             <button
                                                 onClick={() => executeSearch(searchInput)}
-                                                className="text-accent hover:text-accent/80 mt-4 w-full rounded-lg bg-slate-50 py-2 text-center text-sm font-bold transition-colors hover:bg-slate-100"
+                                                className="mt-4 w-full rounded-lg bg-slate-50 py-2 text-center text-sm font-bold text-emerald-600 transition-colors hover:bg-slate-100 hover:text-emerald-800"
                                             >
                                                 View all wholesale results →
                                             </button>
@@ -290,7 +298,7 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                                                         <li
                                                             key={term}
                                                             onClick={() => executeSearch(term)}
-                                                            className="hover:text-accent cursor-pointer rounded-lg px-2 py-1 text-sm font-medium text-slate-600 transition-colors hover:bg-white"
+                                                            className="cursor-pointer rounded-lg px-2 py-1 text-sm font-medium text-slate-600 transition-colors hover:bg-white hover:text-emerald-600"
                                                         >
                                                             {term}
                                                         </li>
@@ -310,7 +318,7 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                                                         <li
                                                             key={term}
                                                             onClick={() => executeSearch(term)}
-                                                            className="hover:text-accent cursor-pointer rounded-lg px-2 py-1 text-sm font-medium text-slate-600 transition-colors hover:bg-white"
+                                                            className="cursor-pointer rounded-lg px-2 py-1 text-sm font-medium text-slate-600 transition-colors hover:bg-white hover:text-emerald-600"
                                                         >
                                                             {term}
                                                         </li>
@@ -324,11 +332,24 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                         </div>
 
                         <div className="flex items-center gap-3">
-                            {/* Wallet Quick Link instead of Wishlist */}
+                            {/* --- NEW: ADMIN LINK IN NAVBAR --- */}
+                            {user && user.role === 'ADMIN' && (
+                                <Link
+                                    to="/admin"
+                                    className="hidden items-center gap-1.5 rounded-full border border-blue-100 px-3 py-1.5 text-blue-600 transition-colors hover:bg-blue-50 sm:flex"
+                                    title="Admin Console"
+                                >
+                                    <Shield className="h-4 w-4" />
+                                    <span className="text-[10px] font-bold tracking-widest uppercase">
+                                        Admin
+                                    </span>
+                                </Link>
+                            )}
+
                             {user && (
                                 <button
                                     onClick={() => navigate('/wallet')}
-                                    className="hover:text-primary hover:bg-primary/10 relative rounded-full p-2 text-slate-600 transition-colors"
+                                    className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
                                     title="Wallet Balance"
                                 >
                                     <Wallet className="h-6 w-6" />
@@ -353,7 +374,6 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                                         d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
                                     ></path>
                                 </svg>
-                                {/* Search your Navbar.jsx for this block and update it */}
                                 {cartCount > 0 && (
                                     <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-slate-900 text-[10px] font-bold text-white">
                                         {cartCount}
@@ -363,13 +383,14 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
 
                             <div className="ml-2 hidden border-l border-slate-200 pl-4 lg:block">
                                 {loading ? (
-                                    <div className="border-t-accent h-8 w-8 animate-spin rounded-full border-2 border-slate-200"></div>
+                                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-emerald-600"></div>
                                 ) : user ? (
                                     <div className="flex items-center gap-4">
                                         <div className="flex flex-col">
+                                            {/* --- FIXED: Router link to /account --- */}
                                             <Link
                                                 to="/my-account"
-                                                className="hover:text-accent text-sm font-bold text-slate-900"
+                                                className="text-sm font-bold text-slate-900 hover:text-emerald-600"
                                             >
                                                 {user?.companyName || user?.name?.split(' ')[0]}
                                             </Link>
@@ -405,6 +426,27 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                     </div>
                 </div>
             </div>
+
+            {/* Mobile Full Screen Search Override */}
+            {isSearchOpen && (
+                <div className="absolute top-0 left-0 z-[60] flex h-20 w-full items-center gap-3 border-b border-slate-200 bg-white px-4 sm:hidden">
+                    <Search size={20} className="text-slate-400" />
+                    <input
+                        type="text"
+                        autoFocus
+                        placeholder="Search products..."
+                        className="flex-1 border-none bg-transparent text-base font-medium text-slate-900 outline-none placeholder:text-slate-400"
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') executeSearch(searchInput);
+                        }}
+                    />
+                    <button onClick={() => setIsSearchOpen(false)} className="p-2 text-slate-500">
+                        <X size={20} />
+                    </button>
+                </div>
+            )}
 
             {isSearchOpen && (
                 <div

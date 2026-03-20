@@ -11,19 +11,19 @@ import {
     MapPin,
     ExternalLink,
     IndianRupee,
+    Wallet,
 } from 'lucide-react';
 import api from '../utils/api.js';
 import LoadingScreen from './LoadingScreen';
 
 const OrderTracking = () => {
-    const { id } = useParams(); // Grabs the order ID from the URL
+    const { id } = useParams();
     const navigate = useNavigate();
 
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    // NDR specific state
     const [ndrAction, setNdrAction] = useState('REATTEMPT');
     const [updatedPhone, setUpdatedPhone] = useState('');
     const [submittingNdr, setSubmittingNdr] = useState(false);
@@ -33,7 +33,6 @@ const OrderTracking = () => {
             try {
                 const res = await api.get(`/orders/${id}`);
                 setOrder(res.data.data);
-                // Pre-fill phone number for NDR form if it exists
                 if (res.data.data?.endCustomerDetails?.phone) {
                     setUpdatedPhone(res.data.data.endCustomerDetails.phone);
                 }
@@ -54,7 +53,7 @@ const OrderTracking = () => {
                 action: ndrAction,
                 updatedPhone: ndrAction === 'REATTEMPT' ? updatedPhone : undefined,
             });
-            setOrder(res.data.data); // Update order with the new NDR history
+            setOrder(res.data.data);
             alert('Action submitted successfully to courier.');
         } catch (err) {
             alert(err.response?.data?.message || 'Failed to submit action');
@@ -67,7 +66,6 @@ const OrderTracking = () => {
     if (error) return <div className="p-8 text-center font-bold text-red-500">{error}</div>;
     if (!order) return null;
 
-    // Helper to pick the right icon for the timeline
     const getStatusIcon = (status) => {
         switch (status) {
             case 'PENDING':
@@ -101,7 +99,7 @@ const OrderTracking = () => {
             case 'SHIPPED':
                 return 'bg-indigo-500 text-white border-indigo-500';
             default:
-                return 'bg-slate-200 text-slate-500 border-slate-300'; // Default gray for pending
+                return 'bg-slate-200 text-slate-500 border-slate-300';
         }
     };
 
@@ -132,22 +130,20 @@ const OrderTracking = () => {
                             Expected Profit
                         </p>
                         <p className="flex items-center gap-1 text-xl font-black">
-                            <IndianRupee size={18} /> {order.resellerProfitMargin}
+                            <IndianRupee size={18} />{' '}
+                            {order.resellerProfitMargin?.toLocaleString('en-IN')}
                         </p>
                     </div>
                 )}
             </div>
 
             <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-                {/* Timeline Column */}
                 <div className="space-y-6 md:col-span-2">
                     <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
                         <h2 className="mb-6 text-xl font-extrabold text-slate-900">
                             Tracking History
                         </h2>
-
                         <div className="relative space-y-8 border-l-2 border-slate-100 pl-4">
-                            {/* Reverse the array so the newest status is at the top */}
                             {[...order.statusHistory].reverse().map((history, idx) => (
                                 <div key={idx} className="relative">
                                     <div
@@ -171,7 +167,6 @@ const OrderTracking = () => {
                         </div>
                     </div>
 
-                    {/* Active NDR Action Block */}
                     {order.status === 'NDR' && order.ndrDetails?.resellerAction === 'PENDING' && (
                         <div className="animate-in fade-in slide-in-from-bottom-4 rounded-3xl border-2 border-amber-200 bg-amber-50 p-6 sm:p-8">
                             <div className="mb-4 flex items-center gap-3 text-amber-600">
@@ -186,7 +181,6 @@ const OrderTracking = () => {
                                     </p>
                                 </div>
                             </div>
-
                             <form onSubmit={handleNdrSubmit} className="mt-6 space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
                                     <button
@@ -204,7 +198,6 @@ const OrderTracking = () => {
                                         Return to Origin
                                     </button>
                                 </div>
-
                                 {ndrAction === 'REATTEMPT' && (
                                     <div className="space-y-1 pt-2">
                                         <label className="text-xs font-bold tracking-wider text-amber-800 uppercase">
@@ -230,7 +223,6 @@ const OrderTracking = () => {
                                         </div>
                                     </div>
                                 )}
-
                                 <button
                                     type="submit"
                                     disabled={submittingNdr}
@@ -243,8 +235,38 @@ const OrderTracking = () => {
                     )}
                 </div>
 
-                {/* Sidebar Column (Logistics & Shipping) */}
                 <div className="space-y-6">
+                    {/* NEW: Financial Summary block on Tracking page */}
+                    <div className="rounded-3xl border border-slate-200 bg-white p-6">
+                        <h3 className="mb-4 flex items-center gap-2 text-sm font-black tracking-wider text-slate-500 uppercase">
+                            <Wallet size={16} /> Financial Summary
+                        </h3>
+                        <div className="space-y-2 text-sm font-medium text-slate-600">
+                            <div className="flex justify-between">
+                                <span>Subtotal</span>
+                                <span className="font-bold text-slate-900">
+                                    ₹{order.subTotal?.toLocaleString('en-IN')}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>Tax (GST)</span>
+                                <span className="font-bold text-slate-900">
+                                    + ₹{order.taxTotal?.toLocaleString('en-IN')}
+                                </span>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-100 pb-3">
+                                <span>Shipping</span>
+                                <span className="font-bold text-slate-900">
+                                    + ₹{order.shippingTotal?.toLocaleString('en-IN')}
+                                </span>
+                            </div>
+                            <div className="flex justify-between pt-3 text-base font-black text-slate-900">
+                                <span>Platform Paid</span>
+                                <span>₹{order.totalPlatformCost?.toLocaleString('en-IN')}</span>
+                            </div>
+                        </div>
+                    </div>
+
                     {order.tracking?.awbNumber && (
                         <div className="rounded-3xl border border-slate-200 bg-white p-6">
                             <h3 className="mb-4 flex items-center gap-2 text-sm font-black tracking-wider text-slate-500 uppercase">
@@ -290,7 +312,6 @@ const OrderTracking = () => {
                         </div>
                     )}
 
-                    {/* Invoice Download Card */}
                     <div className="rounded-3xl border border-slate-200 bg-white p-6">
                         <h3 className="mb-4 flex items-center gap-2 text-sm font-black tracking-wider text-slate-500 uppercase">
                             <Package size={16} /> Tax Invoice
@@ -298,14 +319,36 @@ const OrderTracking = () => {
                         <p className="mb-4 text-sm font-medium text-slate-500">
                             Download the GST compliant invoice for this transaction.
                         </p>
-                        <a
-                            href={`http://localhost:8000/api/v1/invoices/order/${order._id}/pdf`} // Make sure to route this properly!
-                            target="_blank"
-                            rel="noreferrer"
+                        <button
+                            onClick={async () => {
+                                try {
+                                    const response = await api.get(
+                                        `/invoices/order/${order._id}/pdf`,
+                                        {
+                                            responseType: 'blob',
+                                        }
+                                    );
+                                    const url = window.URL.createObjectURL(
+                                        new Blob([response.data], { type: 'application/pdf' })
+                                    );
+                                    const link = document.createElement('a');
+                                    link.href = url;
+                                    link.setAttribute('download', `Invoice_${order.orderId}.pdf`);
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    link.parentNode.removeChild(link);
+                                    window.URL.revokeObjectURL(url);
+                                } catch (err) {
+                                    console.error('Failed to download PDF', err);
+                                    alert(
+                                        'Failed to generate PDF. Make sure the order has an invoice generated.'
+                                    );
+                                }
+                            }}
                             className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-sm font-extrabold text-white transition-all hover:bg-slate-800"
                         >
                             Download PDF
-                        </a>
+                        </button>
                     </div>
                 </div>
             </div>

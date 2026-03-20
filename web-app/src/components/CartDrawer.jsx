@@ -11,8 +11,30 @@ import {
     Minus,
     Plus,
     ShieldCheck,
+    CheckCircle,
 } from 'lucide-react';
 import { useCartStore } from '../store/cartStore';
+
+const getTierNudge = (currentQty, tieredPricing) => {
+    if (!tieredPricing || tieredPricing.length === 0) return null;
+
+    // Ensure tiers are sorted from lowest MOQ to highest
+    const sortedTiers = [...tieredPricing].sort((a, b) => a.minQty - b.minQty);
+
+    // Find the very next tier they haven't reached yet
+    const nextTier = sortedTiers.find((tier) => tier.minQty > currentQty);
+
+    if (nextTier) {
+        return {
+            unitsNeeded: nextTier.minQty - currentQty,
+            newPrice: nextTier.pricePerUnit,
+            targetQty: nextTier.minQty,
+        };
+    }
+
+    // If they already hit the maximum bulk discount tier
+    return null;
+};
 
 const CartDrawer = ({ isOpen, onClose }) => {
     const navigate = useNavigate();
@@ -37,12 +59,11 @@ const CartDrawer = ({ isOpen, onClose }) => {
     return (
         <div
             className="fixed inset-0 z-50 flex justify-end bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300"
-            onClick={onClose} // Clicking the backdrop closes the drawer
+            onClick={onClose}
         >
-            {/* Drawer Container - Fixed height using dvh for mobile browser chrome */}
             <div
                 className="animate-in slide-in-from-right flex h-[100dvh] w-full max-w-md flex-col bg-white shadow-2xl duration-300"
-                onClick={(e) => e.stopPropagation()} // Prevent clicks inside drawer from closing it
+                onClick={(e) => e.stopPropagation()}
             >
                 {/* Header (Fixed) */}
                 <div className="z-10 flex shrink-0 items-center justify-between border-b border-slate-100 bg-white p-6">
@@ -63,7 +84,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
                     </button>
                 </div>
 
-                {/* Cart Items List (Scrollable) */}
+                {/* Cart Items List */}
                 <div className="flex-1 space-y-4 overflow-y-auto bg-slate-50/50 p-4 sm:p-6">
                     {isLoading && !cart ? (
                         <div className="flex h-full flex-col items-center justify-center space-y-3 opacity-60">
@@ -73,135 +94,187 @@ const CartDrawer = ({ isOpen, onClose }) => {
                             </p>
                         </div>
                     ) : cart?.items?.length > 0 ? (
-                        cart.items.map((item, idx) => (
-                            <div
-                                key={idx}
-                                className="group relative rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-md"
-                            >
-                                {/* Order Type Badge */}
-                                <div className="absolute -top-3 left-4">
-                                    {item.orderType === 'DROPSHIP' ? (
-                                        <span className="flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-3 py-1 text-[10px] font-extrabold tracking-widest text-amber-800 uppercase shadow-sm">
-                                            <Package size={12} /> Dropship
-                                        </span>
-                                    ) : (
-                                        <span className="flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-100 px-3 py-1 text-[10px] font-extrabold tracking-widest text-indigo-800 uppercase shadow-sm">
-                                            <ShoppingCart size={12} /> Wholesale
-                                        </span>
-                                    )}
-                                </div>
+                        cart.items.map((item, idx) => {
+                            // --- NEW: Calculate the nudge for this specific item ---
+                            const nudge = getTierNudge(item.qty, item.productId?.tieredPricing);
 
-                                <div className="mt-3 flex gap-4">
-                                    {/* Product Image */}
-                                    <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
-                                        <img
-                                            src={
-                                                item.productId?.images?.[0]?.url ||
-                                                'https://via.placeholder.com/80'
-                                            }
-                                            alt={item.productId?.title}
-                                            className="h-full w-full object-cover mix-blend-multiply"
-                                        />
+                            return (
+                                <div
+                                    key={idx}
+                                    className="group relative rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-md"
+                                >
+                                    {/* Order Type Badge */}
+                                    <div className="absolute -top-3 left-4">
+                                        {item.orderType === 'DROPSHIP' ? (
+                                            <span className="flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-3 py-1 text-[10px] font-extrabold tracking-widest text-amber-800 uppercase shadow-sm">
+                                                <Package size={12} /> Dropship
+                                            </span>
+                                        ) : (
+                                            <span className="flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-100 px-3 py-1 text-[10px] font-extrabold tracking-widest text-indigo-800 uppercase shadow-sm">
+                                                <ShoppingCart size={12} /> Wholesale
+                                            </span>
+                                        )}
                                     </div>
 
-                                    {/* Product Details */}
-                                    <div className="min-w-0 flex-1">
-                                        <h3 className="truncate pr-2 text-sm font-bold text-slate-900">
-                                            {item.productId?.title || 'Unknown Product'}
-                                        </h3>
-                                        <p className="mt-0.5 font-mono text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-                                            SKU: {item.productId?.sku}
-                                        </p>
-
-                                        {/* Financial Breakdown */}
-                                        <div className="mt-2 space-y-1 rounded-xl border border-slate-100 bg-slate-50 p-2.5">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-xs font-bold text-slate-500">
-                                                    Unit Cost:
-                                                </span>
-                                                <span className="text-sm font-extrabold text-slate-900">
-                                                    ₹
-                                                    {item.platformUnitCost?.toLocaleString('en-IN')}
-                                                </span>
-                                            </div>
-
-                                            {item.orderType === 'DROPSHIP' && (
-                                                <>
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-xs font-bold text-slate-500">
-                                                            Selling At:
-                                                        </span>
-                                                        <span className="text-xs font-extrabold text-slate-900">
-                                                            ₹
-                                                            {item.resellerSellingPrice?.toLocaleString(
-                                                                'en-IN'
-                                                            )}
-                                                        </span>
-                                                    </div>
-                                                    <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-1">
-                                                        <span className="flex items-center gap-1 text-[10px] font-extrabold tracking-wider text-emerald-600 uppercase">
-                                                            <TrendingUp size={12} /> Margin
-                                                        </span>
-                                                        <span className="text-sm font-black text-emerald-600">
-                                                            ₹
-                                                            {item.expectedProfit?.toLocaleString(
-                                                                'en-IN'
-                                                            )}
-                                                        </span>
-                                                    </div>
-                                                </>
-                                            )}
+                                    <div className="mt-3 flex gap-4">
+                                        {/* Product Image */}
+                                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
+                                            <img
+                                                src={
+                                                    item.productId?.images?.[0]?.url ||
+                                                    'https://via.placeholder.com/80'
+                                                }
+                                                alt={item.productId?.title}
+                                                className="h-full w-full object-cover mix-blend-multiply"
+                                            />
                                         </div>
 
-                                        {/* Quantity & Actions */}
-                                        <div className="mt-3 flex items-center justify-between">
-                                            <div className="flex items-center rounded-lg border border-slate-200 bg-white shadow-sm">
-                                                <button
-                                                    onClick={() =>
-                                                        updateCartItem(
-                                                            item.productId?._id,
-                                                            item.qty - 1
-                                                        )
-                                                    }
-                                                    disabled={
-                                                        item.qty <=
-                                                            (item.orderType === 'WHOLESALE'
-                                                                ? item.productId?.moq
-                                                                : 1) || isLoading
-                                                    }
-                                                    className="flex h-8 w-8 items-center justify-center rounded-l-lg text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30 disabled:hover:bg-transparent"
-                                                >
-                                                    <Minus size={14} />
-                                                </button>
-                                                <span className="flex h-8 w-10 items-center justify-center border-x border-slate-100 text-center text-sm font-extrabold text-slate-900">
-                                                    {item.qty}
-                                                </span>
-                                                <button
-                                                    onClick={() =>
-                                                        updateCartItem(
-                                                            item.productId?._id,
-                                                            item.qty + 1
-                                                        )
-                                                    }
-                                                    disabled={isLoading}
-                                                    className="flex h-8 w-8 items-center justify-center rounded-r-lg text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30"
-                                                >
-                                                    <Plus size={14} />
-                                                </button>
+                                        {/* Product Details */}
+                                        <div className="min-w-0 flex-1">
+                                            <h3 className="truncate pr-2 text-sm font-bold text-slate-900">
+                                                {item.productId?.title || 'Unknown Product'}
+                                            </h3>
+                                            <p className="mt-0.5 font-mono text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                                SKU: {item.productId?.sku}
+                                            </p>
+
+                                            {/* Financial Breakdown */}
+                                            <div className="mt-2 space-y-1 rounded-xl border border-slate-100 bg-slate-50 p-2.5">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs font-bold text-slate-500">
+                                                        Unit Cost:
+                                                    </span>
+                                                    <span className="text-sm font-extrabold text-slate-900">
+                                                        ₹
+                                                        {item.platformUnitCost?.toLocaleString(
+                                                            'en-IN'
+                                                        )}
+                                                    </span>
+                                                </div>
+
+                                                {item.orderType === 'DROPSHIP' && (
+                                                    <>
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs font-bold text-slate-500">
+                                                                Selling At:
+                                                            </span>
+                                                            <span className="text-xs font-extrabold text-slate-900">
+                                                                ₹
+                                                                {item.resellerSellingPrice?.toLocaleString(
+                                                                    'en-IN'
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                        <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-1">
+                                                            <span className="flex items-center gap-1 text-[10px] font-extrabold tracking-wider text-emerald-600 uppercase">
+                                                                <TrendingUp size={12} /> Margin
+                                                            </span>
+                                                            <span className="text-sm font-black text-emerald-600">
+                                                                ₹
+                                                                {item.expectedProfit?.toLocaleString(
+                                                                    'en-IN'
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
 
-                                            <button
-                                                onClick={() => removeFromCart(item.productId?._id)}
-                                                className="rounded-lg bg-red-50 p-2 text-red-400 opacity-70 transition-colors group-hover:opacity-100 hover:bg-red-100 hover:text-red-600"
-                                                title="Remove Item"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                                            {/* --- THE B2B UPSELL NUDGE UI --- */}
+                                            {item.orderType === 'WHOLESALE' && nudge ? (
+                                                <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 shadow-sm transition-all hover:bg-emerald-100">
+                                                    <TrendingUp
+                                                        size={16}
+                                                        className="mt-0.5 shrink-0 text-emerald-600"
+                                                    />
+                                                    <div className="flex-1">
+                                                        <p className="text-xs font-medium text-emerald-800">
+                                                            Add{' '}
+                                                            <span className="font-extrabold">
+                                                                {nudge.unitsNeeded} more units
+                                                            </span>{' '}
+                                                            to unlock the{' '}
+                                                            <span className="font-extrabold text-emerald-600">
+                                                                ₹{nudge.newPrice}/unit
+                                                            </span>{' '}
+                                                            bulk rate!
+                                                        </p>
+                                                        <button
+                                                            onClick={() =>
+                                                                updateCartItem(
+                                                                    item.productId?._id,
+                                                                    nudge.targetQty
+                                                                )
+                                                            }
+                                                            className="mt-1.5 text-[10px] font-bold tracking-wider text-emerald-600 uppercase underline underline-offset-2 hover:text-emerald-800"
+                                                        >
+                                                            Upgrade to {nudge.targetQty} Units
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : item.orderType === 'WHOLESALE' &&
+                                              item.productId?.tieredPricing?.length > 0 ? (
+                                                <div className="mt-3 flex items-center gap-1.5 text-[10px] font-bold tracking-wider text-emerald-600 uppercase">
+                                                    <CheckCircle
+                                                        size={14}
+                                                        className="text-emerald-500"
+                                                    />{' '}
+                                                    Max bulk discount unlocked
+                                                </div>
+                                            ) : null}
+
+                                            {/* Quantity & Actions */}
+                                            <div className="mt-3 flex items-center justify-between">
+                                                <div className="flex items-center rounded-lg border border-slate-200 bg-white shadow-sm">
+                                                    <button
+                                                        onClick={() =>
+                                                            updateCartItem(
+                                                                item.productId?._id,
+                                                                item.qty - 1
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            item.qty <=
+                                                                (item.orderType === 'WHOLESALE'
+                                                                    ? item.productId?.moq
+                                                                    : 1) || isLoading
+                                                        }
+                                                        className="flex h-8 w-8 items-center justify-center rounded-l-lg text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30 disabled:hover:bg-transparent"
+                                                    >
+                                                        <Minus size={14} />
+                                                    </button>
+                                                    <span className="flex h-8 w-10 items-center justify-center border-x border-slate-100 text-center text-sm font-extrabold text-slate-900">
+                                                        {item.qty}
+                                                    </span>
+                                                    <button
+                                                        onClick={() =>
+                                                            updateCartItem(
+                                                                item.productId?._id,
+                                                                item.qty + 1
+                                                            )
+                                                        }
+                                                        disabled={isLoading}
+                                                        className="flex h-8 w-8 items-center justify-center rounded-r-lg text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30"
+                                                    >
+                                                        <Plus size={14} />
+                                                    </button>
+                                                </div>
+
+                                                <button
+                                                    onClick={() =>
+                                                        removeFromCart(item.productId?._id)
+                                                    }
+                                                    className="rounded-lg bg-red-50 p-2 text-red-400 opacity-70 transition-colors group-hover:opacity-100 hover:bg-red-100 hover:text-red-600"
+                                                    title="Remove Item"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))
+                            );
+                        })
                     ) : (
                         <div className="flex h-full flex-col items-center justify-center space-y-4 px-6 text-center">
                             <div className="mb-2 flex h-24 w-24 items-center justify-center rounded-full bg-slate-100">
@@ -226,7 +299,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
                     )}
                 </div>
 
-                {/* Footer / Checkout Summary (Fixed at bottom) */}
+                {/* Footer / Checkout Summary */}
                 {cart?.items?.length > 0 && (
                     <div className="z-10 shrink-0 border-t border-slate-200 bg-white p-6 pb-8 shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.05)] sm:pb-6">
                         <div className="mb-5 space-y-3 text-sm">
@@ -253,7 +326,6 @@ const CartDrawer = ({ isOpen, onClose }) => {
 
                             <div className="my-4 h-px w-full bg-slate-200"></div>
 
-                            {/* What they actually pay */}
                             <div className="flex items-center justify-between">
                                 <span className="text-base font-extrabold text-slate-900">
                                     Total Payable
@@ -266,7 +338,6 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                 </span>
                             </div>
 
-                            {/* The Gamification element - Total Expected Profit */}
                             {cart.totalExpectedProfit > 0 && (
                                 <div className="mt-4 flex items-center justify-between rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 p-4 text-white shadow-sm transition-all hover:scale-[1.02]">
                                     <div className="flex items-center gap-2 text-xs font-extrabold tracking-wider uppercase">
@@ -283,7 +354,6 @@ const CartDrawer = ({ isOpen, onClose }) => {
                             )}
                         </div>
 
-                        {/* Order Mix Warnings */}
                         {hasDropshipItems && hasWholesaleItems && (
                             <div className="mb-4 flex items-start gap-2 rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-[10px] font-bold text-indigo-700">
                                 <AlertCircle size={14} className="mt-0.5 shrink-0" />

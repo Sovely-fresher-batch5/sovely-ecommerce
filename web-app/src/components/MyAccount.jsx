@@ -20,7 +20,9 @@ import {
     MapPin,
 } from 'lucide-react';
 import { AuthContext } from '../AuthContext';
+import SmartRestock from './SmartRestock';
 import LoadingScreen from './LoadingScreen';
+import ResellerAnalytics from './ResellerAnalytics';
 
 const MyAccount = () => {
     const { user, loading, logout, isKycApproved } = useContext(AuthContext);
@@ -168,6 +170,8 @@ const MyAccount = () => {
                             </div>
                         </div>
 
+                        {isKycApproved && <SmartRestock />}
+
                         {/* Account Info */}
                         <div>
                             <h3 className="mb-4 flex items-center gap-2 text-xl font-extrabold text-slate-900">
@@ -285,6 +289,19 @@ const MyAccount = () => {
                         )}
                     </div>
                 </div>
+
+                {/* --- ADD THE ANALYTICS HUB HERE --- */}
+                {isKycApproved && (
+                    <div className="border-t border-slate-100 bg-slate-50/50 p-8">
+                        <div className="mb-4">
+                            <h2 className="text-2xl font-black text-slate-900">Performance Hub</h2>
+                            <p className="text-sm text-slate-500">
+                                Track your margins and logistics health.
+                            </p>
+                        </div>
+                        <ResellerAnalytics />
+                    </div>
+                )}
 
                 {/* Footer Action */}
                 <div className="flex justify-center border-t border-slate-100 bg-slate-50 p-6">

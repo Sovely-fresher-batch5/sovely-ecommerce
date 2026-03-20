@@ -1,14 +1,25 @@
 import connectDB from './db/index.js';
 import { app } from './app.js';
+import cron from 'node-cron';
 
 connectDB()
     .then(() => {
-        const port = process.env.PORT || 3000;
-        app.listen(port, () => {
-            console.log(`Server is running at port ${port}...`);
+        app.listen(process.env.PORT || 8000, () => {
+            console.log(`⚙️ Server is running at port : ${process.env.PORT}`);
+
+            // --- NEW: Schedule Nightly Jobs ---
+            // Runs at 02:00 AM every day
+            cron.schedule(
+                '0 2 * * *',
+                () => {
+                    syncProductRtoRates();
+                },
+                {
+                    timezone: 'Asia/Kolkata', // Crucial for Indian dropshipping platforms!
+                }
+            );
         });
     })
     .catch((err) => {
-        console.error('MongoDB connection failed:', err);
-        process.exit(1);
+        console.log('MONGO db connection failed !!! ', err);
     });

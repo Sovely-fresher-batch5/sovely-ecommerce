@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthContext } from './AuthContext';
 import LoadingScreen from './components/LoadingScreen';
 import AdminRoute from './components/AdminRoute';
+import ResellerRoute from './components/ResellerRoute'; // Added ResellerRoute import
 import MainLayout from './layouts/MainLayout';
 import ErrorBoundary from './ErrorBoundary';
 
@@ -13,10 +14,12 @@ const Login = lazy(() => import('./components/Login'));
 const Signup = lazy(() => import('./components/Signup'));
 const ForgotPassword = lazy(() => import('./components/ForgotPassword'));
 const MyAccount = lazy(() => import('./components/MyAccount'));
+const Invoices = lazy(() => import('./components/Invoices')); // <-- Added Invoices import
+const QuickOrder = lazy(() => import('./components/QuickOrder')); // <-- Added QuickOrder import
 const Checkout = lazy(() => import('./components/Checkout'));
 const Orders = lazy(() => import('./components/Orders'));
 const OrderTracking = lazy(() => import('./components/OrderTracking'));
-const Wallet = lazy(() => import('./components/Wallet')); // <-- ADDED WALLET
+const Wallet = lazy(() => import('./components/Wallet'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 const SearchResults = lazy(() => import('./components/SearchResults'));
 
@@ -40,19 +43,12 @@ function App() {
                 <Routes>
                     {/* Main Layout wraps the navbar and footer around these routes */}
                     <Route element={<MainLayout />}>
+                        {/* --- PUBLIC ROUTES --- */}
                         <Route path="/" element={<LandingPage />} />
                         <Route path="/product/:productId" element={<ProductPage />} />
                         <Route path="/search" element={<SearchResults />} />
 
-                        {/* Protected Reseller Routes */}
-                        <Route
-                            path="/my-account"
-                            element={
-                                <ProtectedRoute>
-                                    <MyAccount />
-                                </ProtectedRoute>
-                            }
-                        />
+                        {/* --- PROTECTED (GENERAL USER) ROUTES --- */}
                         <Route
                             path="/checkout"
                             element={
@@ -77,8 +73,6 @@ function App() {
                                 </ProtectedRoute>
                             }
                         />
-
-                        {/* The new Wallet Route */}
                         <Route
                             path="/wallet"
                             element={
@@ -87,14 +81,22 @@ function App() {
                                 </ProtectedRoute>
                             }
                         />
+
+                        {/* --- RESELLER ONLY HUB --- */}
+                        {/* We use ResellerRoute here to wrap the B2B specific dashboards */}
+                        <Route element={<ResellerRoute />}>
+                            <Route path="/my-account" element={<MyAccount />} />
+                            <Route path="/invoices" element={<Invoices />} />
+                            <Route path="/quick-order" element={<QuickOrder />} />
+                        </Route>
                     </Route>
 
-                    {/* Auth Routes (No Navbar/Footer usually) */}
+                    {/* --- AUTH ROUTES (No Navbar/Footer usually) --- */}
                     <Route path="/login" element={<Login />} />
                     <Route path="/signup" element={<Signup />} />
                     <Route path="/forgot-password" element={<ForgotPassword />} />
 
-                    {/* Admin Routing */}
+                    {/* --- ADMIN ROUTING --- */}
                     <Route
                         path="/admin/*"
                         element={

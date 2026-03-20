@@ -44,9 +44,8 @@ const Orders = () => {
         fetchOrders();
     }, [navigate]);
 
-    // --- Analytics for Top Cards ---
     const pendingProfit = orders
-        .filter((ord) => ['SHIPPED', 'DELIVERED'].includes(ord.status)) // Not yet PROFIT_CREDITED
+        .filter((ord) => ['SHIPPED', 'DELIVERED'].includes(ord.status))
         .reduce((sum, ord) => sum + (ord.resellerProfitMargin || 0), 0);
 
     const ndrOrders = orders.filter((ord) => ord.status === 'NDR');
@@ -135,7 +134,6 @@ const Orders = () => {
 
     return (
         <div className="mx-auto mb-20 w-full max-w-7xl flex-1 px-4 py-8 font-sans text-slate-900 sm:px-6 md:mb-0 lg:px-8 lg:py-12">
-            {/* Header & Stats */}
             <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                     <Link
@@ -153,7 +151,6 @@ const Orders = () => {
                 </div>
 
                 <div className="custom-scrollbar flex gap-4 overflow-x-auto pb-4 lg:pb-0">
-                    {/* Stat Card 1: Pending Profit */}
                     <div className="flex min-w-[220px] shrink-0 items-center gap-4 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 p-5 shadow-sm">
                         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md shadow-emerald-500/20">
                             <TrendingUp size={24} />
@@ -168,7 +165,6 @@ const Orders = () => {
                         </div>
                     </div>
 
-                    {/* Stat Card 2: NDR Alerts */}
                     <div
                         className={`flex min-w-[220px] shrink-0 items-center gap-4 rounded-2xl border p-5 shadow-sm transition-all ${ndrCount > 0 ? 'animate-[pulse_3s_ease-in-out_infinite] border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50' : 'border-slate-200 bg-white'}`}
                     >
@@ -194,7 +190,6 @@ const Orders = () => {
                 </div>
             </div>
 
-            {/* Top Level Alert for NDRs */}
             {ndrCount > 0 && (
                 <div className="mb-6 flex flex-col justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm sm:flex-row sm:items-center">
                     <div className="flex items-center gap-3">
@@ -220,7 +215,6 @@ const Orders = () => {
                 </div>
             )}
 
-            {/* Filters */}
             <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
                 <div className="relative max-w-lg flex-1">
                     <Search
@@ -252,7 +246,6 @@ const Orders = () => {
                 </div>
             </div>
 
-            {/* Order List */}
             {loading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                     <div className="mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800"></div>
@@ -283,9 +276,7 @@ const Orders = () => {
                                 key={ord._id}
                                 className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md"
                             >
-                                {/* Order Header */}
                                 <div className="flex flex-col justify-between gap-6 border-b border-slate-100 p-5 md:p-6 lg:flex-row">
-                                    {/* Left: ID & Logistics */}
                                     <div className="flex-1">
                                         <div className="mb-2 flex flex-wrap items-center gap-3">
                                             <h3 className="text-lg font-black text-slate-900">
@@ -324,7 +315,6 @@ const Orders = () => {
                                             )}
                                         </div>
 
-                                        {/* Status Progress Bar (Visual indicator) */}
                                         <div className="mt-4 flex max-w-sm items-center gap-1 opacity-80">
                                             <div
                                                 className={`h-1.5 flex-1 rounded-l-full ${['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'PROFIT_CREDITED'].includes(ord.status) ? 'bg-indigo-500' : 'bg-slate-200'}`}
@@ -341,7 +331,6 @@ const Orders = () => {
                                         </div>
                                     </div>
 
-                                    {/* Right: Financial Snapshot */}
                                     <div
                                         className={`flex shrink-0 gap-6 rounded-xl border p-4 ${isDropship ? 'border-amber-100 bg-amber-50/50' : 'border-slate-100 bg-slate-50'}`}
                                     >
@@ -350,7 +339,7 @@ const Orders = () => {
                                                 <Wallet size={12} /> Platform Deducted
                                             </p>
                                             <p className="text-lg font-black text-slate-900">
-                                                ₹{ord.totalPlatformCost.toLocaleString('en-IN')}
+                                                ₹{ord.totalPlatformCost?.toLocaleString('en-IN')}
                                             </p>
                                         </div>
 
@@ -373,7 +362,6 @@ const Orders = () => {
                                     </div>
                                 </div>
 
-                                {/* Action Bar */}
                                 <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 p-4">
                                     <div className="flex items-center gap-3 text-sm">
                                         {ord.status === 'NDR' && (
@@ -409,10 +397,8 @@ const Orders = () => {
                                     </button>
                                 </div>
 
-                                {/* Expanded Details */}
                                 {isExpanded && (
                                     <div className="grid grid-cols-1 gap-8 border-t border-slate-200 bg-white p-6 lg:grid-cols-3">
-                                        {/* Items List */}
                                         <div className="space-y-4 lg:col-span-2">
                                             <h4 className="mb-4 flex items-center gap-2 text-xs font-extrabold tracking-widest text-slate-400 uppercase">
                                                 <Package size={16} /> Order Contents
@@ -454,13 +440,51 @@ const Orders = () => {
                                                                     'en-IN'
                                                                 )}
                                                             </p>
+                                                            <p className="mt-0.5 text-[10px] font-bold text-slate-500">
+                                                                + ₹
+                                                                {item.taxAmountPerUnit?.toLocaleString(
+                                                                    'en-IN'
+                                                                )}{' '}
+                                                                Tax
+                                                            </p>
                                                         </div>
                                                     </div>
                                                 ))}
                                             </div>
+
+                                            {/* NEW: Explicit Math Breakdown so it aligns perfectly with the Wallet Deduction */}
+                                            <div className="mt-4 flex flex-col items-end space-y-1.5 border-t border-slate-100 pt-4 text-sm font-medium text-slate-500">
+                                                <p className="flex w-48 justify-between">
+                                                    <span>Subtotal:</span>
+                                                    <span className="font-bold text-slate-700">
+                                                        ₹{ord.subTotal?.toLocaleString('en-IN')}
+                                                    </span>
+                                                </p>
+                                                <p className="flex w-48 justify-between">
+                                                    <span>Tax (GST):</span>
+                                                    <span className="font-bold text-slate-700">
+                                                        + ₹{ord.taxTotal?.toLocaleString('en-IN')}
+                                                    </span>
+                                                </p>
+                                                <p className="flex w-48 justify-between">
+                                                    <span>Shipping:</span>
+                                                    <span className="font-bold text-slate-700">
+                                                        + ₹
+                                                        {ord.shippingTotal?.toLocaleString('en-IN')}
+                                                    </span>
+                                                </p>
+                                                <p className="flex w-48 justify-between border-t border-slate-100 pt-2 text-base font-black text-slate-900">
+                                                    <span>Platform Cost:</span>
+                                                    <span>
+                                                        ₹
+                                                        {ord.totalPlatformCost?.toLocaleString(
+                                                            'en-IN'
+                                                        )}
+                                                    </span>
+                                                </p>
+                                            </div>
                                         </div>
 
-                                        {/* Logistics & Payment Panel */}
                                         <div className="space-y-6">
                                             {isDropship && ord.endCustomerDetails ? (
                                                 <div>
@@ -533,6 +557,15 @@ const Orders = () => {
                                                         </span>
                                                     )}
                                                 </div>
+                                            </div>
+                                            <div className="mt-6 border-t border-slate-100 pt-6">
+                                                <Link
+                                                    to={`/orders/${ord._id}/track`}
+                                                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3.5 text-sm font-extrabold text-white transition-all hover:bg-slate-800"
+                                                >
+                                                    <Package size={18} /> View Full Tracking &
+                                                    Invoices
+                                                </Link>
                                             </div>
                                         </div>
                                     </div>

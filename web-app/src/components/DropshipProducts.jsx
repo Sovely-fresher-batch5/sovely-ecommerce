@@ -13,6 +13,8 @@ import {
     Clock,
     Percent,
     ShoppingCart,
+    AlertTriangle,
+    Package,
 } from 'lucide-react';
 import api from '../utils/api.js';
 import { useCartStore } from '../store/cartStore';
@@ -138,17 +140,21 @@ function DropshipProducts({
 
             // 4. MOQ Mapping (Dropship vs Bulk)
             if (b2bFilters.moq === 'under-50') {
-                params.append('maxMoq', '50'); // Needs backend support
+                params.append('maxMoq', '50');
             } else if (b2bFilters.moq === '50-500') {
-                params.append('minMoq', '50'); // Needs backend support
+                params.append('minMoq', '50');
                 params.append('maxMoq', '500');
             } else if (b2bFilters.moq === 'bulk') {
-                params.append('minMoq', '500'); // Needs backend support
+                params.append('minMoq', '500');
             }
 
             // 5. Inventory
             if (b2bFilters.readyToShip) {
-                params.append('inStock', 'true'); // Needs backend support
+                params.append('inStock', 'true');
+            }
+
+            if (b2bFilters.lowRtoRisk) {
+                params.append('lowRtoRisk', 'true');
             }
 
             const res = await api.get(`/products?${params.toString()}`);
@@ -189,6 +195,7 @@ function DropshipProducts({
                     gst: p.gstSlab || 18,
                     isVerified: p.isVerifiedSupplier || true,
                     dispatchDays: p.shippingDays || 2,
+                    rtoRate: p.historicalRtoRate,
                 };
             });
     }, [data]);
@@ -453,6 +460,25 @@ function DropshipProducts({
                                                         {product.margin >= 40 && (
                                                             <span className="flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50/95 px-2 py-1 text-[10px] font-bold text-amber-800 shadow-sm backdrop-blur">
                                                                 <TrendingUp size={12} /> High Margin
+                                                            </span>
+                                                        )}
+                                                        {product.rtoRate !== undefined &&
+                                                            product.rtoRate <= 10 && (
+                                                                <span className="flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50/95 px-2 py-1 text-[10px] font-bold text-blue-800 shadow-sm backdrop-blur">
+                                                                    <ShieldCheck
+                                                                        size={12}
+                                                                        className="text-blue-600"
+                                                                    />{' '}
+                                                                    Safe for COD
+                                                                </span>
+                                                            )}
+                                                        {product.rtoRate > 25 && (
+                                                            <span className="flex items-center gap-1 rounded-md border border-red-200 bg-red-50/95 px-2 py-1 text-[10px] font-bold text-red-800 shadow-sm backdrop-blur">
+                                                                <AlertTriangle
+                                                                    size={12}
+                                                                    className="text-red-600"
+                                                                />{' '}
+                                                                High RTO Risk
                                                             </span>
                                                         )}
                                                     </div>

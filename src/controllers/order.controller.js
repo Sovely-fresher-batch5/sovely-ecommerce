@@ -10,31 +10,18 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { createInvoiceFromOrder } from './invoice.controller.js';
 
-/**
- * @desc    Place a Dropship or Wholesale Order
- * @route   POST /api/orders
- */
 export const createOrder = asyncHandler(async (req, res) => {
-    // 1. --- IDEMPOTENCY CHECK ---
     const idempotencyKey = req.headers['x-idempotency-key'];
-    if (!idempotencyKey) {
-        throw new ApiError(400, 'Idempotency key is missing. Please update your app.');
-    }
+    if (!idempotencyKey) throw new ApiError(400, 'Idempotency key is missing.');
 
-    // If we've seen this key recently, just return the cached successful response
     const existingTransaction = await IdempotencyRecord.findOne({ key: idempotencyKey });
-    if (existingTransaction) {
-        return res.status(200).json(existingTransaction.response);
-    }
-    // ----------------------------
+    if (existingTransaction) return res.status(200).json(existingTransaction.response);
 
     const { endCustomerDetails, paymentMethod } = req.body;
     const resellerId = req.user._id;
 
     const cart = await Cart.findOne({ resellerId });
-    if (!cart || cart.items.length === 0) {
-        throw new ApiError(400, 'Your cart is empty');
-    }
+    if (!cart || cart.items.length === 0) throw new ApiError(400, 'Your cart is empty');
 
     const hasDropship = cart.items.some((item) => item.orderType === 'DROPSHIP');
     if (hasDropship && (!endCustomerDetails || !endCustomerDetails.phone)) {
@@ -49,18 +36,13 @@ export const createOrder = asyncHandler(async (req, res) => {
         return acc;
     }, {});
 
-    const totalPlatformCost = cart.grandTotalPlatformCost;
-
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
         const resellerCheck = await User.findById(resellerId).session(session);
-        if (!resellerCheck || resellerCheck.walletBalance < totalPlatformCost) {
-            throw new ApiError(
-                400,
-                `Insufficient wallet balance. Recharge ₹${totalPlatformCost - (resellerCheck?.walletBalance || 0)} to place this order.`
-            );
+        if (!resellerCheck || resellerCheck.walletBalance < cart.grandTotalPlatformCost) {
+            throw new ApiError(400, 'Insufficient wallet balance.');
         }
 
         const dropshipItems = [];
@@ -68,19 +50,20 @@ export const createOrder = asyncHandler(async (req, res) => {
 
         cart.items.forEach((item) => {
             const trueProduct = productMap[item.productId.toString()];
-            if (!trueProduct) {
-                throw new ApiError(404, `Product ${item.productId} is no longer available.`);
-            }
+            if (!trueProduct) throw new ApiError(404, `Product ${item.productId} unavailable.`);
 
             const processedItem = {
                 productId: item.productId,
                 sku: trueProduct.sku,
                 title: trueProduct.title,
-                hsnCode: trueProduct.hsnCode || item.hsnCode || '0000',
+                hsnCode: trueProduct.hsnCode || '0000',
                 qty: item.qty,
                 platformBasePrice: item.platformUnitCost,
                 resellerSellingPrice: item.resellerSellingPrice,
-                _totalPlatformCost: item.totalItemPlatformCost,
+                // --- NEW SNAPSHOTS ---
+                taxAmountPerUnit: item.taxAmountPerUnit,
+                gstSlab: item.gstSlab,
+                shippingCost: item.shippingCost || 0,
             };
 
             if (item.orderType === 'DROPSHIP') {
@@ -93,39 +76,58 @@ export const createOrder = asyncHandler(async (req, res) => {
         const ordersToCreate = [];
         const generatedOrderIds = [];
 
+        // WHOLESALE ORDER CREATION
         if (wholesaleItems.length > 0) {
-            const whOrderId = `OD-WH-${Math.floor(1000000 + Math.random() * 9000000)}`;
-            generatedOrderIds.push(whOrderId);
-
-            const whTotalCost = wholesaleItems.reduce(
-                (acc, item) => acc + item._totalPlatformCost,
+            const whSubTotal = wholesaleItems.reduce(
+                (acc, item) => acc + item.platformBasePrice * item.qty,
                 0
             );
+            const whTaxTotal = wholesaleItems.reduce(
+                (acc, item) => acc + item.taxAmountPerUnit * item.qty,
+                0
+            );
+            const whShippingTotal = wholesaleItems.reduce(
+                (acc, item) => acc + item.shippingCost,
+                0
+            );
+            const whTotalCost = whSubTotal + whTaxTotal + whShippingTotal;
+
+            const whOrderId = `OD-WH-${Math.floor(1000000 + Math.random() * 9000000)}`;
+            generatedOrderIds.push(whOrderId);
 
             ordersToCreate.push({
                 orderId: whOrderId,
                 resellerId,
-                endCustomerDetails: undefined,
                 status: 'PENDING',
                 paymentMethod: 'PREPAID_WALLET',
+                subTotal: whSubTotal,
+                taxTotal: whTaxTotal,
+                shippingTotal: whShippingTotal,
                 totalPlatformCost: whTotalCost,
                 amountToCollect: 0,
                 resellerProfitMargin: 0,
-                items: wholesaleItems.map(({ _totalPlatformCost, ...rest }) => rest),
+                items: wholesaleItems,
                 statusHistory: [
-                    { status: 'PENDING', comment: 'Wholesale order placed via Wallet Deduction' },
+                    { status: 'PENDING', comment: 'Wholesale order placed via Wallet' },
                 ],
             });
         }
 
+        // DROPSHIP ORDER CREATION
         if (dropshipItems.length > 0) {
-            const dsOrderId = `OD-DS-${Math.floor(1000000 + Math.random() * 9000000)}`;
-            generatedOrderIds.push(dsOrderId);
-
-            const dsTotalCost = dropshipItems.reduce(
-                (acc, item) => acc + item._totalPlatformCost,
+            const dsSubTotal = dropshipItems.reduce(
+                (acc, item) => acc + item.platformBasePrice * item.qty,
                 0
             );
+            const dsTaxTotal = dropshipItems.reduce(
+                (acc, item) => acc + item.taxAmountPerUnit * item.qty,
+                0
+            );
+            const dsShippingTotal = dropshipItems.reduce((acc, item) => acc + item.shippingCost, 0);
+            const dsTotalCost = dsSubTotal + dsTaxTotal + dsShippingTotal;
+
+            const dsOrderId = `OD-DS-${Math.floor(1000000 + Math.random() * 9000000)}`;
+            generatedOrderIds.push(dsOrderId);
 
             let amountToCollect = 0;
             let resellerProfitMargin = 0;
@@ -144,13 +146,14 @@ export const createOrder = asyncHandler(async (req, res) => {
                 endCustomerDetails,
                 status: 'PENDING',
                 paymentMethod,
+                subTotal: dsSubTotal,
+                taxTotal: dsTaxTotal,
+                shippingTotal: dsShippingTotal,
                 totalPlatformCost: dsTotalCost,
                 amountToCollect,
                 resellerProfitMargin,
-                items: dropshipItems.map(({ _totalPlatformCost, ...rest }) => rest),
-                statusHistory: [
-                    { status: 'PENDING', comment: 'Dropship order placed via Wallet Deduction' },
-                ],
+                items: dropshipItems,
+                statusHistory: [{ status: 'PENDING', comment: 'Dropship order placed via Wallet' }],
             });
         }
 
@@ -162,7 +165,7 @@ export const createOrder = asyncHandler(async (req, res) => {
 
         const updatedReseller = await User.findByIdAndUpdate(
             resellerId,
-            { $inc: { walletBalance: -totalPlatformCost } },
+            { $inc: { walletBalance: -cart.grandTotalPlatformCost } },
             { returnDocument: 'after', session }
         );
 
@@ -172,7 +175,7 @@ export const createOrder = asyncHandler(async (req, res) => {
                     resellerId,
                     type: 'DEBIT',
                     purpose: 'ORDER_DEDUCTION',
-                    amount: totalPlatformCost,
+                    amount: cart.grandTotalPlatformCost,
                     closingBalance: updatedReseller.walletBalance,
                     referenceId: generatedOrderIds.join(', '),
                     description: `Platform cost deducted for orders: ${generatedOrderIds.join(', ')}`,
@@ -188,40 +191,31 @@ export const createOrder = asyncHandler(async (req, res) => {
                 { $inc: { 'inventory.stock': -item.qty } },
                 { session, returnDocument: 'after' }
             );
-
-            if (!updatedProduct) {
-                throw new ApiError(
-                    400,
-                    `Item ${productMap[item.productId.toString()]?.title || item.sku} is out of stock.`
-                );
-            }
+            if (!updatedProduct) throw new ApiError(400, `Item out of stock.`);
         }
 
-        cart.items = [];
-        cart.subTotalPlatformCost = 0;
-        cart.totalTax = 0;
-        cart.grandTotalPlatformCost = 0;
-        cart.totalExpectedProfit = 0;
-        await cart.save({ session });
+        await Cart.findByIdAndUpdate(
+            cart._id,
+            {
+                items: [],
+                subTotalPlatformCost: 0,
+                totalTax: 0,
+                totalShippingCost: 0,
+                grandTotalPlatformCost: 0,
+                totalExpectedProfit: 0,
+            },
+            { session }
+        );
 
-        // --- NEW: Generate the final success response & save the key ---
         const finalResponse = new ApiResponse(
             201,
             createdOrders,
             `Successfully processed ${createdOrders.length} order(s).`
         );
 
-        // Save the key INSIDE the transaction.
-        // If anything above failed, this won't save, allowing the user to retry safely.
-        await IdempotencyRecord.create(
-            [
-                {
-                    key: idempotencyKey,
-                    response: finalResponse,
-                },
-            ],
-            { session }
-        );
+        await IdempotencyRecord.create([{ key: idempotencyKey, response: finalResponse }], {
+            session,
+        });
 
         await session.commitTransaction();
         session.endSession();
@@ -230,7 +224,6 @@ export const createOrder = asyncHandler(async (req, res) => {
     } catch (error) {
         await session.abortTransaction();
         session.endSession();
-        // Check if it's a MongoDB duplicate key error for the Idempotency Record (race condition catch)
         if (error.code === 11000 && error.keyPattern?.key) {
             throw new ApiError(409, 'This order is already being processed. Please wait.');
         }

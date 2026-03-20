@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { handleLogisticsWebhook } from '../controllers/webhook.controller.js';
+import { handleLogisticsWebhook, razorpayWebhook } from '../controllers/webhook.controller.js';
 
 const router = Router();
 
-// Notice: We do NOT put the `verifyJWT` auth middleware here!
-// This route needs to be accessible to the outside world (the courier's servers).
-// Our security relies on the HMAC signature check inside the controller.
+// Endpoint: POST /api/webhooks/logistics
 router.post('/logistics', handleLogisticsWebhook);
+
+// Endpoint: POST /api/webhooks/razorpay
+router.post('/razorpay', razorpayWebhook);
 
 export default router;

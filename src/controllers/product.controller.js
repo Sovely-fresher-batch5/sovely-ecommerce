@@ -136,6 +136,14 @@ export const getProducts = asyncHandler(async (req, res) => {
         query['inventory.stock'] = { $gt: 0 };
     }
 
+    if (req.query.margin) {
+        query.estimatedMarginPercent = { $gte: Number(req.query.margin) };
+    }
+
+    if (req.query.lowRtoRisk === 'true') {
+        query.historicalRtoRate = { $lte: 10 }; // Only show products with < 10% RTO rate
+    }
+
     // Setup Pagination & Sorting
     const skip = (Number(page) - 1) * Number(limit);
     const sortParams = { createdAt: -1 };

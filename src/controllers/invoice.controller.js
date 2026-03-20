@@ -80,6 +80,31 @@ export const getAllInvoices = asyncHandler(async (req, res) => {
     );
 });
 
+export const getMyInvoices = asyncHandler(async (req, res) => {
+    // Fetch all invoices belonging to the logged-in user
+    const invoices = await Invoice.find({ userId: req.user._id }) // Or resellerId, depending on your schema
+        .sort({ createdAt: -1 })
+        .populate('orderId', 'orderId'); // Pull in the readable order number if it's referenced
+
+    // Format the response for the frontend table
+    const formattedInvoices = invoices.map((inv) => ({
+        _id: inv._id,
+        invoiceNumber: inv.invoiceNumber,
+        orderId: inv.orderId?.orderId || 'N/A', // Adjust based on your population
+        date: inv.createdAt,
+        taxableAmount: inv.taxableAmount || 0,
+        gstAmount: inv.taxAmount || 0,
+        totalAmount: inv.totalAmount || 0,
+        status: inv.status || 'PAID',
+        // If the user has an approved KYC with a GSTIN, it's ITC eligible!
+        isItcEligible: req.user.kycStatus === 'APPROVED' && !!req.user.gstin,
+    }));
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, formattedInvoices, 'Invoices fetched successfully'));
+});
+
 export const markAsPaidManual = asyncHandler(async (req, res) => {
     const invoice = await Invoice.findById(req.params.id);
     if (!invoice) throw new ApiError(404, 'Invoice not found');
@@ -440,48 +465,60 @@ export const generateInvoicePDF = async (req, res, next) => {
     }
 };
 
-// --- NEW: Internal helper to generate invoices from an Order ---
 export const createInvoiceFromOrder = async (orderDoc, resellerDoc, session) => {
-    // 1. Determine Interstate Tax (Assuming your company is in Karnataka - State Code 29)
-    // In a real app, you'd compare resellerDoc.companyAddress State Code with your HQ State Code
-    const isInterState = false; // Mocking intra-state for now
+    // 1. Determine Interstate Tax
+    // Assuming platform HQ is in Karnataka (State Code 29)
+    const hqStateCode = '29';
+    const resellerStateCode = resellerDoc.stateCode || '29'; // Default to intra-state if missing
+    const isInterState = hqStateCode !== resellerStateCode;
 
-    // 2. Map Order Items to Invoice Items
+    // 2. Map Order Items to Invoice Items strictly using the Order Snapshot
     const invoiceItems = orderDoc.items.map((item) => {
-        const qty = item.qty;
-        const totalAmount =
-            orderDoc.paymentMethod === 'COD'
-                ? item.resellerSellingPrice * qty
-                : item.platformBasePrice * qty; // If wholesale, use platform price
-
-        // Simplified Tax Math (Assuming an 18% inclusive GST for demonstration)
-        const gstSlab = 18;
-        const baseAmount = totalAmount / (1 + gstSlab / 100);
-        const taxAmount = totalAmount - baseAmount;
+        // Platform Invoice ALWAYS reflects what the reseller pays us (Platform Cost)
+        const baseAmount = item.platformBasePrice * item.qty;
+        const taxAmount = item.taxAmountPerUnit * item.qty;
 
         return {
             productId: item.productId,
             sku: item.sku,
             title: item.title,
             hsnCode: item.hsnCode || '0000',
-            qty: qty,
-            unitBasePrice: baseAmount / qty,
+            qty: item.qty,
+            unitBasePrice: item.platformBasePrice,
             totalBaseAmount: baseAmount,
-            gstSlab: gstSlab,
+            gstSlab: item.gstSlab, // Uses exact snapshot!
             cgstAmount: isInterState ? 0 : taxAmount / 2,
             sgstAmount: isInterState ? 0 : taxAmount / 2,
             igstAmount: isInterState ? taxAmount : 0,
-            totalItemAmount: totalAmount,
+            totalItemAmount: baseAmount + taxAmount,
         };
     });
 
-    // 3. Calculate Totals
+    // 3. Add Shipping as a separate line item if it exists
+    if (orderDoc.shippingTotal > 0) {
+        invoiceItems.push({
+            sku: 'FRGT-001',
+            title: 'Shipping & Logistics',
+            hsnCode: '996813', // Standard Indian HSN for local freight/delivery
+            qty: 1,
+            unitBasePrice: orderDoc.shippingTotal,
+            totalBaseAmount: orderDoc.shippingTotal,
+            gstSlab: 0, // Since cart math added shipping flat without extra tax
+            cgstAmount: 0,
+            sgstAmount: 0,
+            igstAmount: 0,
+            totalItemAmount: orderDoc.shippingTotal,
+        });
+    }
+
+    // 4. Calculate Totals directly from the invoice items array to guarantee a perfect match
     const totalTaxableValue = invoiceItems.reduce((acc, item) => acc + item.totalBaseAmount, 0);
     const totalCgst = invoiceItems.reduce((acc, item) => acc + item.cgstAmount, 0);
     const totalSgst = invoiceItems.reduce((acc, item) => acc + item.sgstAmount, 0);
     const totalIgst = invoiceItems.reduce((acc, item) => acc + item.igstAmount, 0);
+    const grandTotal = totalTaxableValue + totalCgst + totalSgst + totalIgst;
 
-    // 4. Build the Invoice Document
+    // 5. Build the Invoice Document
     const invoiceType = orderDoc.orderId.includes('WH') ? 'B2B_WHOLESALE' : 'DROPSHIP_PLATFORM_FEE';
 
     const invoice = new Invoice({
@@ -495,11 +532,11 @@ export const createInvoiceFromOrder = async (orderDoc, resellerDoc, session) => 
             companyName: resellerDoc.companyName || resellerDoc.name,
             gstin: resellerDoc.gstin || '',
             address: {
-                street: resellerDoc.address || '',
-                city: 'City', // Replace with actual user city
-                state: 'State',
-                zip: '000000',
-                stateCode: '29',
+                street: resellerDoc.companyAddress || resellerDoc.address || '',
+                city: resellerDoc.city || 'N/A',
+                state: resellerDoc.state || 'N/A',
+                zip: resellerDoc.zip || 'N/A',
+                stateCode: resellerStateCode,
             },
         },
 
@@ -512,11 +549,11 @@ export const createInvoiceFromOrder = async (orderDoc, resellerDoc, session) => 
 
         items: invoiceItems,
 
-        totalTaxableValue,
-        totalCgst,
-        totalSgst,
-        totalIgst,
-        grandTotal: totalTaxableValue + totalCgst + totalSgst + totalIgst,
+        totalTaxableValue: Number(totalTaxableValue.toFixed(2)),
+        totalCgst: Number(totalCgst.toFixed(2)),
+        totalSgst: Number(totalSgst.toFixed(2)),
+        totalIgst: Number(totalIgst.toFixed(2)),
+        grandTotal: Number(grandTotal.toFixed(2)),
 
         paymentStatus: 'PAID', // Since your pipeline deducts wallet instantly
         paymentTerms: 'PREPAID',

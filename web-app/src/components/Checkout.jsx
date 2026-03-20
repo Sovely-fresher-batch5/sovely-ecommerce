@@ -37,7 +37,6 @@ const Checkout = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // Form state for Dropship orders
     const [customer, setCustomer] = useState({
         name: '',
         phone: '',
@@ -52,13 +51,11 @@ const Checkout = () => {
 
     const handleInputChange = (field, value) => {
         setCustomer((prev) => ({ ...prev, [field]: value }));
-        // Clear the specific error when the user starts typing
         if (fieldErrors[field]) {
             setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
         }
     };
 
-    // Payment method for Dropship end-customer collection
     const [paymentMethod, setPaymentMethod] = useState('COD');
 
     useEffect(() => {
@@ -98,7 +95,6 @@ const Checkout = () => {
         const pin = e.target.value.replace(/\D/g, '').slice(0, 6);
         setCustomer((prev) => ({ ...prev, zip: pin }));
 
-        // Auto-fetch City and State when 6 digits are entered
         if (pin.length === 6) {
             try {
                 const response = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
@@ -134,13 +130,12 @@ const Checkout = () => {
             return;
         }
 
-        setFieldErrors({}); // Clear old errors
+        setFieldErrors({});
 
         if (hasDropship) {
             const validationResult = dropshipCustomerSchema.safeParse(customer);
 
             if (!validationResult.success) {
-                // Flatten the Zod errors into a simple object: { phone: "Error msg", zip: "Error msg" }
                 const formattedErrors = validationResult.error.format();
                 const extractedErrors = {};
 
@@ -154,7 +149,7 @@ const Checkout = () => {
 
                 setFieldErrors(extractedErrors);
                 setError('Please fix the highlighted errors in the shipping details.');
-                window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll up to show the main banner
+                window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
             }
         }
@@ -185,7 +180,6 @@ const Checkout = () => {
             });
             clearCartState();
 
-            // NEW: Handle the array of created orders
             const createdOrders = res.data.data;
             const generatedIds = createdOrders.map((order) => order.orderId).join(', ');
 
@@ -242,7 +236,6 @@ const Checkout = () => {
                         </div>
                     )}
 
-                    {/* Mixed Cart Warning */}
                     {hasDropship && hasWholesale && (
                         <div className="rounded-3xl border border-indigo-200 bg-indigo-50/50 p-6 shadow-sm">
                             <div className="flex items-start gap-4">
@@ -264,7 +257,6 @@ const Checkout = () => {
                         </div>
                     )}
 
-                    {/* Logistics Block 1: Wholesale */}
                     {hasWholesale && (
                         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
                             <div className="mb-6 flex items-center gap-4">
@@ -306,7 +298,6 @@ const Checkout = () => {
                         </div>
                     )}
 
-                    {/* Logistics Block 2: Dropship */}
                     {hasDropship && (
                         <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
                             <div className="absolute top-0 right-0 p-8 opacity-5">
@@ -425,7 +416,6 @@ const Checkout = () => {
                                     </div>
                                 </div>
 
-                                {/* Dropship Customer Payment Collection */}
                                 <div className="mt-8 border-t border-slate-100 pt-8">
                                     <h3 className="mb-3 flex items-center gap-2 text-sm font-extrabold text-slate-900">
                                         How is the end-customer paying?
@@ -476,7 +466,6 @@ const Checkout = () => {
 
                 {/* Right Column: Order Summary & Wallet Authorization */}
                 <div className="w-full shrink-0 space-y-6 xl:sticky xl:top-28 xl:w-[420px]">
-                    {/* The Wallet Payment Card */}
                     <div className="rounded-3xl bg-slate-900 p-1">
                         <div className="rounded-[1.35rem] bg-white p-6 sm:p-8">
                             <h3 className="mb-6 flex items-center justify-between text-xl font-extrabold text-slate-900">
@@ -521,11 +510,25 @@ const Checkout = () => {
                                                 </h4>
                                             </div>
                                             <div className="flex items-center justify-between">
-                                                <p className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-                                                    ₹
-                                                    {item.platformUnitCost?.toLocaleString('en-IN')}{' '}
-                                                    /ea
-                                                </p>
+                                                <div className="flex flex-col">
+                                                    <p className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                                        ₹
+                                                        {item.platformUnitCost?.toLocaleString(
+                                                            'en-IN'
+                                                        )}{' '}
+                                                        /ea
+                                                    </p>
+                                                    {/* NEW: Explicit Item Freight Display */}
+                                                    {item.shippingCost > 0 && (
+                                                        <p className="mt-0.5 text-[9px] font-bold tracking-wider text-slate-400 uppercase">
+                                                            + ₹
+                                                            {item.shippingCost?.toLocaleString(
+                                                                'en-IN'
+                                                            )}{' '}
+                                                            Freight
+                                                        </p>
+                                                    )}
+                                                </div>
                                                 <span className="text-sm font-extrabold text-slate-900">
                                                     ₹
                                                     {item.totalItemPlatformCost?.toLocaleString(
@@ -548,6 +551,16 @@ const Checkout = () => {
                                         })}
                                     </span>
                                 </div>
+                                {/* NEW: Explicit Grand Freight Total */}
+                                <div className="flex justify-between font-bold text-slate-500">
+                                    <span>Freight & Logistics</span>
+                                    <span className="text-slate-900">
+                                        + ₹
+                                        {cart.totalShippingCost?.toLocaleString('en-IN', {
+                                            minimumFractionDigits: 2,
+                                        })}
+                                    </span>
+                                </div>
                                 <div className="-mx-2 flex justify-between rounded-lg bg-emerald-50 px-2 py-1.5 font-bold text-emerald-700">
                                     <span className="flex items-center gap-1.5">
                                         <ShieldCheck size={16} /> GST (ITC Claimable)
@@ -561,7 +574,6 @@ const Checkout = () => {
                                 </div>
                             </div>
 
-                            {/* The Wallet Preview Feature */}
                             <div
                                 className={`mb-6 rounded-2xl border-2 p-5 ${isWalletSufficient ? 'border-slate-200 bg-slate-50' : 'border-red-200 bg-red-50'}`}
                             >
