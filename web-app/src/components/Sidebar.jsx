@@ -27,18 +27,15 @@ function Sidebar({ isOpen, onClose }) {
 
     return (
         <div className="relative z-[100]">
-            {}
             <div
                 className={`fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'visible opacity-100' : 'invisible opacity-0'}`}
                 onClick={onClose}
                 aria-hidden="true"
             ></div>
 
-            {}
             <aside
                 className={`fixed inset-y-0 left-0 flex w-[85vw] max-w-sm transform flex-col border-r border-white/50 bg-white/90 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
             >
-                {}
                 <div className="flex items-center justify-between border-b border-slate-100 p-6">
                     <div className="flex items-center gap-3">
                         <div className="rounded-lg border border-slate-100 bg-slate-50 p-1.5 shadow-sm">
@@ -61,7 +58,6 @@ function Sidebar({ isOpen, onClose }) {
                     </button>
                 </div>
 
-                {}
                 <div className="custom-scrollbar flex-1 space-y-8 overflow-y-auto px-4 py-6">
                     <div>
                         <h3 className="mb-3 px-2 text-xs font-bold tracking-wider text-slate-400 uppercase">
@@ -69,44 +65,40 @@ function Sidebar({ isOpen, onClose }) {
                         </h3>
                         <ul className="space-y-1">
                             <li>
-                                <a
-                                    href="#"
-                                    className="text-accent flex items-center gap-3 rounded-xl bg-slate-100 px-4 py-3 font-bold"
+                                <Link
+                                    to="/"
+                                    onClick={onClose}
+                                    className="flex items-center gap-3 rounded-xl px-4 py-3 font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                                 >
                                     <span className="text-lg">🏠</span> Home
-                                </a>
+                                </Link>
                             </li>
                             <li>
-                                <a
-                                    href="#"
+                                <Link
+                                    to="/manage-ndr"
+                                    onClick={onClose}
                                     className="flex items-center gap-3 rounded-xl px-4 py-3 font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                                 >
                                     <span className="text-lg">📦</span> Manage NDR
-                                </a>
+                                </Link>
                             </li>
                             <li>
-                                <a
-                                    href="#"
+                                <Link
+                                    to="/cart"
+                                    onClick={onClose}
                                     className="flex items-center gap-3 rounded-xl px-4 py-3 font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                                 >
                                     <span className="text-lg">🛍️</span> Cart
-                                </a>
+                                </Link>
                             </li>
                             <li>
-                                <a
-                                    href="#"
+                                <Link
+                                    to="/orders"
+                                    onClick={onClose}
                                     className="flex items-center gap-3 rounded-xl px-4 py-3 font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                                 >
                                     <span className="text-lg">🚚</span> Order Track
-                                </a>
-                            </li>
-                            <li>
-                                <a
-                                    href="#"
-                                    className="flex items-center gap-3 rounded-xl px-4 py-3 font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
-                                >
-                                    <span className="text-lg">📋</span> Inventory
-                                </a>
+                                </Link>
                             </li>
                         </ul>
                     </div>
@@ -134,15 +126,6 @@ function Sidebar({ isOpen, onClose }) {
                                     <span className="text-lg">🏷️</span> All Categories
                                 </a>
                             </li>
-                            <li>
-                                <a
-                                    href="#services"
-                                    onClick={onClose}
-                                    className="flex items-center gap-3 rounded-xl px-4 py-3 font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
-                                >
-                                    <span className="text-lg">💳</span> Our Services
-                                </a>
-                            </li>
                         </ul>
                     </div>
 
@@ -161,18 +144,18 @@ function Sidebar({ isOpen, onClose }) {
                                 </Link>
                             </li>
                             <li>
-                                <a
-                                    href="#"
+                                <Link
+                                    to="/settings"
+                                    onClick={onClose}
                                     className="flex items-center gap-3 rounded-xl px-4 py-3 font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                                 >
                                     <span className="text-lg">⚙️</span> Preferences
-                                </a>
+                                </Link>
                             </li>
                         </ul>
                     </div>
                 </div>
 
-                {}
                 <div className="border-t border-slate-100 bg-slate-50/50 p-6">
                     {user ? (
                         <div className="flex w-full flex-col items-center">

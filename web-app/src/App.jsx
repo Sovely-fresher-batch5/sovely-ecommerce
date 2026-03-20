@@ -5,6 +5,7 @@ import LoadingScreen from './components/LoadingScreen';
 import AdminRoute from './components/AdminRoute';
 import MainLayout from './layouts/MainLayout';
 import ErrorBoundary from './ErrorBoundary';
+const ManageNDR = lazy(() => import('./components/ManageNDR'));
 
 const LandingPage = lazy(() => import('./components/LandingPage'));
 const ProductPage = lazy(() => import('./components/ProductPage'));
@@ -17,6 +18,9 @@ const Orders = lazy(() => import('./components/Orders'));
 const OrderTracking = lazy(() => import('./components/OrderTracking'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 const SearchResults = lazy(() => import('./components/SearchResults'));
+
+// FIX: Added the missing Settings import here!
+const Settings = lazy(() => import('./components/Settings'));
 
 const ProtectedRoute = ({ children }) => {
     const location = useLocation();
@@ -36,13 +40,11 @@ function App() {
         <ErrorBoundary>
             <Suspense fallback={<LoadingScreen />}>
                 <Routes>
-                    {}
                     <Route element={<MainLayout />}>
                         <Route path="/" element={<LandingPage />} />
                         <Route path="/product/:productId" element={<ProductPage />} />
                         <Route path="/search" element={<SearchResults />} />
 
-                        {}
                         <Route
                             path="/my-account"
                             element={
@@ -51,6 +53,26 @@ function App() {
                                 </ProtectedRoute>
                             }
                         />
+                        
+                        {/* FIX: The Settings Route */}
+                        <Route
+                            path="/settings"
+                            element={
+                                <ProtectedRoute>
+                                    <Settings />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path="/manage-ndr"
+                            element={
+                                <ProtectedRoute>
+                                    <ManageNDR />
+                                </ProtectedRoute>
+                            }
+                        />
+
                         <Route
                             path="/checkout"
                             element={
@@ -77,12 +99,10 @@ function App() {
                         />
                     </Route>
 
-                    {}
                     <Route path="/login" element={<Login />} />
                     <Route path="/signup" element={<Signup />} />
                     <Route path="/forgot-password" element={<ForgotPassword />} />
 
-                    {}
                     <Route
                         path="/admin/*"
                         element={
