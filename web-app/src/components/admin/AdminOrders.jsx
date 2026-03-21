@@ -144,6 +144,11 @@ const AdminOrders = () => {
                             {orders.map((order, index) => {
                                 const isCompleted = ['SHIPPED', 'DELIVERED', 'CANCELLED'].includes(order.status);
                                 
+                                // FIX: Smart fallbacks for old database entries
+                                const orderTotal = order.grandTotal || order.totalAmount || order.subTotal || 0;
+                                const buyerName = order.userId?.name || order.customerName || order.shippingAddress?.fullName || 'Guest / Unknown Buyer';
+                                const buyerEmail = order.userId?.email || order.customerEmail || order.shippingAddress?.email || 'N/A';
+                                
                                 return (
                                 <motion.tr
                                     key={order._id}
@@ -153,35 +158,35 @@ const AdminOrders = () => {
                                     className="group transition-colors hover:bg-slate-50/80"
                                 >
                                     <td className="p-4 font-mono font-bold whitespace-nowrap text-slate-900">
-                                        {order.orderId}
+                                        {order.orderId || order._id.slice(-8)}
                                     </td>
                                     <td className="p-4">
                                         <div className="line-clamp-1 font-bold text-slate-900">
-                                            {order.userId?.name || 'Unknown Buyer'}
+                                            {buyerName}
                                         </div>
                                         <div className="line-clamp-1 text-xs font-medium text-slate-500">
-                                            {order.userId?.email || 'N/A'}
+                                            {buyerEmail}
                                         </div>
                                     </td>
                                     <td className="p-4 font-extrabold text-slate-900">
                                         ₹
-                                        {(order.grandTotal || 0).toLocaleString('en-IN', {
+                                        {Number(orderTotal).toLocaleString('en-IN', {
                                             minimumFractionDigits: 2,
                                         })}
                                     </td>
                                     <td className="p-4">
                                         <div className="flex flex-col items-start gap-1.5">
                                             <span className="text-[10px] font-black tracking-wider text-slate-500 uppercase">
-                                                {order.paymentMethod?.replace('_', ' ')}
+                                                {order.paymentMethod?.replace('_', ' ') || 'STANDARD'}
                                             </span>
                                             <span
                                                 className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-extrabold tracking-wider uppercase ${
-                                                    order.paymentTerms?.includes('NET')
+                                                    (order.paymentTerms || '').includes('NET')
                                                         ? 'bg-blue-100 text-blue-700'
                                                         : 'bg-emerald-100 text-emerald-700'
                                                 }`}
                                             >
-                                                {order.paymentTerms?.replace('_', ' ')}
+                                                {order.paymentTerms?.replace('_', ' ') || 'PREPAID'}
                                             </span>
                                         </div>
                                     </td>
@@ -201,7 +206,7 @@ const AdminOrders = () => {
                                         >
                                             {order.status === 'SHIPPED'
                                                 ? 'DISPATCHED'
-                                                : order.status}
+                                                : order.status || 'PENDING'}
                                         </span>
                                     </td>
                                     <td className="p-4">
@@ -211,7 +216,7 @@ const AdminOrders = () => {
                                             onClick={() => {
                                                 setSelectedOrder(order);
                                                 setEditForm({
-                                                    status: order.status,
+                                                    status: order.status || 'PENDING',
                                                     courierName: order.tracking?.courierName || '',
                                                     trackingNumber:
                                                         order.tracking?.trackingNumber || '',

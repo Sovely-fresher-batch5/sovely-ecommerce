@@ -212,14 +212,13 @@ function DropshipProducts({
         }
     };
 
-    // FIXED: Properly uses the new cartStore signature
     const handleAdd = async (product, e) => {
         e.preventDefault();
         e.stopPropagation();
         setAddedIds((prev) => [...prev, product.id]);
 
-        // addToCart(productId, qty, orderType, resellerSellingPrice)
-        await addToCart(product.id, product.moq, 'WHOLESALE', 0);
+        // FIX: Pass the FULL product object to the cart, not just the ID string!
+        await addToCart(product, product.moq);
 
         setTimeout(() => setAddedIds((prev) => prev.filter((x) => x !== product.id)), 1800);
     };

@@ -1,13 +1,14 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCartStore } from '../store/cartStore';
-import { X, Trash2, Package, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import { X, Trash2, Package, ArrowRight, ShieldCheck, AlertCircle, Trash } from 'lucide-react';
 
 function CartDrawer({ isOpen, onClose }) {
     const cartItems = useCartStore((state) => state.cartItems);
     const updateQuantity = useCartStore((state) => state.updateQuantity);
     const removeFromCart = useCartStore((state) => state.removeFromCart);
     const setExactQuantity = useCartStore((state) => state.setExactQuantity);
+    const clearCart = useCartStore((state) => state.clearCart);
 
     const navigate = useNavigate();
 
@@ -22,7 +23,6 @@ function CartDrawer({ isOpen, onClose }) {
         };
     }, [isOpen]);
 
-    // FIX: Safe math calculation preventing NaN
     const totals = cartItems.reduce(
         (acc, item) => {
             const price = Number(item.price) || Number(item.product?.price) || Number(item.product?.platformSellPrice) || 0;
@@ -78,12 +78,23 @@ function CartDrawer({ isOpen, onClose }) {
                             Ready for Wholesale Checkout
                         </p>
                     </div>
-                    <button
-                        className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-900"
-                        onClick={onClose}
-                    >
-                        <X size={20} strokeWidth={2.5} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {/* FIX: The new Clear Cart button to wipe corrupted cache */}
+                        {cartItems.length > 0 && (
+                            <button
+                                className="flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-bold text-danger transition-colors hover:bg-danger/10"
+                                onClick={clearCart}
+                            >
+                                <Trash size={14} /> Clear
+                            </button>
+                        )}
+                        <button
+                            className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                            onClick={onClose}
+                        >
+                            <X size={20} strokeWidth={2.5} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="custom-scrollbar flex-1 overflow-y-auto bg-slate-50/50 p-4 sm:p-6">
@@ -110,16 +121,16 @@ function CartDrawer({ isOpen, onClose }) {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {cartItems.map((item) => {
-                                const product = item.product || item;
-                                const itemKey = product._id || product.id;
+                            {cartItems.map((item, index) => {
+                                const product = item.product || item || {};
                                 
-                                // FIX: Guaranteed number parsing
+                                // FIX: Generate a safe key so the Trash can always works
+                                const itemKey = product._id || product.id || (typeof product === 'string' ? product : index);
+                                
                                 const price = Number(item.price) || Number(product.price) || Number(product.platformSellPrice) || 0;
                                 const moq = Number(product.minQuantity) || Number(product.moq) || 1;
                                 const quantity = Number(item.quantity) || moq;
 
-                                // FIX: Guaranteed image fallback
                                 let safeThumb = 'https://via.placeholder.com/150';
                                 if (product.image) {
                                     safeThumb = typeof product.image === 'string' ? product.image : product.image.url || safeThumb;
@@ -212,11 +223,6 @@ function CartDrawer({ isOpen, onClose }) {
                                                         ₹{(price * quantity).toLocaleString('en-IN')}
                                                     </span>
                                                 </div>
-                                                {moq > 1 && (
-                                                    <p className="mt-1 flex items-center gap-1 text-[10px] font-bold text-amber-600">
-                                                        <AlertCircle size={10} /> Order multiple: {moq}
-                                                    </p>
-                                                )}
                                             </div>
                                         </div>
                                     </div>

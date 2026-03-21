@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 const calculateDynamicPrice = (product, quantity) => {
-    // FIX: Aggressively parse to Number to prevent NaN corruption in storage
     let price = Number(product.platformSellPrice) || Number(product.price) || Number(product.basePrice) || 0;
 
     if (product.customPrice) {
@@ -19,6 +18,12 @@ const calculateDynamicPrice = (product, quantity) => {
     return price;
 };
 
+// FIX: A bulletproof helper to safely grab the ID and prevent the `undefined === undefined` bug
+const getSafeId = (product) => {
+    if (!product) return null;
+    return product._id || product.id || null;
+};
+
 export const useCartStore = create(
     persist(
         (set) => ({
@@ -28,18 +33,16 @@ export const useCartStore = create(
                 set((state) => {
                     const minQuantity = Number(product.moq) || 1;
                     const validQuantity = quantity !== null ? Math.max(Number(quantity), minQuantity) : minQuantity;
+                    const incomingId = getSafeId(product);
 
                     const existingItem = state.cartItems.find(
-                        (item) => item.product._id === product._id || item.product.id === product.id
+                        (item) => getSafeId(item.product) === incomingId
                     );
 
                     if (existingItem) {
                         return {
                             cartItems: state.cartItems.map((item) => {
-                                if (
-                                    item.product._id === product._id ||
-                                    item.product.id === product.id
-                                ) {
+                                if (getSafeId(item.product) === incomingId) {
                                     const newQuantity = Number(item.quantity) + validQuantity;
                                     return {
                                         ...item,
@@ -69,10 +72,10 @@ export const useCartStore = create(
                     items.forEach(({ product, quantity }) => {
                         const minQuantity = Number(product.moq) || 1;
                         const validQuantity = Math.max(Number(quantity), minQuantity);
+                        const incomingId = getSafeId(product);
 
                         const existingIndex = updatedCart.findIndex(
-                            (item) =>
-                                item.product._id === product._id || item.product.id === product.id
+                            (item) => getSafeId(item.product) === incomingId
                         );
 
                         if (existingIndex >= 0) {
@@ -98,9 +101,7 @@ export const useCartStore = create(
             setExactQuantity: (productId, newQuantity) => {
                 set((state) => ({
                     cartItems: state.cartItems.map((item) => {
-                        const isMatch = item.product._id === productId || item.product.id === productId;
-
-                        if (isMatch) {
+                        if (getSafeId(item.product) === productId) {
                             const minQuantity = Number(item.product.moq) || 1;
                             const safeQuantity = Math.max(minQuantity, parseInt(newQuantity) || minQuantity);
 
@@ -118,7 +119,7 @@ export const useCartStore = create(
             removeFromCart: (productId) => {
                 set((state) => ({
                     cartItems: state.cartItems.filter(
-                        (item) => item.product._id !== productId && item.product.id !== productId
+                        (item) => getSafeId(item.product) !== productId
                     ),
                 }));
             },
@@ -127,9 +128,7 @@ export const useCartStore = create(
                 set((state) => ({
                     cartItems: state.cartItems
                         .map((item) => {
-                            const isMatch = item.product._id === productId || item.product.id === productId;
-
-                            if (isMatch) {
+                            if (getSafeId(item.product) === productId) {
                                 const newQuantity = Number(item.quantity) + Number(change);
                                 const minQuantity = Number(item.product.moq) || 1;
 
