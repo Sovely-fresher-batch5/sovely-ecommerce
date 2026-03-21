@@ -41,6 +41,8 @@ app.use(
         },
         credentials: true,
         exposedHeaders: ['Content-Disposition'],
+        // FIX: Explicitly allow the Authorization header
+        allowedHeaders: ['Content-Type', 'Authorization'], 
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     })
 );

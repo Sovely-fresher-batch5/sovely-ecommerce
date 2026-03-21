@@ -2,16 +2,17 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 const calculateDynamicPrice = (product, quantity) => {
-    let price = product.platformSellPrice || product.price || product.basePrice || 0;
+    // FIX: Aggressively parse to Number to prevent NaN corruption in storage
+    let price = Number(product.platformSellPrice) || Number(product.price) || Number(product.basePrice) || 0;
 
     if (product.customPrice) {
-        price = product.customPrice;
+        price = Number(product.customPrice);
     }
 
     if (product.tiers && Array.isArray(product.tiers)) {
         for (const tier of product.tiers) {
             if (quantity >= tier.min) {
-                price = tier.price;
+                price = Number(tier.price);
             }
         }
     }
@@ -25,9 +26,8 @@ export const useCartStore = create(
 
             addToCart: (product, quantity = null) => {
                 set((state) => {
-                    const minQuantity = product.moq || 1;
-                    const validQuantity =
-                        quantity !== null ? Math.max(quantity, minQuantity) : minQuantity;
+                    const minQuantity = Number(product.moq) || 1;
+                    const validQuantity = quantity !== null ? Math.max(Number(quantity), minQuantity) : minQuantity;
 
                     const existingItem = state.cartItems.find(
                         (item) => item.product._id === product._id || item.product.id === product.id
@@ -40,7 +40,7 @@ export const useCartStore = create(
                                     item.product._id === product._id ||
                                     item.product.id === product.id
                                 ) {
-                                    const newQuantity = item.quantity + validQuantity;
+                                    const newQuantity = Number(item.quantity) + validQuantity;
                                     return {
                                         ...item,
                                         quantity: newQuantity,
@@ -67,8 +67,8 @@ export const useCartStore = create(
                     let updatedCart = [...state.cartItems];
 
                     items.forEach(({ product, quantity }) => {
-                        const minQuantity = product.moq || 1;
-                        const validQuantity = Math.max(quantity, minQuantity);
+                        const minQuantity = Number(product.moq) || 1;
+                        const validQuantity = Math.max(Number(quantity), minQuantity);
 
                         const existingIndex = updatedCart.findIndex(
                             (item) =>
@@ -76,14 +76,11 @@ export const useCartStore = create(
                         );
 
                         if (existingIndex >= 0) {
-                            const newQuantity = updatedCart[existingIndex].quantity + validQuantity;
+                            const newQuantity = Number(updatedCart[existingIndex].quantity) + validQuantity;
                             updatedCart[existingIndex] = {
                                 ...updatedCart[existingIndex],
                                 quantity: newQuantity,
-                                price: calculateDynamicPrice(
-                                    updatedCart[existingIndex].product,
-                                    newQuantity
-                                ),
+                                price: calculateDynamicPrice(updatedCart[existingIndex].product, newQuantity),
                             };
                         } else {
                             updatedCart.push({
@@ -101,15 +98,11 @@ export const useCartStore = create(
             setExactQuantity: (productId, newQuantity) => {
                 set((state) => ({
                     cartItems: state.cartItems.map((item) => {
-                        const isMatch =
-                            item.product._id === productId || item.product.id === productId;
+                        const isMatch = item.product._id === productId || item.product.id === productId;
 
                         if (isMatch) {
-                            const minQuantity = item.product.moq || 1;
-                            const safeQuantity = Math.max(
-                                minQuantity,
-                                parseInt(newQuantity) || minQuantity
-                            );
+                            const minQuantity = Number(item.product.moq) || 1;
+                            const safeQuantity = Math.max(minQuantity, parseInt(newQuantity) || minQuantity);
 
                             return {
                                 ...item,
@@ -134,19 +127,16 @@ export const useCartStore = create(
                 set((state) => ({
                     cartItems: state.cartItems
                         .map((item) => {
-                            const isMatch =
-                                item.product._id === productId || item.product.id === productId;
+                            const isMatch = item.product._id === productId || item.product.id === productId;
 
                             if (isMatch) {
-                                const newQuantity = item.quantity + change;
-                                const minQuantity = item.product.moq || 1;
+                                const newQuantity = Number(item.quantity) + Number(change);
+                                const minQuantity = Number(item.product.moq) || 1;
 
                                 if (newQuantity <= 0) return null;
 
                                 if (newQuantity < minQuantity) {
-                                    alert(
-                                        `Minimum order quantity for ${item.product.title} is ${minQuantity}`
-                                    );
+                                    alert(`Minimum order quantity for ${item.product.title || item.product.name} is ${minQuantity}`);
                                     return item;
                                 }
 
