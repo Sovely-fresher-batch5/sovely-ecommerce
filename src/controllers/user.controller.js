@@ -3,11 +3,13 @@ import { OtpToken } from '../models/OtpToken.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt'; // <-- Added for password hashing
 
 const cookieOptions = {
     httpOnly: true,
-    secure: true,
-    sameSite: 'none',
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
 };
 
 const escapeRegex = (string) => {
@@ -52,50 +54,12 @@ export const sendLoginOtp = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, null, 'Login OTP sent successfully'));
 });
 
-export const registerUser = asyncHandler(async (req, res) => {
-    const { name, email, phoneNumber, password, otpCode } = req.body;
-
-    if (!name || !password) throw new ApiError(400, 'Name and password are required');
-    if (!email && !phoneNumber) throw new ApiError(400, 'Either Email or Phone Number is required');
-
-    const query = [];
-    if (email) query.push({ email });
-    if (phoneNumber) query.push({ phoneNumber });
-
-    if (query.length > 0) {
-        const existedUser = await User.findOne({ $or: query });
-        if (existedUser) throw new ApiError(409, 'User already exists with this contact method');
-    }
-
-    if (phoneNumber) {
-        if (!otpCode) throw new ApiError(400, 'OTP is required for phone registration');
-
-        const validOtp = await OtpToken.findOneAndUpdate(
-            {
-                identifier: phoneNumber,
-                otpCode,
-                isUsed: false,
-                expiresAt: { $gt: new Date() },
-            },
-            { isUsed: true },
-            { new: true }
-        );
-
-        if (!validOtp) throw new ApiError(400, 'Invalid or expired OTP');
-    }
-
-    const user = await User.create({ name, email, phoneNumber, passwordHash: password });
-    const createdUser = await User.findById(user._id).select('-passwordHash');
-
-    return res.status(201).json(new ApiResponse(201, createdUser, 'User registered successfully'));
-});
-
 export const loginWithOtp = asyncHandler(async (req, res) => {
     const { phoneNumber, otpCode } = req.body;
     if (!phoneNumber || !otpCode) throw new ApiError(400, 'Phone and OTP required');
 
-    const user = await User.findOne({ phoneNumber });
-    if (!user) throw new ApiError(404, 'User not found');
+    const user = await User.findOne({ phoneNumber, isActive: true, deletedAt: null });
+    if (!user) throw new ApiError(404, 'User not found or account suspended');
 
     const validOtp = await OtpToken.findOneAndUpdate(
         {
@@ -111,13 +75,33 @@ export const loginWithOtp = asyncHandler(async (req, res) => {
     if (!validOtp) throw new ApiError(400, 'Invalid or expired OTP');
 
     const accessToken = user.generateAccessToken();
-    const loggedInUser = await User.findById(user._id).select('-passwordHash');
+    const refreshToken = jwt.sign(
+        { _id: user._id },
+        process.env.REFRESH_TOKEN_SECRET || 'fallback_refresh_secret',
+        { expiresIn: process.env.REFRESH_TOKEN_EXPIRY || '7d' }
+    );
+
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    const loggedInUser = await User.findById(user._id).select('-passwordHash -refreshToken');
 
     return res
         .status(200)
         .cookie('accessToken', accessToken, cookieOptions)
-        .json(new ApiResponse(200, { user: loggedInUser, accessToken }, 'Logged in successfully'));
+        .cookie('refreshToken', refreshToken, cookieOptions)
+        .json(
+            new ApiResponse(
+                200,
+                { user: loggedInUser, accessToken, refreshToken },
+                'Logged in successfully'
+            )
+        );
 });
+
+// ==========================================
+// ADMIN USER MANAGEMENT
+// ==========================================
 
 export const getAllUsers = asyncHandler(async (req, res) => {
     const page = parseInt(req.query.page, 10) || 1;
@@ -126,10 +110,10 @@ export const getAllUsers = asyncHandler(async (req, res) => {
 
     const search = req.query.search || '';
     const role = req.query.role || 'ALL';
-    const accountType = req.query.accountType || 'ALL';
-    const b2bStatus = req.query.b2bStatus || 'ALL';
+    const kycStatus = req.query.kycStatus || 'ALL';
+    const isActive = req.query.isActive || 'ALL';
 
-    const query = {};
+    const query = { deletedAt: null };
 
     if (search) {
         const safeSearch = escapeRegex(search);
@@ -143,19 +127,12 @@ export const getAllUsers = asyncHandler(async (req, res) => {
     }
 
     if (role !== 'ALL') query.role = role;
-    if (accountType !== 'ALL') query.accountType = accountType;
-
-    if (b2bStatus === 'PENDING') {
-        query.accountType = 'B2B';
-        query.isVerifiedB2B = false;
-    } else if (b2bStatus === 'VERIFIED') {
-        query.accountType = 'B2B';
-        query.isVerifiedB2B = true;
-    }
+    if (kycStatus !== 'ALL') query.kycStatus = kycStatus;
+    if (isActive !== 'ALL') query.isActive = isActive === 'true';
 
     const total = await User.countDocuments(query);
     const users = await User.find(query)
-        .select('-passwordHash')
+        .select('-passwordHash -refreshToken')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -172,14 +149,35 @@ export const getAllUsers = asyncHandler(async (req, res) => {
     );
 });
 
-export const verifyB2BUser = asyncHandler(async (req, res) => {
-    const { isVerifiedB2B } = req.body;
+export const updateKycStatus = asyncHandler(async (req, res) => {
+    const { kycStatus } = req.body;
+
+    if (!['PENDING', 'APPROVED', 'REJECTED'].includes(kycStatus)) {
+        throw new ApiError(400, 'Invalid KYC Status. Must be PENDING, APPROVED, or REJECTED.');
+    }
+
+    const user = await User.findByIdAndUpdate(req.params.id, { kycStatus }, { new: true }).select(
+        '-passwordHash -refreshToken'
+    );
+
+    if (!user) throw new ApiError(404, 'User not found');
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, user, `User KYC status updated to ${kycStatus}`));
+});
+
+export const toggleUserStatus = asyncHandler(async (req, res) => {
+    const { isActive } = req.body;
 
     const user = await User.findByIdAndUpdate(
         req.params.id,
-        { isVerifiedB2B },
+        {
+            isActive,
+            ...(isActive === false ? { refreshToken: null } : {}),
+        },
         { new: true }
-    ).select('-passwordHash');
+    ).select('-passwordHash -refreshToken');
 
     if (!user) throw new ApiError(404, 'User not found');
 
@@ -189,15 +187,84 @@ export const verifyB2BUser = asyncHandler(async (req, res) => {
             new ApiResponse(
                 200,
                 user,
-                `User B2B status updated to ${isVerifiedB2B ? 'Verified' : 'Pending'}`
+                `User account has been ${isActive ? 'activated' : 'suspended'}`
             )
         );
 });
 
-export const updateUserRole = asyncHandler(async (req, res) => {
-    const { role } = req.body;
-    const user = await User.findByIdAndUpdate(req.params.id, { role }, { new: true }).select(
-        '-passwordHash'
-    );
-    return res.status(200).json(new ApiResponse(200, user, 'User role updated'));
+// ==========================================
+// RESELLER PROFILE & SECURITY MANAGEMENT
+// ==========================================
+
+export const updateMyProfile = asyncHandler(async (req, res) => {
+    const { name, email, companyName, gstin, billingAddress } = req.body;
+
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+    if (companyName) updateData.companyName = companyName;
+    if (gstin) updateData.gstin = gstin;
+    if (billingAddress) updateData.billingAddress = billingAddress;
+
+    const user = await User.findByIdAndUpdate(
+        req.user._id,
+        { $set: updateData },
+        { new: true, runValidators: true }
+    ).select('-passwordHash -refreshToken');
+
+    return res.status(200).json(new ApiResponse(200, user, 'Profile updated successfully'));
+});
+
+// NEW: Update password logic
+export const updatePassword = asyncHandler(async (req, res) => {
+    const { oldPassword, newPassword } = req.body;
+    if (!oldPassword || !newPassword) throw new ApiError(400, 'Both passwords are required');
+
+    const user = await User.findById(req.user._id);
+
+    const isPasswordValid = await user.isPasswordCorrect(oldPassword);
+    if (!isPasswordValid) throw new ApiError(400, 'Invalid current password');
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await user.save({ validateBeforeSave: false });
+
+    return res.status(200).json(new ApiResponse(200, null, 'Password updated successfully'));
+});
+
+// ==========================================
+// KYC SUBMISSION (RESELLER)
+// ==========================================
+
+export const updateKycDetails = asyncHandler(async (req, res) => {
+    const { gstin, panNumber, billingAddress, bankDetails } = req.body;
+
+    const user = await User.findById(req.user._id);
+    if (!user) throw new ApiError(404, 'User not found');
+
+    // Security Check: Don't let users edit if they are already approved
+    // (They should contact support to change locked business details)
+    if (user.kycStatus === 'APPROVED') {
+        throw new ApiError(
+            403,
+            'Your KYC is already approved. Contact support to modify locked business details.'
+        );
+    }
+
+    // Update the fields
+    if (gstin) user.gstin = gstin;
+    if (panNumber) user.panNumber = panNumber; // Assuming you add panNumber to your User schema!
+    if (billingAddress) user.billingAddress = billingAddress;
+    if (bankDetails) user.bankDetails = bankDetails;
+
+    // Reset status to PENDING so Admin knows to review the new data
+    user.kycStatus = 'PENDING';
+
+    await user.save({ validateBeforeSave: false });
+
+    // Return the updated user without sensitive fields
+    const updatedUser = await User.findById(user._id).select('-passwordHash -refreshToken');
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, updatedUser, 'KYC details submitted for review'));
 });

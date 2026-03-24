@@ -1,160 +1,81 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import api from '../utils/api';
+import toast from 'react-hot-toast'; // <-- Add this import
 
-const calculateDynamicPrice = (product, quantity) => {
-    let price = Number(product.platformSellPrice) || Number(product.price) || Number(product.basePrice) || 0;
+export const useCartStore = create((set, get) => ({
+    cart: null,
+    isLoading: false,
+    error: null,
 
-    if (product.customPrice) {
-        price = Number(product.customPrice);
-    }
+    getCartCount: () => {
+        const cart = get().cart;
+        if (!cart || !cart.items) return 0;
+        return cart.items.reduce((total, item) => total + item.quantity, 0);
+    },
 
-    if (product.tiers && Array.isArray(product.tiers)) {
-        for (const tier of product.tiers) {
-            if (quantity >= tier.min) {
-                price = Number(tier.price);
-            }
+    fetchCart: async () => {
+        set({ isLoading: true, error: null });
+        try {
+            const res = await api.get('/cart');
+            set({ cart: res.data.data, isLoading: false });
+        } catch (error) {
+            set({
+                error: error.response?.data?.message || 'Failed to fetch cart',
+                isLoading: false,
+            });
         }
-    }
-    return price;
-};
+    },
 
-// FIX: A bulletproof helper to safely grab the ID and prevent the `undefined === undefined` bug
-const getSafeId = (product) => {
-    if (!product) return null;
-    return product._id || product.id || null;
-};
+    addToCart: async (productId, qty, orderType, resellerSellingPrice = 0) => {
+        set({ isLoading: true, error: null });
+        try {
+            const res = await api.post('/cart', {
+                productId,
+                qty,
+                orderType,
+                resellerSellingPrice,
+            });
+            set({ cart: res.data.data, isLoading: false });
 
-export const useCartStore = create(
-    persist(
-        (set) => ({
-            cartItems: [],
+            // --- NEW: Trigger Success Toast ---
+            toast.success(`${qty} item(s) added to your procurement cart!`, {
+                position: 'bottom-right',
+                duration: 3000,
+            });
 
-            addToCart: (product, quantity = null) => {
-                set((state) => {
-                    const minQuantity = Number(product.moq) || 1;
-                    const validQuantity = quantity !== null ? Math.max(Number(quantity), minQuantity) : minQuantity;
-                    const incomingId = getSafeId(product);
+            return { success: true };
+        } catch (error) {
+            set({ error: error.response?.data?.message, isLoading: false });
 
-                    const existingItem = state.cartItems.find(
-                        (item) => getSafeId(item.product) === incomingId
-                    );
+            // --- NEW: Trigger Error Toast ---
+            toast.error(error.response?.data?.message || 'Failed to add to cart', {
+                position: 'bottom-right',
+            });
 
-                    if (existingItem) {
-                        return {
-                            cartItems: state.cartItems.map((item) => {
-                                if (getSafeId(item.product) === incomingId) {
-                                    const newQuantity = Number(item.quantity) + validQuantity;
-                                    return {
-                                        ...item,
-                                        quantity: newQuantity,
-                                        price: calculateDynamicPrice(item.product, newQuantity),
-                                    };
-                                }
-                                return item;
-                            }),
-                        };
-                    }
-
-                    const initialPrice = calculateDynamicPrice(product, validQuantity);
-                    return {
-                        cartItems: [
-                            ...state.cartItems,
-                            { product, quantity: validQuantity, price: initialPrice },
-                        ],
-                    };
-                });
-            },
-
-            addBulkToCart: (items) => {
-                set((state) => {
-                    let updatedCart = [...state.cartItems];
-
-                    items.forEach(({ product, quantity }) => {
-                        const minQuantity = Number(product.moq) || 1;
-                        const validQuantity = Math.max(Number(quantity), minQuantity);
-                        const incomingId = getSafeId(product);
-
-                        const existingIndex = updatedCart.findIndex(
-                            (item) => getSafeId(item.product) === incomingId
-                        );
-
-                        if (existingIndex >= 0) {
-                            const newQuantity = Number(updatedCart[existingIndex].quantity) + validQuantity;
-                            updatedCart[existingIndex] = {
-                                ...updatedCart[existingIndex],
-                                quantity: newQuantity,
-                                price: calculateDynamicPrice(updatedCart[existingIndex].product, newQuantity),
-                            };
-                        } else {
-                            updatedCart.push({
-                                product,
-                                quantity: validQuantity,
-                                price: calculateDynamicPrice(product, validQuantity),
-                            });
-                        }
-                    });
-
-                    return { cartItems: updatedCart };
-                });
-            },
-
-            setExactQuantity: (productId, newQuantity) => {
-                set((state) => ({
-                    cartItems: state.cartItems.map((item) => {
-                        if (getSafeId(item.product) === productId) {
-                            const minQuantity = Number(item.product.moq) || 1;
-                            const safeQuantity = Math.max(minQuantity, parseInt(newQuantity) || minQuantity);
-
-                            return {
-                                ...item,
-                                quantity: safeQuantity,
-                                price: calculateDynamicPrice(item.product, safeQuantity),
-                            };
-                        }
-                        return item;
-                    }),
-                }));
-            },
-
-            removeFromCart: (productId) => {
-                set((state) => ({
-                    cartItems: state.cartItems.filter(
-                        (item) => getSafeId(item.product) !== productId
-                    ),
-                }));
-            },
-
-            updateQuantity: (productId, change) => {
-                set((state) => ({
-                    cartItems: state.cartItems
-                        .map((item) => {
-                            if (getSafeId(item.product) === productId) {
-                                const newQuantity = Number(item.quantity) + Number(change);
-                                const minQuantity = Number(item.product.moq) || 1;
-
-                                if (newQuantity <= 0) return null;
-
-                                if (newQuantity < minQuantity) {
-                                    alert(`Minimum order quantity for ${item.product.title || item.product.name} is ${minQuantity}`);
-                                    return item;
-                                }
-
-                                return {
-                                    ...item,
-                                    quantity: newQuantity,
-                                    price: calculateDynamicPrice(item.product, newQuantity),
-                                };
-                            }
-                            return item;
-                        })
-                        .filter(Boolean),
-                }));
-            },
-
-            clearCart: () => set({ cartItems: [] }),
-        }),
-        {
-            name: 'sovely_cart',
+            return { success: false, message: error.response?.data?.message };
         }
-    )
-);
+    },
+
+    updateCartItem: async (productId, qty, resellerSellingPrice) => {
+        set({ isLoading: true, error: null });
+        try {
+            const res = await api.put(`/cart/${productId}`, { qty, resellerSellingPrice });
+            set({ cart: res.data.data, isLoading: false });
+        } catch (error) {
+            set({ error: error.response?.data?.message, isLoading: false });
+        }
+    },
+
+    removeFromCart: async (productId) => {
+        set({ isLoading: true, error: null });
+        try {
+            const res = await api.delete(`/cart/${productId}`);
+            set({ cart: res.data.data, isLoading: false });
+            toast.success('Item removed from cart', { position: 'bottom-right' });
+        } catch (error) {
+            set({ error: error.response?.data?.message, isLoading: false });
+        }
+    },
+
+    clearCartState: () => set({ cart: null }),
+}));
