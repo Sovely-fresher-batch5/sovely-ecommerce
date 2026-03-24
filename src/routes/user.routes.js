@@ -1,39 +1,25 @@
 import { Router } from 'express';
 import {
+    registerUser,
     sendSignupOtp,
     sendLoginOtp,
     loginWithOtp,
     getAllUsers,
-    updateKycStatus,
-    toggleUserStatus,
-    updateMyProfile,
-    updatePassword,
-    updateKycDetails,
+    updateUserRole,
+    verifyB2BUser,
 } from '../controllers/user.controller.js';
-
-import { verifyJWT, authorizeRoles } from '../middlewares/auth.middleware.js';
+import { verifyJWT, authorize } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
-// ==========================================
-// PUBLIC AUTHENTICATION ROUTES
-// ==========================================
 router.post('/send-otp', sendSignupOtp);
 router.post('/send-login-otp', sendLoginOtp);
 router.post('/login-otp', loginWithOtp);
+router.post('/register', registerUser);
 
-// ==========================================
-// ADMIN ROUTES
-// ==========================================
-router.get('/admin/all', verifyJWT, authorizeRoles('ADMIN'), getAllUsers);
-router.put('/admin/:id/kyc-status', verifyJWT, authorizeRoles('ADMIN'), updateKycStatus);
-router.put('/admin/:id/toggle-status', verifyJWT, authorizeRoles('ADMIN'), toggleUserStatus);
+router.get('/admin/all', verifyJWT, authorize('ADMIN'), getAllUsers);
+router.put('/admin/:id/role', verifyJWT, authorize('ADMIN'), updateUserRole);
 
-// ==========================================
-// LOGGED-IN USER (RESELLER) ROUTES
-// ==========================================
-router.put('/profile', verifyJWT, updateMyProfile);
-router.put('/security/password', verifyJWT, updatePassword);
-router.put('/kyc-update', verifyJWT, updateKycDetails);
+router.put('/admin/:id/b2b-verify', verifyJWT, authorize('ADMIN'), verifyB2BUser);
 
 export default router;

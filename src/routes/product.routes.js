@@ -1,38 +1,32 @@
 import { Router } from 'express';
 import {
-    createProduct,
     getProducts,
     getProductById,
-    updateProduct,
-    deleteProduct,
-    getAllAdminProducts,
-    validateBulkOrder,
+    getBestDeals,
+    getAdminProducts,
+    updateAdminProduct,
+    bulkUploadProducts,
+    generateSampleTemplate,
+    createProduct,
 } from '../controllers/product.controller.js';
-import { verifyJWT, authorizeRoles } from '../middlewares/auth.middleware.js';
+import { upload, uploadImages } from '../middlewares/multer.middleware.js';
+import { verifyJWT, authorize } from '../middlewares/auth.middleware.js';
 import { validate } from '../middlewares/validate.middleware.js';
 import { productValidation } from '../validations/product.validation.js';
 
 const router = Router();
 
-// --- Public / Reseller Browsing ---
-router.get('/', getProducts);
+router.get('/deals', getBestDeals);
+router.get('/', validate(productValidation.getProducts), getProducts);
 
-router.post('/validate-bulk', verifyJWT, validateBulkOrder);
+router.use('/admin', verifyJWT, authorize('ADMIN'));
 
-router.get('/:id', getProductById);
+router.get('/admin/all', getAdminProducts);
+router.get('/admin/template', generateSampleTemplate);
+router.post('/admin/bulk-upload', upload.single('file'), bulkUploadProducts);
+router.post('/admin/create', uploadImages.array('images', 8), createProduct);
+router.put('/admin/:id', updateAdminProduct);
 
-// --- Admin Only Routes (Platform Management) ---
-router.get('/admin/all', verifyJWT, authorizeRoles('ADMIN'), getAllAdminProducts);
-
-router.post(
-    '/',
-    verifyJWT,
-    authorizeRoles('ADMIN'),
-    validate(productValidation.createProduct),
-    createProduct
-);
-
-router.put('/:id', verifyJWT, authorizeRoles('ADMIN'), updateProduct);
-router.delete('/:id', verifyJWT, authorizeRoles('ADMIN'), deleteProduct);
+router.get('/:productId', validate(productValidation.getProductById), getProductById);
 
 export default router;

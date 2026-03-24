@@ -1,17 +1,11 @@
 import { Router } from 'express';
-import {
-    getDashboardAnalytics,
-    getResellerAnalytics, // <-- Import the new controller
-} from '../controllers/analytics.controller.js';
-import { verifyJWT } from '../middlewares/auth.middleware.js';
+import { getDashboardAnalytics } from '../controllers/analytics.controller.js';
+import { verifyJWT, authorize } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
-// Existing admin dashboard route (protect this with an admin middleware if you have one!)
-router.route('/dashboard').get(verifyJWT, getDashboardAnalytics);
+router.use(verifyJWT, authorize('ADMIN'));
 
-// --- NEW: Reseller Analytics Hub ---
-// Protected by verifyJWT so req.user._id is populated
-router.route('/reseller').get(verifyJWT, getResellerAnalytics);
+router.get('/admin', getDashboardAnalytics);
 
 export default router;
