@@ -1,43 +1,27 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+dotenv.config();
 
-const targetDir = path.join(__dirname, 'src');
+const DB_NAME = 'db_sovely'; // Make sure this matches your constants/seed files
 
-function stripComments(content) {
-    // 1. Remove multi-line comments /* ... */
-    let cleaned = content.replace(/\/\*[\s\S]*?\*\//g, '');
-    
-    // 2. Remove single-line comments // ... (but ignore URLs like http://)
-    cleaned = cleaned.replace(/([^:]|^)\/\/.*/g, '$1');
-    
-    // 3. Remove excessive empty lines left behind by the deleted comments
-    cleaned = cleaned.replace(/^\s*[\r\n]/gm, '\n');
-    
-    return cleaned;
-}
-
-function processDirectory(directory) {
-    const files = fs.readdirSync(directory);
-
-    for (const file of files) {
-        const fullPath = path.join(directory, file);
-        const stat = fs.statSync(fullPath);
-
-        if (stat.isDirectory()) {
-            processDirectory(fullPath); // Recursively search folders
-        } else if (fullPath.endsWith('.js')) {
-            const content = fs.readFileSync(fullPath, 'utf8');
-            const cleanedContent = stripComments(content);
-            fs.writeFileSync(fullPath, cleanedContent, 'utf8');
-            console.log(`🧹 Cleaned: ${file}`);
-        }
+const wipeDatabase = async () => {
+    try {
+        console.log('🔄 Connecting to MongoDB...');
+        const uri = `${process.env.MONGODB_URI}/${DB_NAME}`;
+        await mongoose.connect(uri);
+        
+        console.log(`⚠️  WARNING: Dropping database "${DB_NAME}"...`);
+        
+        // This completely obliterates the database, including all data and indexes
+        await mongoose.connection.db.dropDatabase();
+        
+        console.log('✅ Database completely wiped! A clean slate awaits.');
+        process.exit(0);
+    } catch (error) {
+        console.error('❌ Failed to wipe database:', error);
+        process.exit(1);
     }
-}
+};
 
-console.log('Starting comment cleanup...');
-processDirectory(targetDir);
-console.log('✅ Done! All AI comments stripped from your src/ directory.');
+wipeDatabase();

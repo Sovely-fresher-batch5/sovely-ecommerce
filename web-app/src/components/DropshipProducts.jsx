@@ -1,76 +1,114 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Star,
     Check,
-    SlidersHorizontal,
     ChevronDown,
     X,
     ShieldCheck,
     Box,
-    TrendingUp,
     Clock,
-    Percent,
     ShoppingCart,
-    AlertTriangle,
-    Package,
+    LayoutGrid,
+    AlignJustify,
+    Receipt,
+    Truck,
+    TrendingUp,
+    Minus,
+    Plus,
+    Filter,
 } from 'lucide-react';
 import api from '../utils/api.js';
 import { useCartStore } from '../store/cartStore';
-import B2BFilterBar from './B2BFilterBar';
 
 const SORT_OPTIONS = [
-    { value: 'default', label: 'Recommended Suppliers' },
-    { value: 'price-asc', label: 'Bulk Price: Low to High' },
-    { value: 'price-desc', label: 'Bulk Price: High to Low' },
-    { value: 'rating', label: 'Top Rated Suppliers' },
-    { value: 'margin', label: 'Highest Profit Margin' },
+    { value: 'default', label: 'Recommended' },
+    { value: 'price-asc', label: 'Price: Low to High' },
+    { value: 'price-desc', label: 'Price: High to Low' },
+    { value: 'margin', label: 'Highest Margin' },
 ];
+
+// --- Skeleton Loader Component ---
+const ProductSkeleton = ({ viewMode }) => {
+    if (viewMode === 'table') {
+        return (
+            <div className="flex animate-pulse items-center gap-4 border-b border-slate-100 px-4 py-3">
+                <div className="h-12 w-12 rounded-lg bg-slate-100"></div>
+                <div className="flex-1 space-y-2.5">
+                    <div className="h-3 w-1/3 rounded bg-slate-100"></div>
+                    <div className="h-2 w-1/4 rounded bg-slate-100"></div>
+                </div>
+                <div className="w-24 space-y-2.5">
+                    <div className="h-3 w-full rounded bg-slate-100"></div>
+                    <div className="h-2 w-2/3 rounded bg-slate-100"></div>
+                </div>
+                <div className="w-24 space-y-2.5">
+                    <div className="h-3 w-full rounded bg-slate-100"></div>
+                    <div className="h-2 w-2/3 rounded bg-slate-100"></div>
+                </div>
+                <div className="w-32">
+                    <div className="h-9 w-full rounded-lg bg-slate-100"></div>
+                </div>
+            </div>
+        );
+    }
+    return (
+        <div className="flex animate-pulse flex-col rounded-xl border border-slate-100 p-4">
+            <div className="mb-4 aspect-square rounded-lg bg-slate-100"></div>
+            <div className="mb-3 h-3 w-1/2 rounded bg-slate-100"></div>
+            <div className="mb-5 h-4 w-3/4 rounded bg-slate-100"></div>
+            <div className="mt-auto flex justify-between">
+                <div className="h-5 w-1/3 rounded bg-slate-100"></div>
+                <div className="h-5 w-1/4 rounded bg-slate-100"></div>
+            </div>
+            <div className="mt-4 h-9 w-full rounded-lg bg-slate-100"></div>
+        </div>
+    );
+};
 
 function DropshipProducts({
     filters = {},
     globalSearchQuery = '',
     initialCategory = 'All Categories',
-    customTitle = 'Verified Wholesale Inventory',
-    customSubtitle = 'Source direct from manufacturers. Maximize your retail margins.',
-    hideTitle = false,
 }) {
     const addToCart = useCartStore((state) => state.addToCart);
 
     const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+    const [viewMode, setViewMode] = useState('table');
+
+    // --- ADVANCED FILTER STATE ---
     const [category, setCategory] = useState('All Categories');
     const [sort, setSort] = useState('default');
     const [minPrice, setMinPrice] = useState('');
     const [maxPrice, setMaxPrice] = useState('');
-    const [minRating, setMinRating] = useState(0);
+    const [selectedGst, setSelectedGst] = useState([]);
+    const [maxDispatchDays, setMaxDispatchDays] = useState('');
+    const [verifiedOnly, setVerifiedOnly] = useState(false);
+
+    const [activeQuantities, setActiveQuantities] = useState({});
     const [addedIds, setAddedIds] = useState([]);
 
     const [b2bFilters, setB2bFilters] = useState({
         moq: filters.moq || 'all',
-        margin: filters.margin || 'all',
+        margin: filters.margin || 0,
         readyToShip: filters.readyToShip || false,
+        lowRtoRisk: filters.lowRtoRisk || false,
     });
 
     useEffect(() => {
         setB2bFilters({
             moq: filters.moq || 'all',
-            margin: filters.margin || 'all',
+            margin: filters.margin || 0,
             readyToShip: filters.readyToShip || false,
+            lowRtoRisk: filters.lowRtoRisk || false,
         });
     }, [filters]);
 
-    const handleFilterChange = (key, value) => {
-        setB2bFilters((prev) => ({ ...prev, [key]: value }));
-    };
-
     useEffect(() => {
-        if (initialCategory) {
-            setCategory(initialCategory);
-        }
+        if (initialCategory) setCategory(initialCategory);
     }, [initialCategory]);
 
-    // API Call: Fetch Categories
     const { data: rawCategories = [] } = useQuery({
         queryKey: ['categories'],
         queryFn: async () => {
@@ -100,13 +138,11 @@ function DropshipProducts({
     useEffect(() => {
         if (globalSearchQuery) {
             setCategory('All Categories');
-            setMinPrice('');
-            setMaxPrice('');
-            setMinRating(0);
+            resetAdvancedFilters();
         }
     }, [globalSearchQuery]);
 
-    // API Call: Fetch Products with Infinite Scroll
+    // --- API CALL ---
     const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useInfiniteQuery({
         queryKey: [
             'products',
@@ -114,48 +150,31 @@ function DropshipProducts({
             sort,
             minPrice,
             maxPrice,
-            minRating,
+            selectedGst,
+            maxDispatchDays,
+            verifiedOnly,
             b2bFilters,
             globalSearchQuery,
         ],
         queryFn: async ({ pageParam = 1 }) => {
-            const params = new URLSearchParams({
-                page: pageParam,
-                limit: 24,
-            });
-
-            // 1. Category & Search
+            const params = new URLSearchParams({ page: pageParam, limit: 30 });
             if (selectedCatId) params.append('category', selectedCatId);
             if (globalSearchQuery) params.append('search', globalSearchQuery);
-
-            // 2. Pricing & Sorting
             if (sort !== 'default') params.append('sort', sort);
-            if (minPrice) params.append('minBasePrice', minPrice); // Note: Assuming you add this to backend later, backend currently only has maxBasePrice
+            if (minPrice) params.append('minBasePrice', minPrice);
             if (maxPrice) params.append('maxBasePrice', maxPrice);
-
-            // 3. Margin Filter Mapping
-            if (b2bFilters.margin === 'high-margin') {
-                params.append('minMargin', '40');
-            }
-
-            // 4. MOQ Mapping (Dropship vs Bulk)
-            if (b2bFilters.moq === 'under-50') {
-                params.append('maxMoq', '50');
-            } else if (b2bFilters.moq === '50-500') {
+            if (selectedGst.length > 0) params.append('gstSlab', selectedGst.join(','));
+            if (maxDispatchDays) params.append('maxShippingDays', maxDispatchDays);
+            if (verifiedOnly) params.append('isVerifiedSupplier', 'true');
+            if (b2bFilters.margin && b2bFilters.margin > 0)
+                params.append('minMargin', b2bFilters.margin.toString());
+            if (b2bFilters.moq === 'under-50') params.append('maxMoq', '50');
+            else if (b2bFilters.moq === '50-500') {
                 params.append('minMoq', '50');
                 params.append('maxMoq', '500');
-            } else if (b2bFilters.moq === 'bulk') {
-                params.append('minMoq', '500');
-            }
-
-            // 5. Inventory
-            if (b2bFilters.readyToShip) {
-                params.append('inStock', 'true');
-            }
-
-            if (b2bFilters.lowRtoRisk) {
-                params.append('lowRtoRisk', 'true');
-            }
+            } else if (b2bFilters.moq === 'bulk') params.append('minMoq', '500');
+            if (b2bFilters.readyToShip) params.append('inStock', 'true');
+            if (b2bFilters.lowRtoRisk) params.append('lowRtoRisk', 'true');
 
             const res = await api.get(`/products?${params.toString()}`);
             return res.data.data;
@@ -187,421 +206,552 @@ function DropshipProducts({
                     price: wholesalePrice,
                     originalPrice: retailMrp,
                     margin: estMargin,
-                    rating: p.averageRating || 4.5,
-                    image:
-                        p.images?.[0]?.url ||
-                        'https://images.unsplash.com/photo-1596547609652-9cf5d8d76921?w=500&q=80',
+                    image: p.images?.[0]?.url || 'https://via.placeholder.com/200',
                     moq: p.moq || 10,
                     gst: p.gstSlab || 18,
-                    isVerified: p.isVerifiedSupplier || true,
+                    isVerified: p.isVerifiedSupplier !== false,
+                    rtoRate: p.historicalRtoRate || 0,
                     dispatchDays: p.shippingDays || 2,
-                    rtoRate: p.historicalRtoRate,
                 };
             });
     }, [data]);
 
-    const resetFilters = () => {
-        setCategory('All Categories');
-        setSort('default');
+    const resetAdvancedFilters = () => {
         setMinPrice('');
         setMaxPrice('');
-        setMinRating(0);
+        setSelectedGst([]);
+        setMaxDispatchDays('');
+        setVerifiedOnly(false);
+    };
 
-        if (globalSearchQuery) {
-            window.history.pushState({}, '', window.location.pathname);
-        }
+    const resetAll = () => {
+        setCategory('All Categories');
+        setSort('default');
+        resetAdvancedFilters();
+    };
+
+    const handleQtyChange = (id, newQty, moq) => {
+        if (newQty < moq) return;
+        setActiveQuantities((prev) => ({ ...prev, [id]: newQty }));
     };
 
     const handleAdd = async (product, e) => {
         e.preventDefault();
         e.stopPropagation();
+        const qtyToAdd = activeQuantities[product.id] || product.moq;
         setAddedIds((prev) => [...prev, product.id]);
-
-        // FIX: Pass the FULL product object to the cart, not just the ID string!
-        await addToCart(product, product.moq);
-
+        await addToCart(product.id, qtyToAdd, 'WHOLESALE', 0);
         setTimeout(() => setAddedIds((prev) => prev.filter((x) => x !== product.id)), 1800);
     };
 
+    const toggleGst = (slab) =>
+        setSelectedGst((prev) =>
+            prev.includes(slab) ? prev.filter((g) => g !== slab) : [...prev, slab]
+        );
+
     return (
-        <section className="relative z-10 w-full">
-            {!hideTitle && (
-                <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-center">
-                    <div>
-                        <h2 className="flex items-center gap-2 text-xl font-extrabold tracking-tight text-slate-900 md:text-2xl">
-                            {customTitle}
-                        </h2>
-                        {globalSearchQuery ? (
-                            <p className="mt-1 text-sm font-medium text-slate-500">
-                                Search results for:{' '}
-                                <span className="text-primary font-bold">
-                                    "{globalSearchQuery}"
-                                </span>
-                            </p>
-                        ) : (
-                            <p className="mt-1 text-sm font-medium text-slate-500">
-                                {customSubtitle}
-                            </p>
-                        )}
+        <section className="relative z-10 w-full pt-4 font-sans">
+            {/* Utility Bar */}
+            <div className="mb-4 flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                <button
+                    className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm md:hidden"
+                    onClick={() => setIsMobileFilterOpen(true)}
+                >
+                    <Filter size={16} /> Filters
+                </button>
+
+                <div className="flex w-full items-center justify-between md:w-auto md:justify-end md:gap-4">
+                    <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+                        <button
+                            onClick={() => setViewMode('table')}
+                            className={`rounded px-3 py-1.5 transition-colors ${viewMode === 'table' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
+                            title="Table View"
+                        >
+                            <AlignJustify size={16} />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            className={`rounded px-3 py-1.5 transition-colors ${viewMode === 'grid' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
+                            title="Grid View"
+                        >
+                            <LayoutGrid size={16} />
+                        </button>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        <button
-                            className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 md:hidden"
-                            onClick={() => setIsMobileFilterOpen(true)}
-                        >
-                            <SlidersHorizontal size={16} /> Filters
-                        </button>
-
-                        <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 shadow-sm transition-all focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-200">
-                            <span className="text-xs font-bold tracking-wider text-slate-400 uppercase">
-                                Sort:
-                            </span>
-                            <div className="relative">
-                                <select
-                                    value={sort}
-                                    onChange={(e) => setSort(e.target.value)}
-                                    className="cursor-pointer appearance-none bg-transparent py-1 pr-6 text-sm font-bold text-slate-700 outline-none"
-                                >
-                                    {SORT_OPTIONS.map((o) => (
-                                        <option key={o.value} value={o.value}>
-                                            {o.label}
-                                        </option>
-                                    ))}
-                                </select>
-                                <ChevronDown
-                                    size={14}
-                                    className="pointer-events-none absolute top-1/2 right-0 -translate-y-1/2 text-slate-400"
-                                />
-                            </div>
+                    <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-sm transition-colors focus-within:border-slate-400">
+                        <span className="text-xs font-semibold text-slate-500">Sort:</span>
+                        <div className="relative">
+                            <select
+                                value={sort}
+                                onChange={(e) => setSort(e.target.value)}
+                                className="cursor-pointer appearance-none bg-transparent py-1 pr-6 text-sm font-bold text-slate-900 outline-none"
+                            >
+                                {SORT_OPTIONS.map((o) => (
+                                    <option key={o.value} value={o.value}>
+                                        {o.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown
+                                size={14}
+                                className="pointer-events-none absolute top-1/2 right-0 -translate-y-1/2 text-slate-500"
+                            />
                         </div>
                     </div>
                 </div>
-            )}
+            </div>
 
-            <div className="flex flex-col items-start gap-8 md:flex-row">
-                {isMobileFilterOpen && (
-                    <div
-                        className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm md:hidden"
-                        onClick={() => setIsMobileFilterOpen(false)}
-                    />
-                )}
-
+            <div className="flex flex-col items-start gap-6 lg:flex-row">
+                {/* ADVANCED FILTERS SIDEBAR */}
                 <aside
-                    className={`fixed inset-y-0 left-0 z-50 w-72 transform overflow-y-auto bg-white p-6 shadow-2xl transition-transform duration-300 md:relative md:sticky md:top-32 md:z-0 md:h-fit md:w-64 md:translate-x-0 md:rounded-2xl md:border md:border-slate-200 md:bg-white md:p-6 md:shadow-sm ${isMobileFilterOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                    className={`fixed inset-y-0 left-0 z-50 w-72 overflow-y-auto bg-white p-6 shadow-2xl transition-transform duration-300 lg:sticky lg:top-24 lg:z-0 lg:h-fit lg:w-64 lg:translate-x-0 lg:rounded-xl lg:border lg:border-slate-200 lg:p-5 lg:shadow-sm ${isMobileFilterOpen ? 'translate-x-0' : '-translate-x-full'}`}
                 >
-                    <div className="mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
-                        <h3 className="text-lg font-extrabold text-slate-900">Advanced Filters</h3>
-                        <div className="flex items-center gap-3">
+                    <div className="mb-5 flex items-center justify-between border-b border-slate-100 pb-4">
+                        <h3 className="text-sm font-bold text-slate-900">Filters</h3>
+                        <div className="flex items-center gap-2">
                             <button
-                                className="text-xs font-bold text-slate-500 transition-colors hover:text-slate-900"
-                                onClick={resetFilters}
+                                className="text-xs font-semibold text-slate-500 transition-colors hover:text-slate-900"
+                                onClick={resetAll}
                             >
-                                Clear
+                                Clear All
                             </button>
                             <button
-                                className="p-1 text-slate-400 hover:text-slate-900 md:hidden"
+                                className="p-1 text-slate-400 lg:hidden"
                                 onClick={() => setIsMobileFilterOpen(false)}
                             >
-                                <X size={20} />
+                                <X size={18} />
                             </button>
                         </div>
                     </div>
 
-                    <div className="space-y-8">
+                    <div className="space-y-6">
+                        {/* Categories */}
                         <div className="space-y-3">
-                            <h4 className="flex items-center gap-2 text-xs font-bold tracking-wider text-slate-400 uppercase">
-                                <Box size={14} /> Categories
+                            <h4 className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                                <Box size={14} /> Category
                             </h4>
-                            <div className="custom-scrollbar max-h-48 space-y-2 overflow-y-auto pr-2">
+                            <div className="custom-scrollbar max-h-48 space-y-0.5 overflow-y-auto pr-2">
                                 {[{ _id: 'All', name: 'All Categories' }, ...dbCategories].map(
                                     (cat) => (
                                         <label
                                             key={cat._id || cat.name}
-                                            className="group flex cursor-pointer items-center gap-3"
+                                            className="group flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-slate-50"
                                         >
-                                            <div
-                                                className={`flex h-4 w-4 items-center justify-center rounded-full border transition-colors ${category === cat.name ? 'border-slate-900 bg-slate-900' : 'border-slate-300 group-hover:border-slate-900'}`}
-                                            >
-                                                {category === cat.name && (
-                                                    <div className="h-1.5 w-1.5 rounded-full bg-white" />
-                                                )}
-                                            </div>
-                                            <input
-                                                type="radio"
-                                                className="hidden"
-                                                checked={category === cat.name}
-                                                onChange={() => setCategory(cat.name)}
-                                            />
                                             <span
-                                                className={`text-sm font-semibold transition-colors ${category === cat.name ? 'text-slate-900' : 'text-slate-600 group-hover:text-slate-900'}`}
+                                                className={`text-sm transition-colors ${category === cat.name ? 'font-bold text-emerald-600' : 'font-medium text-slate-600 group-hover:text-slate-900'}`}
                                             >
                                                 {cat.name}
                                             </span>
+                                            <input
+                                                type="radio"
+                                                className="sr-only"
+                                                checked={category === cat.name}
+                                                onChange={() => setCategory(cat.name)}
+                                            />
+                                            {category === cat.name && (
+                                                <Check size={14} className="text-emerald-600" />
+                                            )}
                                         </label>
                                     )
                                 )}
                             </div>
                         </div>
 
-                        <div className="space-y-3">
-                            <h4 className="text-xs font-bold tracking-wider text-slate-400 uppercase">
-                                Unit Price (₹)
-                            </h4>
+                        {/* Price */}
+                        <div className="space-y-3 border-t border-slate-100 pt-5">
+                            <h4 className="text-xs font-semibold text-slate-700">Unit Price (₹)</h4>
                             <div className="flex items-center gap-2">
-                                <div className="relative flex-1">
-                                    <input
-                                        type="number"
-                                        placeholder="Min"
-                                        value={minPrice}
-                                        onChange={(e) => setMinPrice(e.target.value)}
-                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-900 transition-all outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-200"
-                                    />
-                                </div>
-                                <span className="font-bold text-slate-300">-</span>
-                                <div className="relative flex-1">
-                                    <input
-                                        type="number"
-                                        placeholder="Max"
-                                        value={maxPrice}
-                                        onChange={(e) => setMaxPrice(e.target.value)}
-                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-900 transition-all outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-200"
-                                    />
-                                </div>
+                                <input
+                                    type="number"
+                                    placeholder="Min"
+                                    value={minPrice}
+                                    onChange={(e) => setMinPrice(e.target.value)}
+                                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition-all outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
+                                />
+                                <span className="text-slate-300">-</span>
+                                <input
+                                    type="number"
+                                    placeholder="Max"
+                                    value={maxPrice}
+                                    onChange={(e) => setMaxPrice(e.target.value)}
+                                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition-all outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
+                                />
                             </div>
                         </div>
 
-                        <div className="space-y-3">
-                            <h4 className="text-xs font-bold tracking-wider text-slate-400 uppercase">
-                                Supplier Rating
+                        {/* GST Slab */}
+                        <div className="space-y-3 border-t border-slate-100 pt-5">
+                            <h4 className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                                <Receipt size={14} /> GST Slab
                             </h4>
-                            <div className="flex flex-wrap gap-2">
-                                {[4.5, 4.0, 3.5, 0].map((r) => (
-                                    <button
-                                        key={r}
-                                        className={`flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${minRating === r ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
-                                        onClick={() => setMinRating(r)}
+                            <div className="grid grid-cols-2 gap-2">
+                                {[5, 12, 18, 28].map((slab) => (
+                                    <label
+                                        key={slab}
+                                        className={`flex cursor-pointer items-center justify-center gap-1 rounded-lg border py-2 transition-all ${selectedGst.includes(slab) ? 'border-emerald-500 bg-emerald-50 font-bold text-emerald-700' : 'border-slate-200 bg-white font-medium text-slate-600 hover:border-slate-300'}`}
                                     >
-                                        {r === 0 ? (
-                                            'Any'
-                                        ) : (
-                                            <>
-                                                {r}+ <Star size={12} fill="currentColor" />
-                                            </>
-                                        )}
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only"
+                                            checked={selectedGst.includes(slab)}
+                                            onChange={() => toggleGst(slab)}
+                                        />
+                                        <span className="text-sm">{slab}%</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Dispatch Time */}
+                        <div className="space-y-3 border-t border-slate-100 pt-5">
+                            <h4 className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                                <Truck size={14} /> Dispatch Target
+                            </h4>
+                            <div className="flex flex-col gap-2">
+                                {[
+                                    { val: '1', label: 'Under 24 Hours' },
+                                    { val: '3', label: 'Under 3 Days' },
+                                    { val: '7', label: 'Under 7 Days' },
+                                ].map((time) => (
+                                    <button
+                                        key={time.val}
+                                        onClick={() =>
+                                            setMaxDispatchDays(
+                                                maxDispatchDays === time.val ? '' : time.val
+                                            )
+                                        }
+                                        className={`rounded-lg border px-3 py-2 text-left text-sm transition-all ${maxDispatchDays === time.val ? 'border-slate-900 bg-slate-900 font-bold text-white' : 'border-slate-200 bg-white font-medium text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
+                                    >
+                                        {time.label}
                                     </button>
                                 ))}
                             </div>
                         </div>
+
+                        {/* Verified Supplier */}
+                        <div className="border-t border-slate-100 pt-5">
+                            <label className="group flex cursor-pointer items-center justify-between">
+                                <span className="flex items-center gap-2 text-sm font-semibold text-slate-700 transition-colors group-hover:text-slate-900">
+                                    <ShieldCheck size={16} className="text-blue-600" /> Verified
+                                    Vendors
+                                </span>
+                                <div
+                                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${verifiedOnly ? 'bg-blue-600' : 'bg-slate-200'}`}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only"
+                                        checked={verifiedOnly}
+                                        onChange={() => setVerifiedOnly(!verifiedOnly)}
+                                    />
+                                    <span
+                                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${verifiedOnly ? 'translate-x-4.5' : 'translate-x-1'}`}
+                                    />
+                                </div>
+                            </label>
+                        </div>
                     </div>
                 </aside>
 
-                <div className="w-full flex-1">
+                {/* MAIN PRODUCT AREA */}
+                <div className="w-full min-w-0 flex-1 pb-12">
                     {isLoading ? (
-                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                            {Array.from({ length: 6 }).map((_, i) => (
-                                <div
-                                    key={i}
-                                    className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
-                                >
-                                    <div className="mb-4 aspect-[4/5] animate-pulse rounded-xl bg-slate-100"></div>
-                                    <div className="mb-2 h-4 w-3/4 animate-pulse rounded bg-slate-100"></div>
-                                    <div className="mb-4 h-4 w-1/2 animate-pulse rounded bg-slate-100"></div>
-                                    <div className="h-10 w-full animate-pulse rounded-xl bg-slate-100"></div>
-                                </div>
+                        <div
+                            className={
+                                viewMode === 'table'
+                                    ? 'flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white'
+                                    : 'grid grid-cols-2 gap-4 xl:grid-cols-3 2xl:grid-cols-4'
+                            }
+                        >
+                            {[...Array(8)].map((_, i) => (
+                                <ProductSkeleton key={i} viewMode={viewMode} />
                             ))}
                         </div>
                     ) : displayProducts.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-24 text-center">
-                            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                                <Box size={32} />
+                        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white py-24 text-center shadow-sm">
+                            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-50">
+                                <Box className="text-slate-400" size={32} />
                             </div>
-                            <h3 className="mb-2 text-xl font-extrabold text-slate-900">
-                                No matching inventory
-                            </h3>
-                            <p className="mb-6 font-medium text-slate-500">
-                                Try adjusting your filters, MOQ requirements, or categories.
+                            <h3 className="text-lg font-bold text-slate-900">No products found</h3>
+                            <p className="mt-1 max-w-sm text-sm font-medium text-slate-500">
+                                We couldn't find any inventory matching your current filter
+                                criteria.
                             </p>
                             <button
-                                className="rounded-xl border border-slate-300 bg-white px-6 py-3 font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
-                                onClick={resetFilters}
+                                onClick={resetAll}
+                                className="mt-6 rounded-lg border border-slate-200 bg-white px-6 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
                             >
-                                Reset All Filters
+                                Clear All Filters
                             </button>
                         </div>
                     ) : (
-                        <>
-                            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                        <motion.div
+                            layout
+                            className={
+                                viewMode === 'table'
+                                    ? 'flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm'
+                                    : 'grid grid-cols-2 gap-4 xl:grid-cols-3 2xl:grid-cols-4'
+                            }
+                        >
+                            {/* Table Header */}
+                            {viewMode === 'table' && (
+                                <div className="hidden grid-cols-[auto_1fr_120px_120px_120px_160px] items-center gap-4 border-b border-slate-200 bg-slate-50/80 px-4 py-3 text-xs font-semibold tracking-wider text-slate-500 uppercase md:grid">
+                                    <div className="w-14">Product</div>
+                                    <div>Details</div>
+                                    <div className="text-center">Logistics</div>
+                                    <div className="text-center">Financials</div>
+                                    <div className="text-right">Wholesale Price</div>
+                                    <div className="text-center">Action</div>
+                                </div>
+                            )}
+
+                            <AnimatePresence>
                                 {displayProducts.map((product) => {
                                     const isAdded = addedIds.includes(product.id);
+                                    const currentQty = activeQuantities[product.id] || product.moq;
 
-                                    return (
-                                        <div
-                                            className="group relative flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-300 hover:border-slate-300 hover:shadow-xl"
-                                            key={product.id}
-                                        >
-                                            <Link to={`/product/${product.id}`} className="block">
-                                                <div className="relative mb-4 aspect-[4/3] overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
+                                    if (viewMode === 'table') {
+                                        return (
+                                            <motion.div
+                                                layout
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                exit={{ opacity: 0 }}
+                                                key={product.id}
+                                                className="group flex flex-col border-b border-slate-100 p-4 transition-colors last:border-0 hover:bg-slate-50/50 md:grid md:grid-cols-[auto_1fr_120px_120px_120px_160px] md:items-center md:gap-4 md:p-3"
+                                            >
+                                                {/* Image */}
+                                                <div className="hidden h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white md:block">
                                                     <img
                                                         src={product.image}
                                                         alt={product.name}
+                                                        className="h-full w-full object-cover"
                                                         loading="lazy"
-                                                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                                                     />
-
-                                                    <div className="absolute top-2 left-2 flex flex-col gap-1.5">
-                                                        {product.isVerified && (
-                                                            <span className="flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50/95 px-2 py-1 text-[10px] font-bold text-emerald-800 shadow-sm backdrop-blur">
-                                                                <ShieldCheck size={12} /> Verified
-                                                                Supplier
-                                                            </span>
-                                                        )}
-                                                        {product.margin >= 40 && (
-                                                            <span className="flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50/95 px-2 py-1 text-[10px] font-bold text-amber-800 shadow-sm backdrop-blur">
-                                                                <TrendingUp size={12} /> High Margin
-                                                            </span>
-                                                        )}
-                                                        {product.rtoRate !== undefined &&
-                                                            product.rtoRate <= 10 && (
-                                                                <span className="flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50/95 px-2 py-1 text-[10px] font-bold text-blue-800 shadow-sm backdrop-blur">
-                                                                    <ShieldCheck
-                                                                        size={12}
-                                                                        className="text-blue-600"
-                                                                    />{' '}
-                                                                    Safe for COD
-                                                                </span>
-                                                            )}
-                                                        {product.rtoRate > 25 && (
-                                                            <span className="flex items-center gap-1 rounded-md border border-red-200 bg-red-50/95 px-2 py-1 text-[10px] font-bold text-red-800 shadow-sm backdrop-blur">
-                                                                <AlertTriangle
-                                                                    size={12}
-                                                                    className="text-red-600"
-                                                                />{' '}
-                                                                High RTO Risk
-                                                            </span>
-                                                        )}
-                                                    </div>
                                                 </div>
 
-                                                <div className="flex flex-1 flex-col">
-                                                    <div className="mb-1 flex items-start justify-between">
-                                                        <span className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">
-                                                            {product.category}
+                                                {/* Details */}
+                                                <div className="flex min-w-0 flex-col justify-center">
+                                                    <div className="mb-0.5 flex items-center gap-2">
+                                                        <span className="text-xs font-semibold text-slate-400">
+                                                            SKU: {product.skuId}
                                                         </span>
-                                                        <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500">
-                                                            <Clock size={10} /> Dispatches in{' '}
-                                                            {product.dispatchDays}d
-                                                        </span>
+                                                        {product.isVerified && (
+                                                            <ShieldCheck
+                                                                size={14}
+                                                                className="text-blue-500"
+                                                                title="Verified Vendor"
+                                                            />
+                                                        )}
                                                     </div>
-
-                                                    <h3 className="mb-1 line-clamp-2 text-sm leading-snug font-bold text-slate-900 transition-colors group-hover:text-slate-600">
+                                                    <Link
+                                                        to={`/product/${product.id}`}
+                                                        className="truncate text-sm font-bold text-slate-900 transition-colors hover:text-emerald-600"
+                                                    >
                                                         {product.name}
-                                                    </h3>
+                                                    </Link>
+                                                    <span className="truncate text-xs font-medium text-slate-500">
+                                                        By {product.vendor}
+                                                    </span>
+                                                </div>
 
-                                                    <div className="mb-3 flex items-center justify-between text-[10px] text-slate-500">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <span className="rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 font-mono text-slate-600 uppercase">
-                                                                SKU: {product.skuId}
-                                                            </span>
-                                                            {product.stock > 0 &&
-                                                                product.stock <= 50 && (
-                                                                    <span className="font-bold text-red-500">
-                                                                        Low Stock: {product.stock}
-                                                                    </span>
-                                                                )}
-                                                        </div>
-                                                        <span className="max-w-[45%] truncate font-medium">
-                                                            By {product.vendor}
-                                                        </span>
-                                                    </div>
+                                                {/* Logistics */}
+                                                <div className="hidden flex-col items-center justify-center md:flex">
+                                                    <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+                                                        <Clock
+                                                            size={14}
+                                                            className="text-slate-400"
+                                                        />{' '}
+                                                        {product.dispatchDays} Days
+                                                    </span>
+                                                    <span className="text-xs font-medium text-slate-500">
+                                                        Stock: {product.stock}
+                                                    </span>
+                                                </div>
 
-                                                    <div className="mb-3 grid grid-cols-3 gap-2 divide-x divide-slate-200 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs">
-                                                        <div className="pl-1">
-                                                            <span className="mb-0.5 block text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-                                                                MOQ
-                                                            </span>
-                                                            <span className="font-bold text-slate-900">
-                                                                {product.moq} Units
-                                                            </span>
-                                                        </div>
-                                                        <div className="pl-3">
-                                                            <span className="mb-0.5 block text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-                                                                GST
-                                                            </span>
-                                                            <span className="font-bold text-slate-900">
-                                                                {product.gst}%
-                                                            </span>
-                                                        </div>
-                                                        <div className="pl-3">
-                                                            <span className="mb-0.5 block flex items-center gap-0.5 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-                                                                <Percent size={10} /> Margin
-                                                            </span>
-                                                            <span className="font-bold text-emerald-600">
-                                                                ~{product.margin}%
-                                                            </span>
-                                                        </div>
-                                                    </div>
+                                                {/* Financials */}
+                                                <div className="hidden flex-col items-center justify-center md:flex">
+                                                    <span className="flex items-center gap-1 text-sm font-bold text-emerald-600">
+                                                        <TrendingUp size={14} /> {product.margin}%
+                                                    </span>
+                                                    <span className="text-xs font-medium text-slate-500">
+                                                        {product.gst}% GST
+                                                    </span>
+                                                </div>
 
-                                                    <div className="mt-auto border-t border-slate-100 pt-4">
-                                                        <div className="mb-4 flex items-end justify-between">
-                                                            <div className="flex flex-col">
-                                                                <span className="text-[10px] font-bold text-slate-400 line-through">
-                                                                    Retail MRP: ₹
-                                                                    {product.originalPrice.toLocaleString(
-                                                                        'en-IN'
-                                                                    )}
-                                                                </span>
-                                                                <div className="flex items-baseline gap-1">
-                                                                    <span className="text-xl font-extrabold tracking-tight text-slate-900">
-                                                                        ₹
-                                                                        {product.price.toLocaleString(
-                                                                            'en-IN'
-                                                                        )}
-                                                                    </span>
-                                                                    <span className="text-xs font-medium text-slate-500">
-                                                                        /unit
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
+                                                {/* Price */}
+                                                <div className="hidden flex-col items-end justify-center md:flex">
+                                                    <span className="text-base font-extrabold text-slate-900">
+                                                        ₹{product.price.toLocaleString('en-IN')}
+                                                    </span>
+                                                    <span className="text-xs font-medium text-slate-400 line-through">
+                                                        MRP: ₹{product.originalPrice}
+                                                    </span>
+                                                </div>
 
+                                                {/* Action & Quantity */}
+                                                <div className="mt-4 flex flex-col gap-2 md:mt-0">
+                                                    <div className="flex h-9 w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-2">
                                                         <button
-                                                            className={`flex h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-bold shadow-sm transition-all duration-300 ${isAdded ? 'border-emerald-500 bg-emerald-500 text-white shadow-emerald-500/20' : 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800'}`}
-                                                            onClick={(e) => handleAdd(product, e)}
+                                                            onClick={() =>
+                                                                handleQtyChange(
+                                                                    product.id,
+                                                                    currentQty - product.moq,
+                                                                    product.moq
+                                                                )
+                                                            }
+                                                            className="text-slate-400 hover:text-slate-900"
                                                         >
-                                                            {isAdded ? (
-                                                                <>
-                                                                    <Check size={16} /> Added Bulk
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <ShoppingCart size={16} /> Quick
-                                                                    Add (MOQ)
-                                                                </>
-                                                            )}
+                                                            <Minus size={14} />
+                                                        </button>
+                                                        <input
+                                                            type="number"
+                                                            value={currentQty}
+                                                            onChange={(e) =>
+                                                                handleQtyChange(
+                                                                    product.id,
+                                                                    parseInt(e.target.value) ||
+                                                                        product.moq,
+                                                                    product.moq
+                                                                )
+                                                            }
+                                                            className="w-12 text-center text-sm font-bold text-slate-900 outline-none"
+                                                            min={product.moq}
+                                                            step={product.moq}
+                                                        />
+                                                        <button
+                                                            onClick={() =>
+                                                                handleQtyChange(
+                                                                    product.id,
+                                                                    currentQty + product.moq,
+                                                                    product.moq
+                                                                )
+                                                            }
+                                                            className="text-slate-400 hover:text-slate-900"
+                                                        >
+                                                            <Plus size={14} />
                                                         </button>
                                                     </div>
+                                                    <button
+                                                        onClick={(e) => handleAdd(product, e)}
+                                                        className={`flex h-9 w-full items-center justify-center gap-1.5 rounded-lg text-xs font-bold transition-all ${isAdded ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
+                                                    >
+                                                        {isAdded ? (
+                                                            <>
+                                                                <Check size={14} /> Added
+                                                            </>
+                                                        ) : (
+                                                            'Quick Add'
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </motion.div>
+                                        );
+                                    }
+
+                                    // Grid View
+                                    return (
+                                        <motion.div
+                                            layout
+                                            initial={{ opacity: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.95 }}
+                                            key={product.id}
+                                            className="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition-all hover:border-slate-300 hover:shadow-lg"
+                                        >
+                                            <Link
+                                                to={`/product/${product.id}`}
+                                                className="relative aspect-square overflow-hidden bg-slate-50"
+                                            >
+                                                <img
+                                                    src={product.image}
+                                                    alt={product.name}
+                                                    loading="lazy"
+                                                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                                />
+                                                <div className="absolute top-3 left-3 flex flex-col gap-2">
+                                                    {product.margin >= 40 && (
+                                                        <span className="rounded-md bg-emerald-100 px-2 py-1 text-[10px] font-bold tracking-wider text-emerald-800 uppercase">
+                                                            High Margin
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </Link>
-                                        </div>
+                                            <div className="flex flex-1 flex-col p-4">
+                                                <div className="mb-1.5 flex items-center justify-between">
+                                                    <span className="text-xs font-medium text-slate-500">
+                                                        SKU: {product.skuId}
+                                                    </span>
+                                                    <span className="text-xs font-bold text-slate-700">
+                                                        MOQ: {product.moq}
+                                                    </span>
+                                                </div>
+                                                <Link
+                                                    to={`/product/${product.id}`}
+                                                    className="line-clamp-2 text-sm font-bold text-slate-900 transition-colors hover:text-emerald-600"
+                                                >
+                                                    {product.name}
+                                                </Link>
+                                                <div className="mt-auto flex items-end justify-between pt-4">
+                                                    <div>
+                                                        <span className="block text-xs font-medium text-slate-400 line-through">
+                                                            ₹{product.originalPrice}
+                                                        </span>
+                                                        <span className="text-lg font-extrabold text-slate-900">
+                                                            ₹{product.price.toLocaleString()}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="block text-sm font-bold text-emerald-600">
+                                                            {product.margin}% Margin
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Grid Quantity & Add */}
+                                                <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-4">
+                                                    <div className="flex h-10 w-1/3 items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-2">
+                                                        <input
+                                                            type="number"
+                                                            value={currentQty}
+                                                            onChange={(e) =>
+                                                                handleQtyChange(
+                                                                    product.id,
+                                                                    parseInt(e.target.value) ||
+                                                                        product.moq,
+                                                                    product.moq
+                                                                )
+                                                            }
+                                                            className="w-full bg-transparent text-center text-sm font-bold text-slate-900 outline-none"
+                                                            min={product.moq}
+                                                            step={product.moq}
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        onClick={(e) => handleAdd(product, e)}
+                                                        className={`flex h-10 w-2/3 items-center justify-center gap-1.5 rounded-lg text-sm font-bold transition-all ${isAdded ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
+                                                    >
+                                                        {isAdded ? 'Added' : 'Add to Cart'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </motion.div>
                                     );
                                 })}
-                            </div>
+                            </AnimatePresence>
+                        </motion.div>
+                    )}
 
-                            {hasNextPage && (
-                                <div className="mt-12 flex justify-center">
-                                    <button
-                                        className="rounded-full border border-slate-200 bg-white px-8 py-3 font-bold text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm disabled:opacity-50"
-                                        onClick={() => fetchNextPage()}
-                                        disabled={isFetchingNextPage}
-                                    >
-                                        {isFetchingNextPage
-                                            ? 'Loading Inventory...'
-                                            : 'Load More Products'}
-                                    </button>
-                                </div>
-                            )}
-                        </>
+                    {hasNextPage && (
+                        <div className="mt-10 flex justify-center">
+                            <button
+                                className="rounded-xl border border-slate-300 bg-white px-8 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                                onClick={() => fetchNextPage()}
+                                disabled={isFetchingNextPage}
+                            >
+                                {isFetchingNextPage ? 'Loading more...' : 'Load More Products'}
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>

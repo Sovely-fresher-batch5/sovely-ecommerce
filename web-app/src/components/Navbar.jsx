@@ -1,59 +1,91 @@
 import { useState, useRef, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { WishlistContext } from '../WishlistContext';
 import { useQuery } from '@tanstack/react-query';
-import { productApi } from '../features/products/api/productApi';
+import { motion, AnimatePresence } from 'framer-motion';
 import { getCategoryIcon } from '../utils/categoryIcons';
+import { ROUTES } from '../utils/routes';
+import api from '../utils/api';
 import CartDrawer from './CartDrawer';
-import WishlistDrawer from './WishlistDrawer';
-import { Search, X, Clock, TrendingUp } from 'lucide-react';
+import {
+    Search,
+    X,
+    Wallet,
+    Menu,
+    ShieldCheck,
+    ShoppingCart,
+    Plus,
+    ChevronDown,
+    Check,
+} from 'lucide-react';
 import { useCartStore } from '../store/cartStore';
 
-function Navbar({ onToggleSidebar, onSelectCategory }) {
-    const { user, logout, loading } = useContext(AuthContext);
-    const { wishlistItems } = useContext(WishlistContext);
-    const cartItems = useCartStore((state) => state.cartItems);
+// Highlight matches in search results cleanly
+const HighlightText = ({ text = '', highlight = '' }) => {
+    if (!highlight.trim()) return <span>{text}</span>;
+    const regex = new RegExp(`(${highlight})`, 'gi');
+    const parts = text.split(regex);
+    return (
+        <span>
+            {parts.map((part, i) =>
+                regex.test(part) ? (
+                    <span key={i} className="bg-emerald-100 font-bold text-emerald-900">
+                        {part}
+                    </span>
+                ) : (
+                    <span key={i}>{part}</span>
+                )
+            )}
+        </span>
+    );
+};
 
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+function Navbar({ onToggleSidebar, onSelectCategory }) {
+    const { user, logout, loading, isAdmin } = useContext(AuthContext);
+
+    const cartCount = useCartStore((state) => {
+        if (!state.cart?.items) return 0;
+        return state.cart.items.reduce((total, item) => total + item.qty, 0);
+    });
+    const addToCart = useCartStore((state) => state.addToCart);
+
     const [catDropOpen, setCatDropOpen] = useState(false);
     const [isCartOpen, setIsCartOpen] = useState(false);
-    const [isWishlistOpen, setIsWishlistOpen] = useState(false);
-
     const [searchInput, setSearchInput] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [addedSku, setAddedSku] = useState(null);
 
     const searchRef = useRef(null);
-    const dropRef = useRef(null);
+    const inputRef = useRef(null);
     const hoverTimeout = useRef(null);
     const navigate = useNavigate();
 
     useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearch(searchInput), 300);
+        const timer = setTimeout(() => setDebouncedSearch(searchInput), 250);
         return () => clearTimeout(timer);
     }, [searchInput]);
 
     const { data: dbCategories = [] } = useQuery({
         queryKey: ['categories'],
-        queryFn: productApi.getCategories,
+        queryFn: async () => {
+            const res = await api.get('/categories');
+            return res.data.data;
+        },
     });
 
     const { data: liveSearchData, isFetching: isSearching } = useQuery({
         queryKey: ['liveSearch', debouncedSearch],
-        queryFn: () => productApi.getProducts({ query: debouncedSearch, limit: 3 }),
+        queryFn: async () => {
+            const res = await api.get(`/products?search=${debouncedSearch}&limit=5`);
+            return res.data.data;
+        },
         enabled: debouncedSearch.trim().length >= 2,
     });
 
     const displayCategories = dbCategories.map((cat) => {
         const visual = getCategoryIcon(cat.name);
-        return {
-            _id: cat._id,
-            name: cat.name,
-            Icon: visual.Icon,
-            color: visual.color,
-            iconColor: visual.iconColor,
-        };
+        return { ...cat, Icon: visual.Icon, color: visual.color, iconColor: visual.iconColor };
     });
 
     useEffect(() => {
@@ -66,15 +98,6 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleMouseEnter = () => {
-        clearTimeout(hoverTimeout.current);
-        setCatDropOpen(true);
-    };
-
-    const handleMouseLeave = () => {
-        hoverTimeout.current = setTimeout(() => setCatDropOpen(false), 180);
-    };
-
     const executeSearch = (term) => {
         if (!term.trim()) return;
         setIsSearchOpen(false);
@@ -82,362 +105,366 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
         navigate(`/search?q=${encodeURIComponent(term.trim())}`);
     };
 
+    const handleClearSearch = () => {
+        setSearchInput('');
+        setDebouncedSearch('');
+        inputRef.current?.focus();
+    };
+
+    const handleQuickAdd = async (e, product) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setAddedSku(product._id);
+        await addToCart(product._id, product.moq || 10, 'WHOLESALE', 0);
+        setTimeout(() => setAddedSku(null), 1500);
+    };
+
     return (
-        <nav className="relative sticky top-0 z-50 border-b border-slate-200/50 bg-white/95 shadow-sm backdrop-blur-xl">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div className="flex h-20 items-center justify-between">
-                    <div className="flex items-center gap-8">
+        <nav className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 font-sans shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-white/80">
+            <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8">
+                <div className="flex h-16 items-center justify-between gap-4">
+                    {/* LEFT: Branding & Navigation */}
+                    <div className="flex items-center gap-6 xl:gap-8">
                         <div className="flex items-center gap-4">
                             <button
                                 onClick={onToggleSidebar}
-                                className="p-1 text-slate-600 transition-colors hover:text-slate-900"
-                                aria-label="Menu"
+                                className="rounded p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
                             >
-                                <svg
-                                    className="h-6 w-6"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M4 6h16M4 12h16M4 18h16"
-                                    ></path>
-                                </svg>
+                                <Menu size={20} strokeWidth={2.5} />
                             </button>
-                            <Link to="/" className="group flex items-center gap-2">
+
+                            {/* RESTORED LOGO */}
+                            <Link to={ROUTES.HOME} className="group flex items-center gap-2">
                                 <img
                                     src="https://m.media-amazon.com/images/X/bxt1/M/Bbxt1BI1cNpD5ln._SL160_QL95_FMwebp_.png"
                                     alt="Sovely Logo"
-                                    className="h-8 w-auto transition-transform group-hover:scale-105"
+                                    className="h-7 w-auto transition-transform group-hover:scale-105"
                                 />
-                                <span className="text-2xl font-extrabold tracking-tight text-slate-900">
-                                    Sovely
+                                <span className="text-xl font-extrabold tracking-tight text-slate-900">
+                                    Sovely{' '}
+                                    <span className="text-sm font-semibold text-slate-500">
+                                        B2B
+                                    </span>
                                 </span>
                             </Link>
                         </div>
 
-                        <ul className="hidden items-center gap-8 md:flex">
+                        <ul className="hidden items-center gap-6 md:flex">
                             <li
                                 className="relative"
-                                ref={dropRef}
-                                onMouseEnter={handleMouseEnter}
-                                onMouseLeave={handleMouseLeave}
+                                onMouseEnter={() => {
+                                    clearTimeout(hoverTimeout.current);
+                                    setCatDropOpen(true);
+                                }}
+                                onMouseLeave={() => {
+                                    hoverTimeout.current = setTimeout(
+                                        () => setCatDropOpen(false),
+                                        150
+                                    );
+                                }}
                             >
                                 <button
-                                    className={`flex items-center gap-1 font-semibold transition-colors ${catDropOpen ? 'text-accent' : 'text-slate-600 hover:text-slate-900'}`}
-                                    onClick={() => setCatDropOpen((v) => !v)}
+                                    className={`flex items-center gap-1.5 text-sm font-semibold transition-colors ${catDropOpen ? 'text-emerald-600' : 'text-slate-600 hover:text-slate-900'}`}
                                 >
                                     Categories
-                                    <svg
-                                        className={`h-4 w-4 transition-transform duration-200 ${catDropOpen ? 'rotate-180' : ''}`}
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth="2"
-                                            d="M19 9l-7 7-7-7"
-                                        ></path>
-                                    </svg>
+                                    <ChevronDown
+                                        size={14}
+                                        strokeWidth={2.5}
+                                        className={`transition-transform duration-200 ${catDropOpen ? 'rotate-180' : ''}`}
+                                    />
                                 </button>
-                                <div
-                                    className={`absolute top-full -left-4 mt-2 w-screen max-w-md origin-top-left rounded-2xl border border-slate-100 bg-white shadow-xl transition-all duration-200 ${catDropOpen ? 'visible scale-100 opacity-100' : 'invisible scale-95 opacity-0'}`}
-                                >
-                                    <div className="grid grid-cols-3 gap-2 p-4">
-                                        {displayCategories.map((cat, i) => (
-                                            <button
-                                                key={cat._id || i}
-                                                onClick={() => {
-                                                    setCatDropOpen(false);
-                                                    if (onSelectCategory)
-                                                        onSelectCategory(cat.name);
 
-                                                    navigate(
-                                                        `/search?category=${encodeURIComponent(cat.name)}`
-                                                    );
-                                                }}
-                                                className="group flex flex-col items-center gap-2 rounded-xl p-3 transition-colors hover:bg-slate-50"
-                                            >
-                                                <span
-                                                    className="flex h-12 w-12 items-center justify-center rounded-xl shadow-sm transition-transform group-hover:scale-110"
-                                                    style={{
-                                                        backgroundColor: cat.color,
-                                                        color: cat.iconColor,
-                                                    }}
-                                                >
-                                                    <cat.Icon size={20} strokeWidth={2} />
-                                                </span>
-                                                <span className="w-full truncate text-center text-xs font-bold text-slate-700">
-                                                    {cat.name}
-                                                </span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
+                                <AnimatePresence>
+                                    {catDropOpen && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                                            transition={{ duration: 0.15, ease: 'easeOut' }}
+                                            className="absolute top-full -left-4 mt-3 w-[400px] origin-top-left rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
+                                        >
+                                            <div className="grid grid-cols-2 gap-1">
+                                                {displayCategories.map((cat, i) => (
+                                                    <button
+                                                        key={cat._id || i}
+                                                        onClick={() => {
+                                                            setCatDropOpen(false);
+                                                            if (onSelectCategory)
+                                                                onSelectCategory(cat.name);
+                                                            navigate(
+                                                                `/search?category=${encodeURIComponent(cat.name)}`
+                                                            );
+                                                        }}
+                                                        className="group flex items-center gap-3 rounded-lg border border-transparent p-2.5 transition-colors hover:bg-slate-50"
+                                                    >
+                                                        <span
+                                                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-slate-100 transition-transform group-hover:scale-110"
+                                                            style={{ color: cat.iconColor }}
+                                                        >
+                                                            <cat.Icon size={16} strokeWidth={2} />
+                                                        </span>
+                                                        <span className="truncate text-left text-xs font-bold text-slate-700 group-hover:text-slate-900">
+                                                            {cat.name}
+                                                        </span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </li>
                             <li>
-                                <a
-                                    href="#bulk-deals"
-                                    className="font-semibold text-slate-600 transition-colors hover:text-slate-900"
+                                <Link
+                                    to={ROUTES.QUICK_ORDER}
+                                    className="text-sm font-semibold text-slate-600 transition-colors hover:text-slate-900"
                                 >
-                                    Bulk Deals
-                                </a>
+                                    Quick Order
+                                </Link>
                             </li>
                         </ul>
                     </div>
 
-                    <div className="flex items-center gap-4 sm:gap-6">
-                        {}
-                        <div ref={searchRef} className="relative hidden sm:block">
-                            <div
-                                className={`flex items-center rounded-full border bg-slate-100 px-4 py-2 transition-all ${isSearchOpen ? 'border-accent ring-accent/20 bg-white shadow-md ring-2' : 'border-transparent hover:bg-slate-200'}`}
-                            >
-                                <Search size={18} className="text-slate-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Search products, SKUs, suppliers..."
-                                    className="w-48 border-none bg-transparent px-3 text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400 lg:w-64"
-                                    value={searchInput}
-                                    onChange={(e) => setSearchInput(e.target.value)}
-                                    onFocus={() => setIsSearchOpen(true)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            executeSearch(searchInput);
-                                        }
-                                    }}
-                                />
-                                {searchInput && (
-                                    <button
-                                        onClick={() => {
-                                            setSearchInput('');
-                                            searchRef.current?.querySelector('input')?.focus();
-                                        }}
-                                        className="text-slate-400 hover:text-slate-600"
-                                    >
-                                        <X size={16} />
-                                    </button>
-                                )}
-                            </div>
-
-                            {}
-                            {isSearchOpen && (
-                                <div className="animate-in fade-in slide-in-from-top-2 absolute top-full right-0 z-50 mt-3 flex w-[500px] flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl">
-                                    {searchInput.trim().length > 0 ? (
-                                        <div className="p-4">
-                                            <div className="mb-3 flex items-center justify-between">
-                                                <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
-                                                    Live Results for "{searchInput}"
-                                                </p>
-                                                {isSearching && (
-                                                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600"></div>
-                                                )}
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                {liveSearchData?.products?.length > 0
-                                                    ? liveSearchData.products.map((prod) => (
-                                                          <div
-                                                              key={prod._id}
-                                                              onClick={() => {
-                                                                  setIsSearchOpen(false);
-                                                                  navigate(`/product/${prod._id}`);
-                                                              }}
-                                                              className="flex cursor-pointer items-center gap-3 rounded-xl border border-transparent p-2 transition-colors hover:border-slate-100 hover:bg-slate-50"
-                                                          >
-                                                              <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-slate-100">
-                                                                  <img
-                                                                      src={
-                                                                          prod.images?.[0]?.url ||
-                                                                          'https://via.placeholder.com/40'
-                                                                      }
-                                                                      alt={prod.title}
-                                                                      className="h-full w-full object-cover"
-                                                                  />
-                                                              </div>
-                                                              <div className="flex-1 overflow-hidden">
-                                                                  <p className="truncate text-sm font-bold text-slate-900">
-                                                                      {prod.title}
-                                                                  </p>
-                                                                  {}
-                                                                  <p className="mb-1 font-mono text-xs text-slate-500">
-                                                                      SKU: {prod.sku}
-                                                                  </p>
-                                                                  <p className="text-xs text-slate-500">
-                                                                      MOQ: {prod.moq || 10} units •
-                                                                      ₹
-                                                                      {prod.platformSellPrice?.toLocaleString(
-                                                                          'en-IN'
-                                                                      ) || 0}
-                                                                      /unit
-                                                                  </p>
-                                                              </div>
-                                                          </div>
-                                                      ))
-                                                    : !isSearching && (
-                                                          <div className="py-4 text-center text-sm text-slate-500">
-                                                              No direct matches found. Try hitting
-                                                              Enter to search all catalogs.
-                                                          </div>
-                                                      )}
-                                            </div>
-                                            <button
-                                                onClick={() => executeSearch(searchInput)}
-                                                className="text-accent hover:text-accent/80 mt-4 w-full rounded-lg bg-slate-50 py-2 text-center text-sm font-bold transition-colors hover:bg-slate-100"
-                                            >
-                                                View all results ➔
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex bg-slate-50/50">
-                                            <div className="w-1/2 border-r border-slate-100 p-4">
-                                                <p className="mb-3 flex items-center gap-1 text-xs font-bold tracking-wider text-slate-400 uppercase">
-                                                    <Clock size={14} /> Quick Searches
-                                                </p>
-                                                <ul className="space-y-2">
-                                                    {[
-                                                        'Wholesale electronics',
-                                                        'Corporate gifting sets',
-                                                        'Industrial supplies',
-                                                    ].map((term) => (
-                                                        <li
-                                                            key={term}
-                                                            onClick={() => executeSearch(term)}
-                                                            className="hover:text-accent cursor-pointer rounded-lg px-2 py-1 text-sm font-medium text-slate-600 transition-colors hover:bg-white"
-                                                        >
-                                                            {term}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                            <div className="w-1/2 p-4">
-                                                <p className="mb-3 flex items-center gap-1 text-xs font-bold tracking-wider text-slate-400 uppercase">
-                                                    <TrendingUp size={14} /> Trending B2B
-                                                </p>
-                                                <ul className="space-y-2">
-                                                    {[
-                                                        'Office Laptops Bulk',
-                                                        'Industrial Packaging',
-                                                        'Bulk T-Shirts',
-                                                    ].map((term) => (
-                                                        <li
-                                                            key={term}
-                                                            onClick={() => executeSearch(term)}
-                                                            className="hover:text-accent cursor-pointer rounded-lg px-2 py-1 text-sm font-medium text-slate-600 transition-colors hover:bg-white"
-                                                        >
-                                                            {term}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
+                    {/* CENTER/RIGHT: Search Bar */}
+                    <div ref={searchRef} className="relative hidden max-w-2xl flex-1 px-4 sm:block">
+                        <div
+                            className={`flex w-full items-center rounded-lg border px-3 py-2 transition-all ${isSearchOpen ? 'border-emerald-500 bg-white shadow-md ring-2 ring-emerald-500/20' : 'border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100'}`}
+                        >
+                            <Search
+                                size={16}
+                                className={isSearchOpen ? 'text-emerald-600' : 'text-slate-400'}
+                                strokeWidth={2.5}
+                            />
+                            <input
+                                ref={inputRef}
+                                type="text"
+                                placeholder="Search SKUs, products, or categories..."
+                                className="w-full border-none bg-transparent px-3 text-sm font-semibold text-slate-900 outline-none placeholder:font-medium placeholder:text-slate-400"
+                                value={searchInput}
+                                onChange={(e) => setSearchInput(e.target.value)}
+                                onFocus={() => setIsSearchOpen(true)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') executeSearch(searchInput);
+                                }}
+                            />
+                            {!searchInput && (
+                                <kbd className="hidden items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-0.5 font-sans text-[10px] font-bold text-slate-400 lg:flex">
+                                    ⌘K
+                                </kbd>
+                            )}
+                            {searchInput && (
+                                <button
+                                    onClick={handleClearSearch}
+                                    className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-slate-500 hover:bg-slate-300 hover:text-slate-900"
+                                >
+                                    <X size={12} strokeWidth={2.5} />
+                                </button>
                             )}
                         </div>
 
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={() => setIsWishlistOpen(true)}
-                                className="hover:text-danger hover:bg-danger/10 relative rounded-full p-2 text-slate-600 transition-colors"
-                            >
-                                <svg
-                                    className="h-6 w-6"
-                                    fill={wishlistItems?.length > 0 ? 'currentColor' : 'none'}
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                    strokeWidth="2"
+                        {/* Live Search Data Table */}
+                        <AnimatePresence>
+                            {isSearchOpen && searchInput.trim().length >= 2 && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 5 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 5 }}
+                                    transition={{ duration: 0.15 }}
+                                    className="absolute top-full right-4 left-4 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
                                 >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                                    ></path>
-                                </svg>
-                                {wishlistItems?.length > 0 && (
-                                    <span className="bg-danger absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold text-white">
-                                        {wishlistItems.length}
-                                    </span>
-                                )}
-                            </button>
+                                    {isSearching ? (
+                                        <div className="flex items-center justify-center p-6 text-sm font-semibold text-slate-500">
+                                            <div className="mr-3 h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-emerald-600"></div>
+                                            Searching catalog...
+                                        </div>
+                                    ) : liveSearchData?.products?.length > 0 ? (
+                                        <div className="flex flex-col">
+                                            <div className="border-b border-slate-100 bg-slate-50 px-4 py-2 text-xs font-semibold tracking-wider text-slate-500 uppercase">
+                                                Products
+                                            </div>
+                                            {liveSearchData.products.map((product) => (
+                                                <div
+                                                    key={product._id}
+                                                    className="group flex items-center justify-between border-b border-slate-100 p-2.5 px-4 transition-colors hover:bg-slate-50"
+                                                >
+                                                    <div
+                                                        className="flex flex-1 cursor-pointer items-center gap-3 overflow-hidden"
+                                                        onClick={() => {
+                                                            setIsSearchOpen(false);
+                                                            navigate(`/product/${product._id}`);
+                                                        }}
+                                                    >
+                                                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded border border-slate-200 bg-slate-100">
+                                                            <img
+                                                                src={
+                                                                    product.images?.[0]?.url ||
+                                                                    'https://via.placeholder.com/40'
+                                                                }
+                                                                alt=""
+                                                                className="h-full w-full object-cover"
+                                                            />
+                                                        </div>
+                                                        <div className="flex flex-col overflow-hidden">
+                                                            <span className="truncate text-sm font-bold text-slate-900 transition-colors group-hover:text-emerald-700">
+                                                                <HighlightText
+                                                                    text={product.title}
+                                                                    highlight={debouncedSearch}
+                                                                />
+                                                            </span>
+                                                            <div className="mt-0.5 flex items-center gap-2 text-xs font-semibold text-slate-500">
+                                                                <span>
+                                                                    SKU:{' '}
+                                                                    <HighlightText
+                                                                        text={product.sku || 'N/A'}
+                                                                        highlight={debouncedSearch}
+                                                                    />
+                                                                </span>
+                                                                <span className="text-slate-300">
+                                                                    |
+                                                                </span>
+                                                                <span className="font-bold text-slate-900">
+                                                                    ₹
+                                                                    {(
+                                                                        product.platformSellPrice ||
+                                                                        product.dropshipBasePrice
+                                                                    ).toLocaleString('en-IN')}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3 pl-4">
+                                                        <div className="hidden flex-col items-end sm:flex">
+                                                            <span className="text-xs font-bold text-slate-500">
+                                                                MOQ: {product.moq}
+                                                            </span>
+                                                            {product.margin >= 30 && (
+                                                                <span className="text-[10px] font-bold text-emerald-600">
+                                                                    High Margin
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <button
+                                                            onClick={(e) =>
+                                                                handleQuickAdd(e, product)
+                                                            }
+                                                            disabled={addedSku === product._id}
+                                                            className={`flex h-8 shrink-0 items-center justify-center rounded-lg px-3 text-xs font-bold transition-all ${addedSku === product._id ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-900 hover:text-white'}`}
+                                                        >
+                                                            {addedSku === product._id ? (
+                                                                <>
+                                                                    <Check
+                                                                        size={14}
+                                                                        className="mr-1"
+                                                                    />{' '}
+                                                                    Added
+                                                                </>
+                                                            ) : (
+                                                                'Add'
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            <button
+                                                onClick={() => executeSearch(debouncedSearch)}
+                                                className="w-full bg-slate-50 p-3 text-xs font-bold text-emerald-600 transition-colors hover:bg-slate-100 hover:text-emerald-700"
+                                            >
+                                                View all {liveSearchData.pagination?.total || 0}{' '}
+                                                results &rarr;
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="p-6 text-center text-sm font-semibold text-slate-500">
+                                            No products found for "{debouncedSearch}"
+                                        </div>
+                                    )}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
 
-                            <button
-                                onClick={() => setIsCartOpen(true)}
-                                className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                    {/* FAR RIGHT: Actions & Profile */}
+                    <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+                        {isAdmin && (
+                            <Link
+                                to={ROUTES.ADMIN}
+                                className="hidden items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-blue-700 transition-colors hover:bg-blue-100 sm:flex"
                             >
-                                <svg
-                                    className="h-6 w-6"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                    strokeWidth="2"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                                    ></path>
-                                </svg>
-                                {cartItems?.length > 0 && (
-                                    <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-slate-900 text-[10px] font-bold text-white">
-                                        {cartItems.reduce((acc, item) => acc + item.quantity, 0)}
-                                    </span>
-                                )}
-                            </button>
+                                <ShieldCheck size={14} strokeWidth={2.5} />{' '}
+                                <span className="text-xs font-bold">Admin</span>
+                            </Link>
+                        )}
 
-                            <div className="ml-2 hidden border-l border-slate-200 pl-4 lg:block">
-                                {loading ? (
-                                    <div className="border-t-accent h-8 w-8 animate-spin rounded-full border-2 border-slate-200"></div>
-                                ) : user ? (
-                                    <div className="flex items-center gap-4">
+                        {user && (
+                            <button
+                                onClick={() => navigate(ROUTES.WALLET)}
+                                className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                                title="Wallet Balance"
+                            >
+                                <Wallet size={20} strokeWidth={2} />
+                            </button>
+                        )}
+
+                        <button
+                            onClick={() => setIsCartOpen(true)}
+                            className="relative rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                            title="Cart"
+                        >
+                            <ShoppingCart size={20} strokeWidth={2} />
+                            {cartCount > 0 && (
+                                <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-emerald-500 text-[10px] font-bold text-white shadow-sm">
+                                    {cartCount > 99 ? '99+' : cartCount}
+                                </span>
+                            )}
+                        </button>
+
+                        <div className="ml-1 hidden border-l border-slate-200 pl-4 lg:block">
+                            {loading ? (
+                                <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-emerald-600"></div>
+                            ) : user ? (
+                                <div className="flex items-center gap-4">
+                                    <div className="flex flex-col">
                                         <Link
-                                            to="/my-account"
-                                            className="hover:text-accent text-sm font-bold text-slate-900"
+                                            to={ROUTES.MY_ACCOUNT}
+                                            className="text-sm font-bold text-slate-900 hover:text-emerald-600"
                                         >
-                                            Hi, {user?.name?.split(' ')[0]}
+                                            {user?.companyName || user?.name?.split(' ')[0]}
                                         </Link>
-                                        <button
-                                            onClick={logout}
-                                            className="text-xs font-bold text-slate-500 hover:text-slate-900"
-                                        >
-                                            Logout
-                                        </button>
+                                        <span className="text-xs font-medium text-slate-500">
+                                            {user?.accountType === 'B2B'
+                                                ? 'Business Account'
+                                                : 'Personal Account'}
+                                        </span>
                                     </div>
-                                ) : (
-                                    <div className="flex items-center gap-3">
-                                        <Link
-                                            to="/login"
-                                            className="text-sm font-bold text-slate-600 hover:text-slate-900"
-                                        >
-                                            Log in
-                                        </Link>
-                                        <Link
-                                            to="/signup"
-                                            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-slate-800"
-                                        >
-                                            Sign Up
-                                        </Link>
-                                    </div>
-                                )}
-                            </div>
+                                    <button
+                                        onClick={logout}
+                                        className="text-xs font-bold text-slate-500 transition-colors hover:text-slate-900"
+                                    >
+                                        Log out
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-3">
+                                    <Link
+                                        to={ROUTES.LOGIN}
+                                        className="text-sm font-bold text-slate-600 hover:text-slate-900"
+                                    >
+                                        Log in
+                                    </Link>
+                                    <Link
+                                        to={ROUTES.SIGNUP}
+                                        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-slate-800"
+                                    >
+                                        Register
+                                    </Link>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
 
-            {isSearchOpen && (
-                <div
-                    className="fixed inset-0 top-20 z-40 bg-slate-900/20 backdrop-blur-sm transition-opacity"
-                    onClick={() => setIsSearchOpen(false)}
-                ></div>
-            )}
-
+            {/* The Cart Drawer that we upgraded earlier remains here */}
             <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
-            <WishlistDrawer isOpen={isWishlistOpen} onClose={() => setIsWishlistOpen(false)} />
         </nav>
     );
 }
