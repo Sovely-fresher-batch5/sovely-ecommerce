@@ -162,7 +162,9 @@ export const updateKycStatus = asyncHandler(async (req, res) => {
 
     if (!user) throw new ApiError(404, 'User not found');
 
-    return res.status(200).json(new ApiResponse(200, user, `User KYC status updated to ${kycStatus}`));
+    return res
+        .status(200)
+        .json(new ApiResponse(200, user, `User KYC status updated to ${kycStatus}`));
 });
 
 export const toggleUserStatus = asyncHandler(async (req, res) => {
@@ -179,9 +181,15 @@ export const toggleUserStatus = asyncHandler(async (req, res) => {
 
     if (!user) throw new ApiError(404, 'User not found');
 
-    return res.status(200).json(
-        new ApiResponse(200, user, `User account has been ${isActive ? 'activated' : 'suspended'}`)
-    );
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                user,
+                `User account has been ${isActive ? 'activated' : 'suspended'}`
+            )
+        );
 });
 
 // ==========================================
@@ -213,7 +221,7 @@ export const updatePassword = asyncHandler(async (req, res) => {
     if (!oldPassword || !newPassword) throw new ApiError(400, 'Both passwords are required');
 
     const user = await User.findById(req.user._id);
-    
+
     const isPasswordValid = await user.isPasswordCorrect(oldPassword);
     if (!isPasswordValid) throw new ApiError(400, 'Invalid current password');
 
@@ -221,4 +229,42 @@ export const updatePassword = asyncHandler(async (req, res) => {
     await user.save({ validateBeforeSave: false });
 
     return res.status(200).json(new ApiResponse(200, null, 'Password updated successfully'));
+});
+
+// ==========================================
+// KYC SUBMISSION (RESELLER)
+// ==========================================
+
+export const updateKycDetails = asyncHandler(async (req, res) => {
+    const { gstin, panNumber, billingAddress, bankDetails } = req.body;
+
+    const user = await User.findById(req.user._id);
+    if (!user) throw new ApiError(404, 'User not found');
+
+    // Security Check: Don't let users edit if they are already approved
+    // (They should contact support to change locked business details)
+    if (user.kycStatus === 'APPROVED') {
+        throw new ApiError(
+            403,
+            'Your KYC is already approved. Contact support to modify locked business details.'
+        );
+    }
+
+    // Update the fields
+    if (gstin) user.gstin = gstin;
+    if (panNumber) user.panNumber = panNumber; // Assuming you add panNumber to your User schema!
+    if (billingAddress) user.billingAddress = billingAddress;
+    if (bankDetails) user.bankDetails = bankDetails;
+
+    // Reset status to PENDING so Admin knows to review the new data
+    user.kycStatus = 'PENDING';
+
+    await user.save({ validateBeforeSave: false });
+
+    // Return the updated user without sensitive fields
+    const updatedUser = await User.findById(user._id).select('-passwordHash -refreshToken');
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, updatedUser, 'KYC details submitted for review'));
 });

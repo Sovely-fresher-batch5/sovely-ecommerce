@@ -1,6 +1,8 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
+import toast from 'react-hot-toast';
+import { Eye, EyeOff } from 'lucide-react';
 
 const Signup = () => {
     const [contactMethod, setContactMethod] = useState('email');
@@ -9,15 +11,23 @@ const Signup = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
-    const [otpCode, setOtpCode] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState(''); // NEW: Confirm Password State
 
+    const [agreedToTerms, setAgreedToTerms] = useState(false);
     const [companyName, setCompanyName] = useState('');
     const [gstin, setGstin] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [otpValues, setOtpValues] = useState(['', '', '', '']);
+    const inputRefs = useRef([]);
+    const isGstinValid =
+        gstin.length === 15 &&
+        /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[A-Z0-9]{1}[0-9A-Z]{1}$/.test(
+            gstin.toUpperCase()
+        );
 
     const [otpSent, setOtpSent] = useState(false);
     const [cooldown, setCooldown] = useState(0);
-    const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
     const navigate = useNavigate();
@@ -42,17 +52,44 @@ const Signup = () => {
 
     const handleTabSwitch = (method) => {
         setContactMethod(method);
-        setError('');
         setOtpSent(false);
-        setOtpCode('');
+        setOtpValues(['', '', '', '']);
         setCooldown(0);
     };
 
-    const handleSendOtp = async (e) => {
+    const handleOtpChange = (index, value) => {
+        if (isNaN(value)) return;
+        const newOtp = [...otpValues];
+        newOtp[index] = value;
+        setOtpValues(newOtp);
+        if (value && index < 3) inputRefs.current[index + 1].focus();
+    };
+
+    const handleOtpKeyDown = (index, e) => {
+        if (e.key === 'Backspace' && !otpValues[index] && index > 0) {
+            inputRefs.current[index - 1].focus();
+        }
+    };
+
+    const handleOtpPaste = (e) => {
         e.preventDefault();
+        const pastedData = e.clipboardData.getData('text').slice(0, 4).replace(/\D/g, '');
+        if (pastedData) {
+            const newOtp = ['', '', '', ''];
+            pastedData.split('').forEach((char, i) => {
+                newOtp[i] = char;
+            });
+            setOtpValues(newOtp);
+            const focusIndex = Math.min(pastedData.length, 3);
+            if (focusIndex < 4) inputRefs.current[focusIndex].focus();
+        }
+    };
+
+    const handleSendOtp = async (e) => {
+        if (e) e.preventDefault();
         if (!phoneNumber || phoneNumber.length < 10)
-            return setError('Please enter a valid phone number');
-        setError('');
+            return toast.error('Please enter a valid phone number');
+
         setIsLoading(true);
         const res = await sendOtp(phoneNumber, false);
         setIsLoading(false);
@@ -60,35 +97,47 @@ const Signup = () => {
         if (res.success) {
             setOtpSent(true);
             setCooldown(30);
+            toast.success('OTP sent successfully!');
         } else {
-            setError(res.message);
+            toast.error(res.message);
         }
     };
 
     const handleSignup = async (e) => {
         e.preventDefault();
 
-        // Strict B2B GSTIN check - ONLY if they selected B2B and provided a GSTIN
+        // NEW: Check if passwords match before proceeding
+        if (password !== confirmPassword) {
+            return toast.error('Passwords do not match. Please try again.');
+        }
+
+        if (contactMethod === 'phone') {
+            if (!otpSent) return handleSendOtp();
+            const finalOtp = otpValues.join('');
+            if (finalOtp.length < 4) return toast.error('Please enter the full 4-digit OTP');
+        }
+
         if (accountType === 'B2B' && gstin) {
             const gstinRegex =
                 /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z0-9A-Z]{1}[0-9A-Z]{1}$/;
             if (!gstinRegex.test(gstin.toUpperCase())) {
-                return setError('Please enter a valid 15-character GSTIN');
+                return toast.error('Please enter a valid 15-character GSTIN');
             }
         }
 
-        setError('');
         setIsLoading(true);
 
         try {
-            // Only send the contact method they actually used!
             const userData = {
                 name,
                 password,
                 accountType,
-                // Dynamically add email OR phone, not both
-                ...(contactMethod === 'email' ? { email } : { phoneNumber }),
-                // Only send B2B fields if it's a B2B account
+                ...(contactMethod === 'email'
+                    ? { email }
+                    : {
+                          phoneNumber,
+                          otpCode: otpValues.join(''),
+                      }),
                 ...(accountType === 'B2B' && {
                     companyName,
                     gstin: gstin ? gstin.toUpperCase() : undefined,
@@ -96,20 +145,22 @@ const Signup = () => {
             };
 
             const response = await register(userData);
+
             if (response.success) {
                 if (accountType === 'B2B') {
-                    alert(
-                        'Business Account Created! You must complete KYC to unlock wholesale features.'
+                    toast.success(
+                        'Business Account Created! Complete KYC to unlock wholesale features.',
+                        { duration: 5000 }
                     );
                 } else {
-                    alert('Account Created successfully!');
+                    toast.success('Account Created successfully!');
                 }
                 navigate('/');
             } else {
                 throw new Error(response.message || 'Failed to create account.');
             }
         } catch (err) {
-            setError(err.message);
+            toast.error(err.message);
         } finally {
             setIsLoading(false);
         }
@@ -145,7 +196,6 @@ const Signup = () => {
                     </p>
                 </div>
 
-                {}
                 <div className="mb-6 flex rounded-2xl bg-slate-100 p-1">
                     <button
                         type="button"
@@ -180,14 +230,7 @@ const Signup = () => {
                     </button>
                 </div>
 
-                {error && (
-                    <div className="bg-danger/10 border-danger/20 text-danger mb-6 animate-[fadeIn_0.3s_ease-out] rounded-2xl border p-4 text-center text-sm font-bold">
-                        {error}
-                    </div>
-                )}
-
                 <form onSubmit={handleSignup} autoComplete="off" className="space-y-5">
-                    {/* Full Name Field */}
                     <div className="space-y-2">
                         <label className="pl-1 text-xs font-bold tracking-wider text-slate-400 uppercase">
                             Full Name *
@@ -202,7 +245,6 @@ const Signup = () => {
                         />
                     </div>
 
-                    {/* Conditional Contact Field (Email vs Phone) */}
                     {contactMethod === 'email' ? (
                         <div className="animate-[fadeIn_0.3s_ease-out] space-y-2">
                             <label className="pl-1 text-xs font-bold tracking-wider text-slate-400 uppercase">
@@ -218,58 +260,131 @@ const Signup = () => {
                             />
                         </div>
                     ) : (
-                        <div className="animate-[fadeIn_0.3s_ease-out] space-y-2">
-                            <label className="pl-1 text-xs font-bold tracking-wider text-slate-400 uppercase">
-                                Mobile Number *
-                            </label>
-                            <div className="relative">
-                                <span className="absolute top-1/2 left-5 -translate-y-1/2 font-bold text-slate-400">
-                                    +91
-                                </span>
-                                <input
-                                    type="tel"
-                                    inputMode="numeric"
-                                    placeholder="Enter 10 digit number"
-                                    value={phoneNumber}
-                                    onChange={(e) =>
-                                        setPhoneNumber(e.target.value.replace(/\D/g, ''))
-                                    }
-                                    maxLength="10"
-                                    required
-                                    className="focus:border-accent focus:ring-accent w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pr-5 pl-14 text-sm font-bold text-slate-900 transition-all outline-none placeholder:text-slate-400 focus:ring-1"
-                                />
+                        <div className="animate-[fadeIn_0.3s_ease-out] space-y-5">
+                            <div className="space-y-2">
+                                <label className="pl-1 text-xs font-bold tracking-wider text-slate-400 uppercase">
+                                    Mobile Number *
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute top-1/2 left-5 -translate-y-1/2 font-bold text-slate-400">
+                                        +91
+                                    </span>
+                                    <input
+                                        type="tel"
+                                        inputMode="numeric"
+                                        placeholder="Enter 10 digit number"
+                                        value={phoneNumber}
+                                        onChange={(e) =>
+                                            setPhoneNumber(e.target.value.replace(/\D/g, ''))
+                                        }
+                                        disabled={otpSent && cooldown > 0}
+                                        maxLength="10"
+                                        required
+                                        className="focus:border-accent focus:ring-accent w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pr-5 pl-14 text-sm font-bold text-slate-900 transition-all outline-none placeholder:text-slate-400 focus:ring-1 disabled:bg-slate-100 disabled:opacity-60"
+                                    />
+                                </div>
                             </div>
+
+                            {otpSent && (
+                                <div className="animate-[fadeIn_0.3s_ease-out] space-y-2">
+                                    <div className="flex items-center justify-between pr-1 pl-1">
+                                        <label className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+                                            Enter 4-Digit OTP
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={handleSendOtp}
+                                            disabled={cooldown > 0 || isLoading}
+                                            className="text-accent text-xs font-bold transition-colors hover:text-slate-900 disabled:text-slate-400"
+                                        >
+                                            {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend OTP'}
+                                        </button>
+                                    </div>
+                                    <div
+                                        className="flex justify-between gap-3"
+                                        onPaste={handleOtpPaste}
+                                    >
+                                        {otpValues.map((digit, index) => (
+                                            <input
+                                                key={index}
+                                                ref={(el) => (inputRefs.current[index] = el)}
+                                                type="text"
+                                                inputMode="numeric"
+                                                autoComplete="one-time-code"
+                                                maxLength="1"
+                                                value={digit}
+                                                onChange={(e) =>
+                                                    handleOtpChange(index, e.target.value)
+                                                }
+                                                onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                                                className="focus:border-accent focus:ring-accent w-14 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-2 py-4 text-center text-xl font-extrabold text-slate-900 transition-all outline-none focus:ring-1"
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    {/* Password Field with Strength Indicator */}
-                    <div className="space-y-2">
-                        <label className="pl-1 text-xs font-bold tracking-wider text-slate-400 uppercase">
-                            Password *
-                        </label>
-                        <input
-                            type="password"
-                            placeholder="••••••••"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            className="focus:border-accent focus:ring-accent w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3.5 text-sm font-medium tracking-widest text-slate-900 transition-all outline-none placeholder:text-slate-400 focus:ring-1"
-                        />
-                        {/* Password Strength Bar */}
-                        {password.length > 0 && (
-                            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                                <div
-                                    className="h-full transition-all duration-300"
-                                    style={{
-                                        width: strength.width,
-                                        backgroundColor: strength.color,
-                                    }}
-                                ></div>
+                    {/* PASSWORD BLOCK */}
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="pl-1 text-xs font-bold tracking-wider text-slate-400 uppercase">
+                                Password *
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    className="focus:border-accent focus:ring-accent w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pr-12 pl-5 text-sm font-medium tracking-widest text-slate-900 transition-all outline-none placeholder:text-slate-400 focus:ring-1"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute top-1/2 right-4 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
                             </div>
-                        )}
+                            {password.length > 0 && (
+                                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                                    <div
+                                        className="h-full transition-all duration-300"
+                                        style={{
+                                            width: strength.width,
+                                            backgroundColor: strength.color,
+                                        }}
+                                    ></div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* NEW: CONFIRM PASSWORD */}
+                        <div className="space-y-2">
+                            <label className="pl-1 text-xs font-bold tracking-wider text-slate-400 uppercase">
+                                Confirm Password *
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder="••••••••"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    required
+                                    className={`focus:ring-accent w-full rounded-2xl border bg-slate-50 py-3.5 pr-12 pl-5 text-sm font-medium tracking-widest text-slate-900 transition-all outline-none placeholder:text-slate-400 focus:ring-1 ${confirmPassword && password !== confirmPassword ? 'border-red-400 focus:border-red-500' : 'focus:border-accent border-slate-200'} `}
+                                />
+                            </div>
+                            {confirmPassword && password !== confirmPassword && (
+                                <p className="pl-2 text-xs font-bold text-red-500">
+                                    Passwords do not match
+                                </p>
+                            )}
+                        </div>
                     </div>
 
-                    {/* Conditional B2B Fields */}
                     {accountType === 'B2B' && (
                         <div className="animate-[fadeIn_0.3s_ease-out] space-y-5 rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
                             <div className="space-y-2">
@@ -295,19 +410,66 @@ const Signup = () => {
                                     value={gstin}
                                     onChange={(e) => setGstin(e.target.value)}
                                     maxLength="15"
-                                    className="focus:border-accent focus:ring-accent w-full rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-medium text-slate-900 uppercase transition-all outline-none placeholder:text-slate-400 focus:ring-1"
+                                    className={`w-full rounded-2xl border bg-white px-5 py-3.5 text-sm font-medium text-slate-900 uppercase transition-all outline-none placeholder:text-slate-400 focus:ring-1 ${
+                                        gstin.length > 0
+                                            ? isGstinValid
+                                                ? 'border-emerald-500 focus:border-emerald-500 focus:ring-emerald-500/30'
+                                                : 'border-red-400 focus:border-red-500 focus:ring-red-500/30'
+                                            : 'focus:border-accent focus:ring-accent border-slate-200'
+                                    } `}
                                 />
+                                {gstin.length > 0 && !isGstinValid && (
+                                    <p className="pt-1 pl-2 text-xs font-bold text-red-500">
+                                        Must be a valid 15-character GSTIN
+                                    </p>
+                                )}
                             </div>
                         </div>
                     )}
-
-                    {/* Submit Button */}
+                    <label className="group mt-4 flex cursor-pointer items-start gap-3 pl-1">
+                        <div className="flex h-5 items-center">
+                            <input
+                                type="checkbox"
+                                required
+                                checked={agreedToTerms}
+                                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                                className="text-accent focus:ring-accent/30 h-4 w-4 cursor-pointer rounded border-slate-300 transition-all"
+                            />
+                        </div>
+                        <span className="text-xs leading-relaxed font-medium text-slate-500">
+                            By creating an account, I agree to the{' '}
+                            <Link
+                                to="/terms"
+                                className="text-accent font-bold hover:underline"
+                                target="_blank"
+                            >
+                                Terms of Service
+                            </Link>{' '}
+                            and{' '}
+                            <Link
+                                to="/privacy"
+                                className="text-accent font-bold hover:underline"
+                                target="_blank"
+                            >
+                                Privacy Policy
+                            </Link>
+                            .
+                        </span>
+                    </label>
                     <button
                         type="submit"
-                        disabled={isLoading}
+                        disabled={
+                            isLoading ||
+                            !agreedToTerms ||
+                            (confirmPassword && password !== confirmPassword)
+                        }
                         className="hover:bg-accent hover:shadow-accent/30 mt-4 w-full rounded-2xl bg-slate-900 py-4 font-bold tracking-wide text-white transition-all duration-300 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                        {isLoading ? 'Creating Account...' : 'Sign Up'}
+                        {isLoading
+                            ? 'Processing...'
+                            : contactMethod === 'phone' && !otpSent
+                              ? 'Get OTP to Register'
+                              : 'Create Account'}
                     </button>
                 </form>
 

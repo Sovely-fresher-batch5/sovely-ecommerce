@@ -13,7 +13,8 @@ import {
     ShieldAlert,
     ShieldCheck,
     Shield,
-} from 'lucide-react'; // Added Shield icons
+    Clock,
+} from 'lucide-react';
 
 function Sidebar({ isOpen, onClose }) {
     const navigate = useNavigate();

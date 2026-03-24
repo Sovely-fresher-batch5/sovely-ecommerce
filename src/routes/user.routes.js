@@ -7,7 +7,8 @@ import {
     updateKycStatus,
     toggleUserStatus,
     updateMyProfile,
-    updatePassword // <-- NEW Import
+    updatePassword,
+    updateKycDetails,
 } from '../controllers/user.controller.js';
 
 import { verifyJWT, authorizeRoles } from '../middlewares/auth.middleware.js';
@@ -32,6 +33,7 @@ router.put('/admin/:id/toggle-status', verifyJWT, authorizeRoles('ADMIN'), toggl
 // LOGGED-IN USER (RESELLER) ROUTES
 // ==========================================
 router.put('/profile', verifyJWT, updateMyProfile);
-router.put('/security/password', verifyJWT, updatePassword); // <-- NEW Route
+router.put('/security/password', verifyJWT, updatePassword);
+router.put('/kyc-update', verifyJWT, updateKycDetails);
 
 export default router;

@@ -1,18 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { motion } from 'framer-motion';
 import {
     UploadCloud,
     FileText,
     ShoppingCart,
     AlertCircle,
-    ArrowRight,
     CheckCircle2,
+    ShieldCheck, // <-- Added for the locked screen
 } from 'lucide-react';
 import { useCartStore } from '../store/cartStore';
 import { Link } from 'react-router-dom';
+import { AuthContext } from '../AuthContext'; // <-- Added to check user status
 
 const QuickOrder = () => {
-    const [activeTab, setActiveTab] = useState('paste'); // 'paste' or 'upload'
+    // 1. Pull user data from Context
+    const { user, isKycApproved } = useContext(AuthContext);
+
+    // 2. Determine if they are a locked B2B user
+    const isB2BPending = user?.accountType === 'B2B' && !isKycApproved;
+
+    const [activeTab, setActiveTab] = useState('paste');
     const [skuInput, setSkuInput] = useState('');
     const [parsedItems, setParsedItems] = useState([]);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -20,7 +27,6 @@ const QuickOrder = () => {
 
     const addToCart = useCartStore((state) => state.addToCart);
 
-    // Parse pasted text: Expected format "SKU, Qty" per line
     const handleParseText = () => {
         if (!skuInput.trim()) return;
 
@@ -46,14 +52,8 @@ const QuickOrder = () => {
         setSuccessMessage('');
 
         try {
-            // In a real scenario, you'd likely hit a backend endpoint that takes an array of SKUs
-            // and returns their Product IDs, or your addToCart handles SKUs directly.
-            // Assuming your cart store has a way to handle this, or we loop through:
             for (const item of parsedItems) {
-                // NOTE: If addToCart requires a database _id, you'll need to fetch the _id using the SKU first.
-                // For this UI, we will simulate the successful add.
                 console.log(`Adding SKU: ${item.sku}, Qty: ${item.qty} to cart`);
-
                 // Example: await addToCart(item.sku, item.qty, 'WHOLESALE', 0);
             }
 
@@ -71,6 +71,34 @@ const QuickOrder = () => {
         }
     };
 
+    // 3. THE GUARDRAIL: If they are pending B2B, show this screen and STOP rendering.
+    if (isB2BPending) {
+        return (
+            <main className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
+                <div className="flex flex-col items-center justify-center rounded-[3rem] border border-slate-200 bg-white p-12 text-center shadow-xl shadow-slate-200/50">
+                    <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-amber-50 text-amber-500">
+                        <ShieldCheck size={48} />
+                    </div>
+                    <h2 className="mb-2 text-3xl font-extrabold text-slate-900">
+                        Wholesale Access Locked
+                    </h2>
+                    <p className="mx-auto mb-8 max-w-md leading-relaxed font-medium text-slate-500">
+                        The Quick Order Bulk pad is exclusively available to verified business
+                        accounts. Your KYC is currently pending review.
+                    </p>
+                    {/* Routes them directly to the new KYC component we built earlier */}
+                    <Link
+                        to="/my-account"
+                        className="rounded-full bg-slate-900 px-8 py-4 font-bold text-white shadow-lg transition-all hover:bg-slate-800"
+                    >
+                        Complete KYC Details
+                    </Link>
+                </div>
+            </main>
+        );
+    }
+
+    // 4. If they are an approved B2B user (or a B2C user), render the normal tool
     return (
         <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
             <div className="mb-8">

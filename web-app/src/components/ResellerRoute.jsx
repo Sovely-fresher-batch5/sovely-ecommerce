@@ -8,16 +8,15 @@ const ResellerRoute = () => {
     const location = useLocation();
 
     // Show nothing while checking auth state to prevent flashing
-    if (loading) return null; 
+    if (loading) return null;
 
     // If not logged in, boot to login
     if (!user) {
         return <Navigate to={ROUTES.LOGIN} state={{ from: location }} replace />;
     }
 
-    // Allow both ADMIN and normal business users to access these routes.
-    // Adjust 'RESELLER' to match whatever your standard business user role string is.
-    const hasAccess = user.role === 'ADMIN' || user.role === 'RESELLER' || user.role === 'USER';
+    // FIXED: Changed 'USER' to 'CUSTOMER' to match your backend Mongoose schema!
+    const hasAccess = user.role === 'ADMIN' || user.role === 'RESELLER' || user.role === 'CUSTOMER';
 
     if (!hasAccess) {
         // If they somehow have a restricted role, send them to the homepage

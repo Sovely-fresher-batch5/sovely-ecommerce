@@ -64,6 +64,31 @@ const Checkout = () => {
 
     if (!cart) return <LoadingScreen />;
 
+    const isB2BPending = user?.accountType === 'B2B' && !isKycApproved;
+
+    if (isB2BPending) {
+        return (
+            <main className="mx-auto w-full max-w-5xl px-4 py-16 font-sans sm:px-6 lg:px-8">
+                <div className="flex flex-col items-center justify-center rounded-[3rem] border border-slate-200 bg-white p-12 text-center shadow-xl shadow-slate-200/50">
+                    <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-amber-50 text-amber-500">
+                        <ShieldCheck size={48} />
+                    </div>
+                    <h2 className="mb-2 text-3xl font-extrabold text-slate-900">Checkout Locked</h2>
+                    <p className="mx-auto mb-8 max-w-md leading-relaxed font-medium text-slate-500">
+                        Your business KYC is currently pending review. You cannot proceed to
+                        checkout until our team verifies your account details.
+                    </p>
+                    <Link
+                        to="/kyc"
+                        className="rounded-full bg-slate-900 px-8 py-4 font-bold text-white shadow-lg transition-all hover:bg-slate-800"
+                    >
+                        Review KYC Status
+                    </Link>
+                </div>
+            </main>
+        );
+    }
+
     if (cart.items?.length === 0) {
         return (
             <div className="flex min-h-[70vh] flex-1 items-center justify-center p-6">
@@ -118,8 +143,12 @@ const Checkout = () => {
         e.preventDefault();
         setError('');
 
-        if (!isKycApproved) {
-            setError('Business KYC must be approved to procure inventory. Contact support.');
+        const isB2BPending = user?.accountType === 'B2B' && !isKycApproved;
+
+        if (isB2BPending) {
+            setError(
+                'Business KYC must be approved to procure B2B inventory. Please complete your KYC verification in settings.'
+            );
             return;
         }
 
@@ -649,7 +678,7 @@ const Checkout = () => {
 
                             <button
                                 onClick={handlePlaceOrder}
-                                disabled={loading || !isWalletSufficient || !isKycApproved}
+                                disabled={loading || !isWalletSufficient || isB2BPending}
                                 className="flex w-full items-center justify-center rounded-2xl bg-slate-900 py-4.5 text-sm font-extrabold tracking-widest text-white uppercase shadow-xl shadow-slate-900/20 transition-all hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
                             >
                                 {loading ? (

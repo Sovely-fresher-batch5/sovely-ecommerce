@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useContext } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import {
     X,
     Trash2,
@@ -12,18 +12,15 @@ import {
     Plus,
     ShieldCheck,
     CheckCircle,
+    Lock,
 } from 'lucide-react';
 import { useCartStore } from '../store/cartStore';
+import { AuthContext } from '../AuthContext'; // <-- Added AuthContext
 
 const getTierNudge = (currentQty, tieredPricing) => {
     if (!tieredPricing || tieredPricing.length === 0) return null;
-
-    // Ensure tiers are sorted from lowest MOQ to highest
     const sortedTiers = [...tieredPricing].sort((a, b) => a.minQty - b.minQty);
-
-    // Find the very next tier they haven't reached yet
     const nextTier = sortedTiers.find((tier) => tier.minQty > currentQty);
-
     if (nextTier) {
         return {
             unitsNeeded: nextTier.minQty - currentQty,
@@ -31,8 +28,6 @@ const getTierNudge = (currentQty, tieredPricing) => {
             targetQty: nextTier.minQty,
         };
     }
-
-    // If they already hit the maximum bulk discount tier
     return null;
 };
 
@@ -41,7 +36,9 @@ const CartDrawer = ({ isOpen, onClose }) => {
     const { cart, isLoading, fetchCart, updateCartItem, removeFromCart, getCartCount } =
         useCartStore();
 
-    // Fetch the latest math from the backend whenever the drawer opens
+    // <-- NEW: Pull user state -->
+    const { user, isKycApproved } = useContext(AuthContext);
+
     useEffect(() => {
         if (isOpen) fetchCart();
     }, [isOpen, fetchCart]);
@@ -55,6 +52,9 @@ const CartDrawer = ({ isOpen, onClose }) => {
 
     const hasDropshipItems = cart?.items?.some((i) => i.orderType === 'DROPSHIP');
     const hasWholesaleItems = cart?.items?.some((i) => i.orderType === 'WHOLESALE');
+
+    // <-- NEW: Check if this is a pending B2B user -->
+    const isB2BPending = user?.accountType === 'B2B' && !isKycApproved;
 
     return (
         <div
@@ -95,15 +95,12 @@ const CartDrawer = ({ isOpen, onClose }) => {
                         </div>
                     ) : cart?.items?.length > 0 ? (
                         cart.items.map((item, idx) => {
-                            // --- NEW: Calculate the nudge for this specific item ---
                             const nudge = getTierNudge(item.qty, item.productId?.tieredPricing);
-
                             return (
                                 <div
                                     key={idx}
                                     className="group relative rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-md"
                                 >
-                                    {/* Order Type Badge */}
                                     <div className="absolute -top-3 left-4">
                                         {item.orderType === 'DROPSHIP' ? (
                                             <span className="flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-3 py-1 text-[10px] font-extrabold tracking-widest text-amber-800 uppercase shadow-sm">
@@ -115,9 +112,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                             </span>
                                         )}
                                     </div>
-
                                     <div className="mt-3 flex gap-4">
-                                        {/* Product Image */}
                                         <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
                                             <img
                                                 src={
@@ -128,8 +123,6 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                                 className="h-full w-full object-cover mix-blend-multiply"
                                             />
                                         </div>
-
-                                        {/* Product Details */}
                                         <div className="min-w-0 flex-1">
                                             <h3 className="truncate pr-2 text-sm font-bold text-slate-900">
                                                 {item.productId?.title || 'Unknown Product'}
@@ -137,8 +130,6 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                             <p className="mt-0.5 font-mono text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                                                 SKU: {item.productId?.sku}
                                             </p>
-
-                                            {/* Financial Breakdown */}
                                             <div className="mt-2 space-y-1 rounded-xl border border-slate-100 bg-slate-50 p-2.5">
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-xs font-bold text-slate-500">
@@ -151,7 +142,6 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                                         )}
                                                     </span>
                                                 </div>
-
                                                 {item.orderType === 'DROPSHIP' && (
                                                     <>
                                                         <div className="flex items-center justify-between">
@@ -179,8 +169,6 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                                     </>
                                                 )}
                                             </div>
-
-                                            {/* --- THE B2B UPSELL NUDGE UI --- */}
                                             {item.orderType === 'WHOLESALE' && nudge ? (
                                                 <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 shadow-sm transition-all hover:bg-emerald-100">
                                                     <TrendingUp
@@ -222,8 +210,6 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                                     Max bulk discount unlocked
                                                 </div>
                                             ) : null}
-
-                                            {/* Quantity & Actions */}
                                             <div className="mt-3 flex items-center justify-between">
                                                 <div className="flex items-center rounded-lg border border-slate-200 bg-white shadow-sm">
                                                     <button
@@ -259,7 +245,6 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                                         <Plus size={14} />
                                                     </button>
                                                 </div>
-
                                                 <button
                                                     onClick={() =>
                                                         removeFromCart(item.productId?._id)
@@ -323,9 +308,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                     })}
                                 </span>
                             </div>
-
                             <div className="my-4 h-px w-full bg-slate-200"></div>
-
                             <div className="flex items-center justify-between">
                                 <span className="text-base font-extrabold text-slate-900">
                                     Total Payable
@@ -337,12 +320,10 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                     })}
                                 </span>
                             </div>
-
                             {cart.totalExpectedProfit > 0 && (
                                 <div className="mt-4 flex items-center justify-between rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 p-4 text-white shadow-sm transition-all hover:scale-[1.02]">
                                     <div className="flex items-center gap-2 text-xs font-extrabold tracking-wider uppercase">
-                                        <TrendingUp size={18} />
-                                        Expected Margin
+                                        <TrendingUp size={18} /> Expected Margin
                                     </div>
                                     <span className="text-2xl font-black">
                                         +₹
@@ -354,7 +335,25 @@ const CartDrawer = ({ isOpen, onClose }) => {
                             )}
                         </div>
 
-                        {hasDropshipItems && hasWholesaleItems && (
+                        {/* --- NEW: Dynamic Guardrails in Footer --- */}
+                        {isB2BPending && (
+                            <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-800 shadow-sm">
+                                <Lock size={16} className="mt-0.5 shrink-0 text-amber-600" />
+                                <p>
+                                    Checkout is locked. Please{' '}
+                                    <Link
+                                        to="/kyc"
+                                        onClick={onClose}
+                                        className="text-amber-600 underline"
+                                    >
+                                        complete your business KYC
+                                    </Link>{' '}
+                                    to procure inventory.
+                                </p>
+                            </div>
+                        )}
+
+                        {hasDropshipItems && hasWholesaleItems && !isB2BPending && (
                             <div className="mb-4 flex items-start gap-2 rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-[10px] font-bold text-indigo-700">
                                 <AlertCircle size={14} className="mt-0.5 shrink-0" />
                                 <p>
@@ -363,22 +362,13 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                 </p>
                             </div>
                         )}
-                        {hasDropshipItems && !hasWholesaleItems && (
-                            <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 p-3 text-[10px] font-bold text-amber-700">
-                                <AlertCircle size={14} className="mt-0.5 shrink-0" />
-                                <p>
-                                    Dropship Order: Have your customer's shipping details ready for
-                                    checkout.
-                                </p>
-                            </div>
-                        )}
 
                         <button
                             onClick={handleCheckout}
-                            disabled={isLoading}
-                            className="w-full rounded-2xl bg-slate-900 py-4 text-sm font-extrabold tracking-widest text-white uppercase transition-all hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-xl hover:shadow-slate-900/20 disabled:opacity-50 disabled:hover:translate-y-0"
+                            disabled={isLoading || isB2BPending}
+                            className="w-full rounded-2xl bg-slate-900 py-4 text-sm font-extrabold tracking-widest text-white uppercase transition-all hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-xl hover:shadow-slate-900/20 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
                         >
-                            Proceed to Checkout
+                            {isB2BPending ? 'KYC Required to Checkout' : 'Proceed to Checkout'}
                         </button>
                     </div>
                 )}

@@ -1,6 +1,8 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
+import toast from 'react-hot-toast';
+import { Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
     const [loginMethod, setLoginMethod] = useState('email');
@@ -9,27 +11,27 @@ const Login = () => {
     const [password, setPassword] = useState('');
 
     const [phoneNumber, setPhoneNumber] = useState('');
-    const [otpCode, setOtpCode] = useState('');
+    // NEW: OTP is now an array of 4 strings
+    const [otpValues, setOtpValues] = useState(['', '', '', '']);
+    const inputRefs = useRef([]); // Ref array to manage focusing
+    const [showPassword, setShowPassword] = useState(false);
     const [otpSent, setOtpSent] = useState(false);
     const [cooldown, setCooldown] = useState(0);
 
-    const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
     const location = useLocation();
+    const navigate = useNavigate();
+    const { login, loginWithOtpReq, sendOtp } = useContext(AuthContext);
 
-    // Check URL for the expiration flag on mount
+    // Check URL for expiration flag
     useEffect(() => {
         const queryParams = new URLSearchParams(location.search);
         if (queryParams.get('session_expired')) {
-            setError('Your secure session has expired. Please log in again to continue.');
-            // Optional: Clean up the URL so it doesn't persist on refresh
+            toast.error('Your secure session has expired. Please log in again.');
             window.history.replaceState({}, document.title, '/login');
         }
     }, [location]);
-
-    const navigate = useNavigate();
-    const { login, loginWithOtpReq, sendOtp } = useContext(AuthContext);
 
     useEffect(() => {
         if (cooldown > 0) {
@@ -38,10 +40,47 @@ const Login = () => {
         }
     }, [cooldown]);
 
+    // NEW: Handle individual OTP box changes
+    const handleOtpChange = (index, value) => {
+        if (isNaN(value)) return; // Only allow numbers
+
+        const newOtp = [...otpValues];
+        newOtp[index] = value;
+        setOtpValues(newOtp);
+
+        // Auto-focus next input if a number was typed
+        if (value && index < 3) {
+            inputRefs.current[index + 1].focus();
+        }
+    };
+
+    // NEW: Handle Backspace for auto-focusing previous input
+    const handleOtpKeyDown = (index, e) => {
+        if (e.key === 'Backspace' && !otpValues[index] && index > 0) {
+            inputRefs.current[index - 1].focus();
+        }
+    };
+
+    // NEW: Handle pasting a 4-digit code
+    const handleOtpPaste = (e) => {
+        e.preventDefault();
+        const pastedData = e.clipboardData.getData('text').slice(0, 4).replace(/\D/g, '');
+        if (pastedData) {
+            const newOtp = ['', '', '', ''];
+            pastedData.split('').forEach((char, i) => {
+                newOtp[i] = char;
+            });
+            setOtpValues(newOtp);
+            // Focus the last filled input
+            const focusIndex = Math.min(pastedData.length, 3);
+            inputRefs.current[focusIndex].focus();
+        }
+    };
+
     const handleSendOtp = async () => {
-        if (!phoneNumber || phoneNumber.length < 10)
-            return setError('Please enter a valid phone number');
-        setError('');
+        if (!phoneNumber || phoneNumber.length < 10) {
+            return toast.error('Please enter a valid 10-digit phone number');
+        }
         setIsLoading(true);
         const res = await sendOtp(phoneNumber, true);
         setIsLoading(false);
@@ -49,29 +88,32 @@ const Login = () => {
         if (res.success) {
             setOtpSent(true);
             setCooldown(30);
+            toast.success('OTP sent to your mobile!');
         } else {
-            setError(res.message);
+            toast.error(res.message);
         }
     };
 
     const handleTabSwitch = (method) => {
         setLoginMethod(method);
-        setError('');
         setOtpSent(false);
-        setOtpCode('');
+        setOtpValues(['', '', '', '']);
         setCooldown(0);
     };
 
     const handleEmailLogin = async (e) => {
         e.preventDefault();
-        setError('');
         setIsLoading(true);
         try {
             const response = await login(email, password);
-            if (response.success) navigate('/');
-            else throw new Error(response.message || 'Invalid credentials');
+            if (response.success) {
+                toast.success('Welcome back!');
+                navigate('/');
+            } else {
+                throw new Error(response.message || 'Invalid credentials');
+            }
         } catch (err) {
-            setError(err.message);
+            toast.error(err.message);
         } finally {
             setIsLoading(false);
         }
@@ -79,14 +121,20 @@ const Login = () => {
 
     const handleOtpLogin = async (e) => {
         e.preventDefault();
-        setError('');
+        const finalOtp = otpValues.join('');
+        if (finalOtp.length < 4) return toast.error('Please enter the full 4-digit OTP');
+
         setIsLoading(true);
         try {
-            const response = await loginWithOtpReq(phoneNumber, otpCode);
-            if (response.success) navigate('/');
-            else throw new Error(response.message || 'Invalid OTP');
+            const response = await loginWithOtpReq(phoneNumber, finalOtp);
+            if (response.success) {
+                toast.success('Welcome back!');
+                navigate('/');
+            } else {
+                throw new Error(response.message || 'Invalid OTP');
+            }
         } catch (err) {
-            setError(err.message);
+            toast.error(err.message);
         } finally {
             setIsLoading(false);
         }
@@ -94,7 +142,6 @@ const Login = () => {
 
     return (
         <div className="selection:bg-accent/30 relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-50 p-4 font-sans">
-            {}
             <div className="bg-accent/20 animate-blob absolute top-[-10%] left-[-10%] h-96 w-96 rounded-full opacity-70 mix-blend-multiply blur-3xl filter"></div>
             <div className="animate-blob animation-delay-2000 absolute right-[-10%] bottom-[-10%] h-96 w-96 rounded-full bg-pink-300/20 opacity-70 mix-blend-multiply blur-3xl filter"></div>
 
@@ -123,7 +170,6 @@ const Login = () => {
                     </p>
                 </div>
 
-                {}
                 <div className="mb-8 flex rounded-2xl bg-slate-100 p-1">
                     <button
                         type="button"
@@ -141,13 +187,6 @@ const Login = () => {
                     </button>
                 </div>
 
-                {error && (
-                    <div className="bg-danger/10 border-danger/20 text-danger mb-6 animate-[fadeIn_0.3s_ease-out] rounded-2xl border p-4 text-center text-sm font-bold">
-                        {error}
-                    </div>
-                )}
-
-                {}
                 {loginMethod === 'email' && (
                     <form
                         onSubmit={handleEmailLogin}
@@ -163,24 +202,31 @@ const Login = () => {
                                 placeholder="you@example.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                autoComplete="off"
                                 required
                                 className="focus:border-accent focus:ring-accent w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3.5 text-sm font-medium text-slate-900 transition-all outline-none placeholder:text-slate-400 focus:ring-1"
                             />
                         </div>
                         <div className="space-y-2">
                             <label className="pl-1 text-xs font-bold tracking-wider text-slate-400 uppercase">
-                                Password
+                                Password *
                             </label>
-                            <input
-                                type="password"
-                                placeholder="••••••••"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                autoComplete="new-password"
-                                required
-                                className="focus:border-accent focus:ring-accent w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3.5 text-sm font-medium tracking-widest text-slate-900 transition-all outline-none placeholder:text-slate-400 focus:ring-1"
-                            />
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    className="focus:border-accent focus:ring-accent w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pr-12 pl-5 text-sm font-medium tracking-widest text-slate-900 transition-all outline-none placeholder:text-slate-400 focus:ring-1"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute top-1/2 right-4 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
                         </div>
                         <div className="flex items-center justify-between pt-2 pb-4">
                             <label className="group flex cursor-pointer items-center gap-2">
@@ -209,7 +255,6 @@ const Login = () => {
                     </form>
                 )}
 
-                {}
                 {loginMethod === 'phone' && (
                     <form
                         onSubmit={
@@ -240,7 +285,7 @@ const Login = () => {
                                         setPhoneNumber(e.target.value.replace(/\D/g, ''))
                                     }
                                     disabled={otpSent && cooldown > 0}
-                                    autoComplete="off"
+                                    maxLength="10"
                                     required
                                     className="focus:border-accent focus:ring-accent w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pr-5 pl-14 text-sm font-bold text-slate-900 transition-all outline-none placeholder:text-slate-400 focus:ring-1 disabled:bg-slate-100 disabled:opacity-60"
                                 />
@@ -249,31 +294,37 @@ const Login = () => {
 
                         {otpSent && (
                             <div className="animate-[fadeIn_0.3s_ease-out] space-y-2">
-                                <label className="pl-1 text-xs font-bold tracking-wider text-slate-400 uppercase">
-                                    Enter 4-Digit OTP
-                                </label>
-                                <div className="flex gap-3">
-                                    <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        maxLength="4"
-                                        placeholder="1234"
-                                        value={otpCode}
-                                        onChange={(e) =>
-                                            setOtpCode(e.target.value.replace(/\D/g, ''))
-                                        }
-                                        autoFocus
-                                        required
-                                        className="focus:border-accent focus:ring-accent flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3.5 text-center text-lg font-extrabold tracking-widest text-slate-900 transition-all outline-none placeholder:font-medium placeholder:text-slate-300 focus:ring-1"
-                                    />
+                                <div className="flex items-center justify-between pr-1 pl-1">
+                                    <label className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+                                        Enter 4-Digit OTP
+                                    </label>
                                     <button
                                         type="button"
                                         onClick={handleSendOtp}
                                         disabled={cooldown > 0 || isLoading}
-                                        className="min-w-[120px] rounded-2xl border border-slate-200 bg-white px-5 font-bold whitespace-nowrap text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="text-accent text-xs font-bold transition-colors hover:text-slate-900 disabled:text-slate-400"
                                     >
-                                        {cooldown > 0 ? `Resend (${cooldown}s)` : 'Resend'}
+                                        {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend OTP'}
                                     </button>
+                                </div>
+                                <div
+                                    className="flex justify-between gap-3"
+                                    onPaste={handleOtpPaste}
+                                >
+                                    {otpValues.map((digit, index) => (
+                                        <input
+                                            key={index}
+                                            ref={(el) => (inputRefs.current[index] = el)}
+                                            type="text"
+                                            inputMode="numeric"
+                                            autoComplete="one-time-code" // Helps with native iOS/Android OTP extraction
+                                            maxLength="1"
+                                            value={digit}
+                                            onChange={(e) => handleOtpChange(index, e.target.value)}
+                                            onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                                            className="focus:border-accent focus:ring-accent w-14 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-2 py-4 text-center text-xl font-extrabold text-slate-900 transition-all outline-none focus:ring-1"
+                                        />
+                                    ))}
                                 </div>
                             </div>
                         )}
@@ -290,7 +341,7 @@ const Login = () => {
                             ) : (
                                 <button
                                     type="submit"
-                                    disabled={isLoading || otpCode.length < 4}
+                                    disabled={isLoading || otpValues.join('').length < 4}
                                     className="hover:bg-accent hover:shadow-accent/30 w-full rounded-2xl bg-slate-900 py-4 font-bold tracking-wide text-white transition-all duration-300 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
                                 >
                                     {isLoading ? 'Verifying...' : 'Verify & Login'}

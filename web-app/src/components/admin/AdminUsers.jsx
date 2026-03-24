@@ -10,6 +10,10 @@ import {
     Edit2,
     ChevronLeft,
     ChevronRight,
+    FileSearch,
+    MapPin,
+    Landmark,
+    X,
 } from 'lucide-react';
 import api from '../../utils/api.js';
 
@@ -29,6 +33,9 @@ const AdminUsers = () => {
     const [updatingId, setUpdatingId] = useState(null);
     const [editForm, setEditForm] = useState({});
     const [isSaving, setIsSaving] = useState(false);
+
+    // NEW: State for the KYC Modal
+    const [viewKycUser, setViewKycUser] = useState(null);
 
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedSearch(searchQuery), 500);
@@ -52,8 +59,6 @@ const AdminUsers = () => {
                         kycStatus: kycFilter === 'ALL' ? '' : kycFilter,
                     },
                 });
-
-                // Handle different response structures gracefully
                 const data = res.data?.data?.users || res.data?.data?.data || res.data?.data || [];
                 setUsers(Array.isArray(data) ? data : []);
                 setTotalPages(
@@ -85,15 +90,13 @@ const AdminUsers = () => {
         if (!window.confirm(`Are you sure you want to mark this Reseller as ${newStatus}?`)) return;
 
         try {
-            // Preserving your specific B2B KYC endpoint
-            const res = await api.put(`/users/admin/${id}/kyc`, { kycStatus: newStatus });
-
-            // Optimistic update
+            await api.put(`/users/admin/${id}/kyc-status`, { kycStatus: newStatus }); // Fixed endpoint to match user.routes.js
             setUsers((prev) =>
                 prev.map((u) => (u._id === id ? { ...u, kycStatus: newStatus } : u))
             );
+            setViewKycUser(null); // Close modal if open
         } catch (err) {
-            alert('Failed to update KYC status. Ensure your backend route exists.');
+            alert('Failed to update KYC status.');
         }
     };
 
@@ -123,7 +126,7 @@ const AdminUsers = () => {
 
     return (
         <>
-            {/* Filters Header (Using the clean grid from main) */}
+            {/* Filters Header */}
             <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4 lg:grid-cols-5">
                 <div className="flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm transition-all focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900 md:col-span-2 lg:col-span-3">
                     <Search size={18} className="text-slate-400" />
@@ -135,7 +138,6 @@ const AdminUsers = () => {
                         className="ml-3 w-full border-none text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
                     />
                 </div>
-
                 <div className="flex items-center rounded-xl border border-slate-200 bg-white px-4 shadow-sm transition-all focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900">
                     <Filter size={16} className="mr-2 text-slate-400" />
                     <select
@@ -149,7 +151,6 @@ const AdminUsers = () => {
                         <option value="REJECTED">Rejected</option>
                     </select>
                 </div>
-
                 <div className="flex items-center rounded-xl border border-slate-200 bg-white px-4 shadow-sm transition-all focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900">
                     <ShieldCheck size={16} className="mr-2 text-slate-400" />
                     <select
@@ -158,7 +159,7 @@ const AdminUsers = () => {
                         className="w-full cursor-pointer border-none bg-transparent py-2.5 text-sm font-bold text-slate-700 outline-none"
                     >
                         <option value="ALL">All Roles</option>
-                        <option value="RESELLER">Reseller / Customer</option>
+                        <option value="CUSTOMER">Reseller / Customer</option>
                         <option value="ADMIN">Admin</option>
                     </select>
                 </div>
@@ -173,7 +174,6 @@ const AdminUsers = () => {
                             <span className="text-sm font-bold">Loading Matrix...</span>
                         </div>
                     )}
-
                     <table className="w-full border-collapse text-left">
                         <thead>
                             <tr className="border-b border-slate-200 bg-slate-50">
@@ -214,7 +214,6 @@ const AdminUsers = () => {
                                             key={u._id}
                                             className="group transition-colors hover:bg-slate-50/50"
                                         >
-                                            {/* Identity */}
                                             <td className="p-4 whitespace-nowrap">
                                                 <div className="flex items-center gap-2 font-bold text-slate-900">
                                                     {u.name}
@@ -228,8 +227,6 @@ const AdminUsers = () => {
                                                     {u.email || u.phoneNumber}
                                                 </div>
                                             </td>
-
-                                            {/* Business */}
                                             <td className="p-4 whitespace-nowrap">
                                                 <div className="flex items-center gap-1.5 font-bold text-slate-800">
                                                     <Building2
@@ -245,8 +242,6 @@ const AdminUsers = () => {
                                                     </span>
                                                 </div>
                                             </td>
-
-                                            {/* Wallet */}
                                             <td className="p-4 whitespace-nowrap">
                                                 <div className="font-black text-emerald-600">
                                                     ₹
@@ -254,13 +249,9 @@ const AdminUsers = () => {
                                                         '0.00'}
                                                 </div>
                                             </td>
-
-                                            {/* KYC Status */}
                                             <td className="p-4 whitespace-nowrap">
                                                 {getKycBadge(u.kycStatus)}
                                             </td>
-
-                                            {/* Actions */}
                                             <td className="p-4 text-right whitespace-nowrap">
                                                 {isEdit ? (
                                                     <div className="flex justify-end gap-2">
@@ -284,7 +275,7 @@ const AdminUsers = () => {
                                                             onClick={() => submitUserUpdate(u._id)}
                                                             className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
                                                         >
-                                                            {isSaving ? '...' : 'Save'}
+                                                            Save
                                                         </button>
                                                         <button
                                                             onClick={() => setUpdatingId(null)}
@@ -295,7 +286,6 @@ const AdminUsers = () => {
                                                     </div>
                                                 ) : (
                                                     <div className="flex justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                                                        {/* Role Edit Trigger */}
                                                         <button
                                                             onClick={() => {
                                                                 setUpdatingId(u._id);
@@ -307,37 +297,14 @@ const AdminUsers = () => {
                                                             <Edit2 size={16} />
                                                         </button>
 
-                                                        {/* KYC Quick Actions */}
-                                                        {u.role !== 'ADMIN' && (
-                                                            <>
-                                                                {u.kycStatus !== 'APPROVED' && (
-                                                                    <button
-                                                                        onClick={() =>
-                                                                            updateKycStatus(
-                                                                                u._id,
-                                                                                'APPROVED'
-                                                                            )
-                                                                        }
-                                                                        className="flex items-center gap-1 rounded-lg bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-200"
-                                                                    >
-                                                                        <CheckCircle size={14} />{' '}
-                                                                        Approve
-                                                                    </button>
-                                                                )}
-                                                                {u.kycStatus !== 'REJECTED' && (
-                                                                    <button
-                                                                        onClick={() =>
-                                                                            updateKycStatus(
-                                                                                u._id,
-                                                                                'REJECTED'
-                                                                            )
-                                                                        }
-                                                                        className="rounded-lg bg-red-100 px-3 py-1.5 text-xs font-bold text-red-700 transition-colors hover:bg-red-200"
-                                                                    >
-                                                                        Reject
-                                                                    </button>
-                                                                )}
-                                                            </>
+                                                        {u.accountType === 'B2B' && (
+                                                            <button
+                                                                onClick={() => setViewKycUser(u)}
+                                                                title="Review KYC Details"
+                                                                className="flex items-center gap-1 rounded-lg bg-blue-100 px-3 py-1.5 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-200"
+                                                            >
+                                                                <FileSearch size={14} /> Review KYC
+                                                            </button>
                                                         )}
                                                     </div>
                                                 )}
@@ -372,6 +339,168 @@ const AdminUsers = () => {
                     Next <ChevronRight size={16} />
                 </button>
             </div>
+
+            {/* NEW: KYC Review Modal */}
+            {viewKycUser && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-2xl rounded-[2rem] bg-white shadow-2xl">
+                        <div className="flex items-center justify-between border-b border-slate-100 p-6">
+                            <div>
+                                <h2 className="text-xl font-extrabold text-slate-900">
+                                    Review Business KYC
+                                </h2>
+                                <p className="text-sm font-medium text-slate-500">
+                                    Applicant: {viewKycUser.name}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setViewKycUser(null)}
+                                className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="custom-scrollbar max-h-[70vh] space-y-6 overflow-y-auto p-6">
+                            {/* Identity */}
+                            <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-5">
+                                <h3 className="mb-4 flex items-center gap-2 text-sm font-bold tracking-wider text-slate-900 uppercase">
+                                    <Building2 size={16} className="text-accent" /> Identity
+                                    Documents
+                                </h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+                                            Company Name
+                                        </p>
+                                        <p className="font-medium text-slate-900">
+                                            {viewKycUser.companyName || 'N/A'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+                                            Business PAN
+                                        </p>
+                                        <p className="font-mono font-medium text-slate-900 uppercase">
+                                            {viewKycUser.panNumber || 'N/A'}
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+                                            GSTIN
+                                        </p>
+                                        <p className="font-mono font-medium text-slate-900 uppercase">
+                                            {viewKycUser.gstin || 'N/A'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Address */}
+                            <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-5">
+                                <h3 className="mb-4 flex items-center gap-2 text-sm font-bold tracking-wider text-slate-900 uppercase">
+                                    <MapPin size={16} className="text-accent" /> Registered Address
+                                </h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="col-span-2">
+                                        <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+                                            Street
+                                        </p>
+                                        <p className="font-medium text-slate-900">
+                                            {viewKycUser.billingAddress?.street || 'N/A'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+                                            City
+                                        </p>
+                                        <p className="font-medium text-slate-900">
+                                            {viewKycUser.billingAddress?.city || 'N/A'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+                                            State & PIN
+                                        </p>
+                                        <p className="font-medium text-slate-900">
+                                            {viewKycUser.billingAddress?.state || 'N/A'} -{' '}
+                                            {viewKycUser.billingAddress?.zip}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Bank */}
+                            <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-5">
+                                <h3 className="mb-4 flex items-center gap-2 text-sm font-bold tracking-wider text-slate-900 uppercase">
+                                    <Landmark size={16} className="text-accent" /> Bank Details
+                                </h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+                                            Account Name
+                                        </p>
+                                        <p className="font-medium text-slate-900">
+                                            {viewKycUser.bankDetails?.accountName || 'N/A'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+                                            Bank Name
+                                        </p>
+                                        <p className="font-medium text-slate-900">
+                                            {viewKycUser.bankDetails?.bankName || 'N/A'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+                                            Account Number
+                                        </p>
+                                        <p className="font-mono font-medium text-slate-900">
+                                            {viewKycUser.bankDetails?.accountNumber || 'N/A'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+                                            IFSC Code
+                                        </p>
+                                        <p className="font-mono font-medium text-slate-900 uppercase">
+                                            {viewKycUser.bankDetails?.ifscCode || 'N/A'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between rounded-b-[2rem] border-t border-slate-100 bg-slate-50 p-6">
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-slate-500">
+                                    Current Status:
+                                </span>
+                                {getKycBadge(viewKycUser.kycStatus)}
+                            </div>
+                            <div className="flex gap-3">
+                                {viewKycUser.kycStatus !== 'REJECTED' && (
+                                    <button
+                                        onClick={() => updateKycStatus(viewKycUser._id, 'REJECTED')}
+                                        className="rounded-xl bg-red-100 px-5 py-2.5 text-sm font-bold text-red-700 transition-colors hover:bg-red-200"
+                                    >
+                                        Reject KYC
+                                    </button>
+                                )}
+                                {viewKycUser.kycStatus !== 'APPROVED' && (
+                                    <button
+                                        onClick={() => updateKycStatus(viewKycUser._id, 'APPROVED')}
+                                        className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-emerald-700"
+                                    >
+                                        <CheckCircle size={16} /> Approve Account
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 };

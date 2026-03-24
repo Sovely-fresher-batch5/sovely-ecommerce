@@ -9,6 +9,7 @@ import {
     Wallet,
     Package,
     ArrowLeft,
+    ArrowRight, // <-- Added ArrowRight for the CTA button
     Building2,
     FileText,
     AlertCircle,
@@ -62,7 +63,6 @@ const MyAccount = () => {
 
     return (
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 font-sans text-slate-900 sm:px-6 lg:px-8 lg:py-12">
-            {/* UPDATED BACK BUTTON WITH HOVER SLIDE EFFECT */}
             <Link
                 to="/"
                 className="group mb-6 inline-flex items-center gap-3 text-sm font-bold text-slate-500 transition-colors hover:text-slate-900"
@@ -73,20 +73,33 @@ const MyAccount = () => {
                 Back to Home
             </Link>
 
-            {/* Global Warning for Pending KYC */}
+            {/* UPDATED: Dynamic KYC Warning Banner with direct CTA to /kyc */}
             {!isKycApproved && user.role !== 'ADMIN' && (
-                <div className="mb-6 flex animate-[fadeIn_0.3s_ease-out] items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-800 shadow-sm">
-                    <AlertCircle className="mt-0.5 shrink-0 text-amber-600" size={24} />
-                    <div>
-                        <h4 className="text-lg font-extrabold">
-                            Action Required: Complete your Business KYC
-                        </h4>
-                        <p className="mt-1 text-sm font-medium text-amber-700">
-                            Your account is currently under review. You can browse the wholesale
-                            catalog, but you cannot place orders or claim GST inputs until your
-                            GSTIN and business details are verified.
-                        </p>
+                <div className="mb-6 flex animate-[fadeIn_0.3s_ease-out] flex-col items-start justify-between gap-5 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-800 shadow-sm sm:flex-row sm:items-center">
+                    <div className="flex items-start gap-3">
+                        <AlertCircle className="mt-0.5 shrink-0 text-amber-600" size={24} />
+                        <div>
+                            <h4 className="text-lg font-extrabold">
+                                {user.kycStatus === 'REJECTED'
+                                    ? 'Action Required: KYC Rejected'
+                                    : 'Action Required: Complete your Business KYC'}
+                            </h4>
+                            <p className="mt-1 max-w-2xl text-sm font-medium text-amber-700">
+                                {user.kycStatus === 'REJECTED'
+                                    ? 'Your recent KYC application was rejected. Please review the requirements and submit updated documentation.'
+                                    : 'Your account is missing verified business details. You can browse the wholesale catalog, but you cannot place orders or claim GST inputs until approved.'}
+                            </p>
+                        </div>
                     </div>
+                    <Link
+                        to="/kyc"
+                        className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-amber-600 px-5 py-2.5 text-sm font-bold whitespace-nowrap text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-amber-700 hover:shadow-md"
+                    >
+                        {user.kycStatus === 'REJECTED'
+                            ? 'Update KYC Details'
+                            : 'Submit KYC Details'}{' '}
+                        <ArrowRight size={16} />
+                    </Link>
                 </div>
             )}
 
@@ -98,7 +111,6 @@ const MyAccount = () => {
 
                     <div className="relative z-10 flex flex-col justify-between gap-6 md:flex-row md:items-center">
                         <div className="flex items-center gap-6">
-                            {/* UPDATED AVATAR WITH AMBIENT GLOW */}
                             <div className="relative">
                                 <div className="absolute -inset-1 animate-pulse rounded-full bg-gradient-to-r from-emerald-400 to-blue-500 opacity-40 blur-sm"></div>
                                 <div className="relative flex h-24 w-24 items-center justify-center rounded-full border-4 border-slate-800 bg-slate-700 text-4xl font-black text-white shadow-xl">
@@ -141,7 +153,8 @@ const MyAccount = () => {
                         <div>
                             <div className="mb-4 flex items-center justify-between">
                                 <h3 className="flex items-center gap-2 text-xl font-extrabold text-slate-900">
-                                    <Building2 size={24} className="text-slate-400" /> Business Identity
+                                    <Building2 size={24} className="text-slate-400" /> Business
+                                    Identity
                                 </h3>
                                 {getKycBadge(user.kycStatus)}
                             </div>
@@ -162,7 +175,7 @@ const MyAccount = () => {
                                         {user.gstin || 'None Provided'}
                                     </span>
                                 </div>
-                                <div className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-5 sm:col-span-2 transition-transform hover:-translate-y-1 hover:shadow-md">
+                                <div className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-5 transition-transform hover:-translate-y-1 hover:shadow-md sm:col-span-2">
                                     <MapPin size={20} className="mt-0.5 shrink-0 text-slate-400" />
                                     <div className="flex flex-col gap-1">
                                         <span className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
@@ -219,7 +232,6 @@ const MyAccount = () => {
                     </div>
 
                     {/* Right Column: Quick Links */}
-                    {/* ADDED hover:-translate-y-1 and shadow-lg to all quick links */}
                     <div className="space-y-4 lg:border-l lg:border-slate-100 lg:pl-8">
                         <h3 className="mb-6 text-xl font-extrabold text-slate-900">
                             Procurement Tools
@@ -310,13 +322,12 @@ const MyAccount = () => {
                     </div>
                 )}
 
-                {/* UPDATED LOGOUT BUTTON: Smooth transition to solid red background */}
                 <div className="flex justify-center border-t border-slate-100 bg-slate-50 p-6">
                     <button
                         onClick={handleLogout}
-                        className="group flex items-center gap-2 rounded-full border border-red-200 bg-white px-8 py-3 text-sm font-bold text-red-600 shadow-sm transition-all duration-300 hover:border-red-600 hover:bg-red-600 hover:text-white hover:shadow-lg hover:-translate-y-0.5"
+                        className="group flex items-center gap-2 rounded-full border border-red-200 bg-white px-8 py-3 text-sm font-bold text-red-600 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-red-600 hover:bg-red-600 hover:text-white hover:shadow-lg"
                     >
-                        <LogOut size={16} className="transition-transform group-hover:scale-110" /> 
+                        <LogOut size={16} className="transition-transform group-hover:scale-110" />
                         Secure Sign Out
                     </button>
                 </div>

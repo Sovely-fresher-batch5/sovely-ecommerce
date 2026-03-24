@@ -5,6 +5,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import jwt from 'jsonwebtoken';
 import { OtpToken } from '../models/OtpToken.js';
 import { AuthService } from '../services/auth.service.js';
+import crypto from 'crypto';
 
 // Helper for setting secure cookies
 const cookieOptions = {
@@ -53,7 +54,7 @@ export const sendOtp = asyncHandler(async (req, res) => {
     }
 
     // Generate a 4-digit OTP
-    const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
+    const otpCode = crypto.randomInt(1000, 10000).toString();
 
     // Clear any existing unused OTPs for this number to prevent spam/conflicts
     await OtpToken.deleteMany({ identifier: phoneNumber, isUsed: false });
@@ -179,7 +180,7 @@ export const loginUser = asyncHandler(async (req, res) => {
     // 3. Find the user
     const user = await User.findOne(query);
 
-    // FIX: Check user existence and soft-delete status in JS memory 
+    // FIX: Check user existence and soft-delete status in JS memory
     // to avoid MongoDB null vs undefined field matching quirks.
     if (!user || user.deletedAt) {
         // Updated error message to be generic (since Admins log in here too)
@@ -203,8 +204,6 @@ export const loginUser = asyncHandler(async (req, res) => {
                 200,
                 {
                     user: loggedInUser,
-                    accessToken,
-                    refreshToken,
                 },
                 'Logged in successfully'
             )
@@ -275,13 +274,7 @@ export const refreshAccessToken = asyncHandler(async (req, res) => {
             .status(200)
             .cookie('accessToken', accessToken, cookieOptions)
             .cookie('refreshToken', newRefreshToken, cookieOptions)
-            .json(
-                new ApiResponse(
-                    200,
-                    { accessToken, refreshToken: newRefreshToken },
-                    'Access token refreshed successfully'
-                )
-            );
+            .json(new ApiResponse(200, {}, 'Access token refreshed successfully'));
     } catch (error) {
         throw new ApiError(401, error?.message || 'Invalid refresh token');
     }

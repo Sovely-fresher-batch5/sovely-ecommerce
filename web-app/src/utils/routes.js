@@ -13,5 +13,5 @@ export const ROUTES = {
     ACCOUNT_SETTINGS: '/account/settings', // Unified settings page
     INVOICES: '/invoices',
     QUICK_ORDER: '/quick-order',
-    ADMIN: '/admin'
+    ADMIN: '/admin',
 };

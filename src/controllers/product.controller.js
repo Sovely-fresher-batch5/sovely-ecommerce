@@ -238,7 +238,7 @@ export const deleteProduct = asyncHandler(async (req, res) => {
  */
 export const getAllAdminProducts = asyncHandler(async (req, res) => {
     const { page = 1, limit = 20, search } = req.query;
-    
+
     // Admins need to see everything, so we don't filter out deletedAt or inactive status
     const query = {};
 
@@ -253,7 +253,7 @@ export const getAllAdminProducts = asyncHandler(async (req, res) => {
     }
 
     const skip = (Number(page) - 1) * Number(limit);
-    
+
     const products = await Product.find(query)
         .sort({ createdAt: -1 }) // Newest first
         .skip(skip)

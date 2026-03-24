@@ -65,7 +65,7 @@ const Invoices = () => {
     return (
         <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
             <Link
-                to="/account"
+                to="/my-account"
                 className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-slate-400 transition-colors hover:text-slate-900"
             >
                 <ArrowLeft size={16} /> Back to Dashboard

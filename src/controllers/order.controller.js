@@ -17,6 +17,11 @@ export const createOrder = asyncHandler(async (req, res) => {
     const existingTransaction = await IdempotencyRecord.findOne({ key: idempotencyKey });
     if (existingTransaction) return res.status(200).json(existingTransaction.response);
 
+    const user = req.user;
+    if (user.accountType === 'B2B' && user.kycStatus !== 'APPROVED') {
+        throw new ApiError(403, 'Forbidden: Business KYC must be approved to place orders.');
+    }
+
     const { endCustomerDetails, paymentMethod } = req.body;
     const resellerId = req.user._id;
 
@@ -414,7 +419,7 @@ export const resellerActionOnNDR = asyncHandler(async (req, res) => {
  */
 export const getAllAdminOrders = asyncHandler(async (req, res) => {
     const { page = 1, limit = 20, status, search } = req.query;
-    
+
     const query = {};
 
     // Filter by exact status if provided
@@ -424,9 +429,7 @@ export const getAllAdminOrders = asyncHandler(async (req, res) => {
 
     // Basic search by Order ID
     if (search) {
-        query.$or = [
-            { orderId: { $regex: search, $options: 'i' } }
-        ];
+        query.$or = [{ orderId: { $regex: search, $options: 'i' } }];
     }
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -444,10 +447,10 @@ export const getAllAdminOrders = asyncHandler(async (req, res) => {
             200,
             {
                 orders,
-                pagination: { 
-                    total, 
-                    page: Number(page), 
-                    pages: Math.ceil(total / Number(limit)) 
+                pagination: {
+                    total,
+                    page: Number(page),
+                    pages: Math.ceil(total / Number(limit)),
                 },
             },
             'All platform orders fetched successfully'

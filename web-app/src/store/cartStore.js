@@ -36,7 +36,7 @@ export const useCartStore = create((set, get) => ({
                 resellerSellingPrice,
             });
             set({ cart: res.data.data, isLoading: false });
-            
+
             // --- NEW: Trigger Success Toast ---
             toast.success(`${qty} item(s) added to your procurement cart!`, {
                 position: 'bottom-right',
@@ -46,10 +46,10 @@ export const useCartStore = create((set, get) => ({
             return { success: true };
         } catch (error) {
             set({ error: error.response?.data?.message, isLoading: false });
-            
+
             // --- NEW: Trigger Error Toast ---
-            toast.error(error.response?.data?.message || "Failed to add to cart", {
-                position: 'bottom-right'
+            toast.error(error.response?.data?.message || 'Failed to add to cart', {
+                position: 'bottom-right',
             });
 
             return { success: false, message: error.response?.data?.message };
@@ -71,7 +71,7 @@ export const useCartStore = create((set, get) => ({
         try {
             const res = await api.delete(`/cart/${productId}`);
             set({ cart: res.data.data, isLoading: false });
-            toast.success("Item removed from cart", { position: 'bottom-right' });
+            toast.success('Item removed from cart', { position: 'bottom-right' });
         } catch (error) {
             set({ error: error.response?.data?.message, isLoading: false });
         }
