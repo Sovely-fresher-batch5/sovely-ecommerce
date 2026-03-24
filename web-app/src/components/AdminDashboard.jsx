@@ -7,18 +7,16 @@ import {
     TrendingUp,
     Upload,
     FileText,
-    ShieldCheck,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from './Navbar';
 import BulkUpload from './BulkUpload';
+import AdminInvoices from './admin/AdminInvoices';
 
-// Sub-components
 import AdminOverview from './admin/AdminOverview';
 import AdminOrders from './admin/AdminOrders';
 import AdminProducts from './admin/AdminProducts';
 import AdminUsers from './admin/AdminUsers';
-import AdminInvoices from './admin/AdminInvoices';
 
 const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('orders');
@@ -43,27 +41,27 @@ const AdminDashboard = () => {
     };
 
     return (
-        <div className="relative flex min-h-screen flex-col bg-slate-50/50 font-sans selection:bg-slate-900/30">
+        <div className="selection:bg-accent/30 relative flex min-h-screen flex-col bg-slate-50/50 font-sans">
             <Navbar />
 
             <div className="relative flex flex-1 overflow-hidden">
-                {/* Sidebar Navigation */}
+                {}
                 <motion.aside
                     initial={{ x: -100, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ type: 'spring', stiffness: 100, damping: 20 }}
-                    className="fixed top-28 bottom-6 left-6 z-40 hidden w-64 flex-col gap-2 rounded-3xl border border-white bg-white/70 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.08)] backdrop-blur-xl md:flex"
+                    className="fixed top-28 bottom-6 left-6 z-40 flex hidden w-64 flex-col gap-2 rounded-3xl border border-white bg-white/70 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.08)] backdrop-blur-xl md:flex"
                 >
                     <h3 className="mb-4 px-3 text-[10px] font-extrabold tracking-widest text-slate-400 uppercase">
-                        B2B Command Center
+                        Command Center
                     </h3>
                     {[
-                        { id: 'overview', icon: TrendingUp, label: 'Platform Telemetry' },
-                        { id: 'orders', icon: ShoppingBag, label: 'Dropship & Fulfillment' },
-                        { id: 'products', icon: Package, label: 'B2B Catalog & Tiers' },
-                        { id: 'users', icon: ShieldCheck, label: 'Resellers & KYC' },
-                        { id: 'invoices', icon: FileText, label: 'GST Billing' },
-                        { id: 'bulk-upload', icon: Upload, label: 'Mass Import (CSV)' },
+                        { id: 'overview', icon: TrendingUp, label: 'Telemetry' },
+                        { id: 'orders', icon: ShoppingBag, label: 'Fulfillment' },
+                        { id: 'products', icon: Package, label: 'Inventory' },
+                        { id: 'invoices', icon: FileText, label: 'Ledger / Bills' },
+                        { id: 'bulk-upload', icon: Upload, label: 'Mass Import' },
+                        { id: 'users', icon: Users, label: 'User Matrix' },
                     ].map((tab) => (
                         <motion.button
                             whileHover={{ scale: 1.02, x: 4 }}
@@ -72,10 +70,11 @@ const AdminDashboard = () => {
                             onClick={() => setActiveTab(tab.id)}
                             className={`relative flex w-full items-center gap-3 overflow-hidden rounded-2xl px-4 py-3 text-sm font-bold transition-all ${
                                 activeTab === tab.id
-                                    ? 'text-white shadow-lg shadow-slate-900/20'
+                                    ? 'shadow-accent/20 text-white shadow-lg'
                                     : 'text-slate-500 hover:bg-white/50 hover:text-slate-900'
                             }`}
                         >
+                            {}
                             {activeTab === tab.id && (
                                 <motion.div
                                     layoutId="activeTabBackground"
@@ -87,7 +86,7 @@ const AdminDashboard = () => {
                                 size={18}
                                 className={
                                     activeTab === tab.id
-                                        ? 'relative z-10 text-emerald-400'
+                                        ? 'text-accent relative z-10'
                                         : 'text-slate-400'
                                 }
                             />
@@ -96,7 +95,8 @@ const AdminDashboard = () => {
                     ))}
                 </motion.aside>
 
-                {/* Main Content Area */}
+                {}
+                {}
                 <main className="custom-scrollbar flex-1 overflow-y-auto p-6 md:ml-72 lg:p-10">
                     <motion.h2
                         layoutId="pageTitle"
@@ -105,6 +105,7 @@ const AdminDashboard = () => {
                         {activeTab.replace('-', ' ')}
                     </motion.h2>
 
+                    {}
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeTab}

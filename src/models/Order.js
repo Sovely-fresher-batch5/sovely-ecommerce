@@ -6,16 +6,14 @@ const orderItemSnapshotSchema = new mongoose.Schema(
         sku: { type: String, required: true },
         title: { type: String, required: true },
         image: { type: String },
+
         hsnCode: { type: String, required: true },
-        qty: { type: Number, required: true, min: 1 },
-
-        platformBasePrice: { type: Number, required: true },
-        resellerSellingPrice: { type: Number, required: true },
-
-        // --- NEW: Exact Tax & Shipping Snapshots ---
+        taxSlab: { type: Number, required: true },
+        basePrice: { type: Number, required: true },
         taxAmountPerUnit: { type: Number, required: true },
-        gstSlab: { type: Number, required: true },
-        shippingCost: { type: Number, required: true },
+
+        qty: { type: Number, required: true, min: 1 },
+        totalItemPrice: { type: Number, required: true },
     },
     { _id: false }
 );
@@ -29,77 +27,39 @@ const statusHistorySchema = new mongoose.Schema(
     { _id: false }
 );
 
-const ndrSchema = new mongoose.Schema(
-    {
-        attemptCount: { type: Number, default: 1 },
-        reason: { type: String },
-        resellerAction: {
-            type: String,
-            enum: ['REATTEMPT', 'RTO_REQUESTED', 'PENDING'],
-            default: 'PENDING',
-        },
-        updatedCustomerPhone: { type: String },
-    },
-    { _id: false }
-);
-
 const orderSchema = new mongoose.Schema(
     {
         orderId: { type: String, required: true, unique: true },
-        resellerId: {
+        userId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User',
             required: true,
         },
-        endCustomerDetails: {
-            name: { type: String },
-            phone: { type: String },
-            address: {
-                street: { type: String },
-                city: { type: String },
-                state: { type: String },
-                zip: { type: String },
-            },
-        },
         status: {
             type: String,
-            enum: [
-                'PENDING',
-                'PROCESSING',
-                'SHIPPED',
-                'NDR',
-                'DELIVERED',
-                'RTO',
-                'PROFIT_CREDITED',
-                'CANCELLED',
-            ],
+            enum: ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
             default: 'PENDING',
         },
         statusHistory: [statusHistorySchema],
-        ndrDetails: ndrSchema,
-
         tracking: {
             courierName: { type: String },
             trackingNumber: { type: String },
             trackingUrl: { type: String },
-            awbNumber: { type: String },
         },
-
+        paymentTerms: {
+            type: String,
+            enum: ['DUE_ON_RECEIPT', 'NET_15', 'NET_30'],
+            default: 'DUE_ON_RECEIPT',
+        },
         paymentMethod: {
             type: String,
-            enum: ['COD', 'PREPAID_WALLET', 'PREPAID_GATEWAY'],
-            default: 'COD',
+            enum: ['RAZORPAY', 'WALLET', 'BANK_TRANSFER'],
+            default: 'RAZORPAY',
         },
 
-        // --- FIXED: Accurate Totals per split order ---
-        subTotal: { type: Number, required: true, default: 0 },
-        taxTotal: { type: Number, required: true, default: 0 },
-        shippingTotal: { type: Number, required: true, default: 0 },
-        codCharge: { type: Number, required: true, default: 0 },
-        totalPlatformCost: { type: Number, required: true },
-
-        amountToCollect: { type: Number, required: true },
-        resellerProfitMargin: { type: Number, required: true },
+        subTotal: { type: Number, required: true },
+        taxTotal: { type: Number, required: true },
+        grandTotal: { type: Number, required: true },
 
         items: [orderItemSnapshotSchema],
         orderDate: { type: Date, default: Date.now },
@@ -107,7 +67,14 @@ const orderSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-orderSchema.index({ resellerId: 1, status: 1 });
-orderSchema.index({ 'endCustomerDetails.phone': 1 });
+orderSchema.index({ userId: 1, status: 1 });
+
+orderSchema.pre('save', async function () {
+    if (this.isNew) {
+        this.statusHistory.push({ status: this.status, comment: 'Order placed successfully' });
+    } else if (this.isModified('status')) {
+        this.statusHistory.push({ status: this.status, comment: `Order marked as ${this.status}` });
+    }
+});
 
 export const Order = mongoose.model('Order', orderSchema);
