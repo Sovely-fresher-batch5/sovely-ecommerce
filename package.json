@@ -11,7 +11,8 @@
     "start": "node src/index.js",
     "format": "prettier --write \"src/**/*.{js,json}\"",
     "format:check": "prettier --check \"src/**/*.{js,json}\"",
-    "seed": "node seed.js"
+    "seed": "node scripts/seed.js",
+    "import:csv": "node scripts/import_real_products.js"
   },
   "keywords": [],
   "author": "",

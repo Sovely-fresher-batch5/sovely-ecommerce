@@ -5,14 +5,21 @@ import fs from 'fs';
 const __dirname = import.meta.dirname;
 
 const tempDir = path.join(__dirname, '../../public/temp');
+const avatarDir = path.join(__dirname, '../../public/avatars');
 
-if (!fs.existsSync(tempDir)) {
-    fs.mkdirSync(tempDir, { recursive: true });
-}
+[tempDir, avatarDir].forEach((dir) => {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+});
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, tempDir);
+        if (file.fieldname === 'avatar') {
+            cb(null, avatarDir);
+        } else {
+            cb(null, tempDir);
+        }
     },
     filename: function (req, file, cb) {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);

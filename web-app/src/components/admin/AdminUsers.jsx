@@ -87,14 +87,28 @@ const AdminUsers = () => {
     };
 
     const updateKycStatus = async (id, newStatus) => {
-        if (!window.confirm(`Are you sure you want to mark this Reseller as ${newStatus}?`)) return;
+        let reason = null;
+        if (newStatus === 'REJECTED') {
+            reason = window.prompt(
+                'Please enter a rejection reason for the reseller (e.g. "GSTIN Mismatch" or "Address document blurred"):',
+                'Invalid documents'
+            );
+            if (!reason) return; // Cancel if no reason provided
+        } else if (!window.confirm(`Are you sure you want to mark this Reseller as ${newStatus}?`)) {
+            return;
+        }
 
         try {
-            await api.put(`/users/admin/${id}/kyc-status`, { kycStatus: newStatus }); // Fixed endpoint to match user.routes.js
+            await api.put(`/users/admin/${id}/kyc-status`, {
+                kycStatus: newStatus,
+                kycRejectionReason: reason,
+            });
             setUsers((prev) =>
-                prev.map((u) => (u._id === id ? { ...u, kycStatus: newStatus } : u))
+                prev.map((u) =>
+                    u._id === id ? { ...u, kycStatus: newStatus, kycRejectionReason: reason } : u
+                )
             );
-            setViewKycUser(null); // Close modal if open
+            setViewKycUser(null);
         } catch (err) {
             alert('Failed to update KYC status.');
         }

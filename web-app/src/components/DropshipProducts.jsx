@@ -18,6 +18,7 @@ import {
     Minus,
     Plus,
     Filter,
+    Zap,
 } from 'lucide-react';
 import api from '../utils/api.js';
 import { useCartStore } from '../store/cartStore';
@@ -75,7 +76,7 @@ function DropshipProducts({
     const addToCart = useCartStore((state) => state.addToCart);
 
     const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-    const [viewMode, setViewMode] = useState('table');
+    const [viewMode, setViewMode] = useState('grid');
 
     // --- ADVANCED FILTER STATE ---
     const [category, setCategory] = useState('All Categories');
@@ -94,6 +95,7 @@ function DropshipProducts({
         margin: filters.margin || 0,
         readyToShip: filters.readyToShip || false,
         lowRtoRisk: filters.lowRtoRisk || false,
+        vendor: filters.vendor || 'all',
     });
 
     useEffect(() => {
@@ -102,6 +104,7 @@ function DropshipProducts({
             margin: filters.margin || 0,
             readyToShip: filters.readyToShip || false,
             lowRtoRisk: filters.lowRtoRisk || false,
+            vendor: filters.vendor || 'all',
         });
     }, [filters]);
 
@@ -175,6 +178,8 @@ function DropshipProducts({
             } else if (b2bFilters.moq === 'bulk') params.append('minMoq', '500');
             if (b2bFilters.readyToShip) params.append('inStock', 'true');
             if (b2bFilters.lowRtoRisk) params.append('lowRtoRisk', 'true');
+            if (b2bFilters.vendor && b2bFilters.vendor !== 'all')
+                params.append('vendor', b2bFilters.vendor);
 
             const res = await api.get(`/products?${params.toString()}`);
             return res.data.data;
@@ -304,7 +309,7 @@ function DropshipProducts({
             <div className="flex flex-col items-start gap-6 lg:flex-row">
                 {/* ADVANCED FILTERS SIDEBAR */}
                 <aside
-                    className={`fixed inset-y-0 left-0 z-50 w-72 overflow-y-auto bg-white p-6 shadow-2xl transition-transform duration-300 lg:sticky lg:top-24 lg:z-0 lg:h-fit lg:w-64 lg:translate-x-0 lg:rounded-xl lg:border lg:border-slate-200 lg:p-5 lg:shadow-sm ${isMobileFilterOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                    className={`fixed inset-y-0 left-0 z-50 w-72 overflow-y-auto bg-white p-6 shadow-2xl transition-transform duration-300 lg:sticky lg:top-24 lg:z-0 lg:h-[calc(100vh-theme(spacing.24)-2rem)] lg:w-64 lg:translate-x-0 lg:rounded-xl lg:border lg:border-slate-200 lg:p-5 lg:shadow-sm no-scrollbar ${isMobileFilterOpen ? 'translate-x-0' : '-translate-x-full'}`}
                 >
                     <div className="mb-5 flex items-center justify-between border-b border-slate-100 pb-4">
                         <h3 className="text-sm font-bold text-slate-900">Filters</h3>
@@ -330,7 +335,7 @@ function DropshipProducts({
                             <h4 className="flex items-center gap-2 text-xs font-semibold text-slate-700">
                                 <Box size={14} /> Category
                             </h4>
-                            <div className="custom-scrollbar max-h-48 space-y-0.5 overflow-y-auto pr-2">
+                            <div className="no-scrollbar max-h-48 space-y-0.5 overflow-y-auto pr-2">
                                 {[{ _id: 'All', name: 'All Categories' }, ...dbCategories].map(
                                     (cat) => (
                                         <label
@@ -450,11 +455,58 @@ function DropshipProducts({
                                 </div>
                             </label>
                         </div>
+
+                        {/* Ready to Ship Sidebar */}
+                        <div className="border-t border-slate-100 pt-5">
+                            <label className="group flex cursor-pointer items-center justify-between">
+                                <span className="flex items-center gap-2 text-sm font-semibold text-slate-700 transition-colors group-hover:text-slate-900">
+                                    <Zap size={16} className="text-amber-500" /> Ready to Ship
+                                </span>
+                                <div
+                                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${b2bFilters.readyToShip ? 'bg-amber-500' : 'bg-slate-200'}`}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only"
+                                        checked={b2bFilters.readyToShip}
+                                        onChange={() =>
+                                            setB2bFilters((p) => ({
+                                                ...p,
+                                                readyToShip: !p.readyToShip,
+                                            }))
+                                        }
+                                    />
+                                    <span
+                                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${b2bFilters.readyToShip ? 'translate-x-4.5' : 'translate-x-1'}`}
+                                    />
+                                </div>
+                            </label>
+                        </div>
+
+                        {/* Top Vendors Selection */}
+                        <div className="space-y-3 border-t border-slate-100 pt-5 pb-4">
+                            <h4 className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                Top Verified Brands
+                            </h4>
+                            <div className="flex flex-col gap-1">
+                                {['all', 'Titan', 'Syska', 'HP', 'Sovely Official'].map((v) => (
+                                    <button
+                                        key={v}
+                                        onClick={() =>
+                                            setB2bFilters((p) => ({ ...p, vendor: v }))
+                                        }
+                                        className={`rounded-lg px-3 py-2 text-left text-sm transition-all ${b2bFilters.vendor === v ? 'bg-slate-900 font-extrabold text-white shadow-md' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'}`}
+                                    >
+                                        {v === 'all' ? 'All Vendors' : v}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </aside>
 
                 {/* MAIN PRODUCT AREA */}
-                <div className="w-full min-w-0 flex-1 pb-12">
+                <div className="no-scrollbar w-full min-w-0 flex-1 pb-12">
                     {isLoading ? (
                         <div
                             className={

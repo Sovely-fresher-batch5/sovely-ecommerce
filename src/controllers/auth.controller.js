@@ -176,13 +176,12 @@ export const loginUser = asyncHandler(async (req, res) => {
     // FIX: Check user existence and soft-delete status in JS memory
     // to avoid MongoDB null vs undefined field matching quirks.
     if (!user || user.deletedAt) {
-        // Updated error message to be generic (since Admins log in here too)
-        throw new ApiError(404, 'Account does not exist or has been suspended');
+        throw new ApiError(404, `No account found with this ${cleanEmail ? 'email' : 'phone number'}`);
     }
 
     const isPasswordValid = await user.isPasswordCorrect(password);
     if (!isPasswordValid) {
-        throw new ApiError(401, 'Invalid credentials');
+        throw new ApiError(401, 'Incorrect password. Please try again.');
     }
 
     const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id);

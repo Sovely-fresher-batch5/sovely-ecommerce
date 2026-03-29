@@ -30,7 +30,7 @@ const loadRazorpayScript = () => {
 };
 
 const Wallet = () => {
-    const { user } = useContext(AuthContext);
+    const { user, refreshUser } = useContext(AuthContext);
     const navigate = useNavigate();
 
     const [balance, setBalance] = useState(0);
@@ -113,7 +113,8 @@ const Wallet = () => {
                         });
 
                         setRechargeAmount('');
-                        fetchWalletData(); // Refresh balance and ledger
+                        fetchWalletData(); // Refresh balance and ledger locally
+                        refreshUser(); // Sync with Navbar/Global state
                     } catch (err) {
                         const backendError = err.response?.data?.message || err.message;
                         console.error('Verification Error:', backendError);

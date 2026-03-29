@@ -63,20 +63,21 @@ function B2BFilterBar({ filters, onFilterChange, className = '' }) {
                 {/* Ready to Dispatch */}
                 <button
                     onClick={() => onFilterChange('readyToShip', !filters.readyToShip)}
-                    className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-bold shadow-sm transition-all duration-200 ${
+                    className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-black shadow-sm transition-all duration-300 ${
                         filters.readyToShip
-                            ? 'border-amber-300 bg-amber-100 text-amber-800'
-                            : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                            ? 'border-amber-400 bg-amber-50 text-amber-900 shadow-md ring-2 ring-amber-500/20'
+                            : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50'
                     }`}
                 >
                     <Zap
                         size={16}
                         className={
-                            filters.readyToShip ? 'fill-amber-600 text-amber-600' : 'text-slate-400'
+                            filters.readyToShip ? 'fill-amber-500 text-amber-500' : 'text-slate-400'
                         }
                     />
                     Ready to Dispatch
                 </button>
+
 
                 {/* NEW: Low RTO Risk Toggle */}
                 <button

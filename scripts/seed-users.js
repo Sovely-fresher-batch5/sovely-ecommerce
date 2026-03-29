@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { fakerEN_IN as faker } from '@faker-js/faker';
-import { User } from './src/models/User.js';
+import { User } from '../src/models/User.js';
 
 dotenv.config();
 

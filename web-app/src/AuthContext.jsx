@@ -7,14 +7,23 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    const refreshUser = async () => {
+        try {
+            const response = await api.get('/auth/me');
+            if (response.data?.data) setUser(response.data.data);
+            return response.data.data;
+        } catch (error) {
+            setUser(null);
+            return null;
+        }
+    };
+
     useEffect(() => {
         const handleUnauthorized = () => {
             setUser(null);
             localStorage.removeItem('reseller_cart');
 
             const currentPath = window.location.pathname;
-            // THE FIX: Do not redirect if they are on the public home page or auth pages.
-            // Only force a redirect if they get unauthorized while inside the dashboard/catalog.
             const publicPaths = [
                 '/',
                 '/login',
@@ -31,19 +40,7 @@ export const AuthProvider = ({ children }) => {
 
         window.addEventListener('auth:unauthorized', handleUnauthorized);
 
-        const fetchUser = async () => {
-            try {
-                const response = await api.get('/auth/me');
-                if (response.data?.data) setUser(response.data.data);
-            } catch (error) {
-                // If it fails (e.g. 401), they are a guest. Just set user to null.
-                setUser(null);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchUser();
+        refreshUser().finally(() => setLoading(false));
 
         return () => {
             window.removeEventListener('auth:unauthorized', handleUnauthorized);
@@ -54,9 +51,11 @@ export const AuthProvider = ({ children }) => {
         try {
             const response = await api.post('/auth/login', { email, password });
             setUser(response.data.data.user);
-            return { success: true };
+            return { success: true, user: response.data.data.user };
         } catch (error) {
-            return { success: false, message: error.response?.data?.message || 'Login failed' };
+            console.error('FULL LOGIN ERROR:', error);
+            const message = error.response?.data?.message || `Network or Server Error: ${error.message}`;
+            return { success: false, message };
         }
     };
 
@@ -106,7 +105,7 @@ export const AuthProvider = ({ children }) => {
         try {
             const response = await api.post('/auth/login-otp', { phoneNumber, otpCode });
             setUser(response.data.data.user);
-            return { success: true };
+            return { success: true, user: response.data.data.user };
         } catch (error) {
             return { success: false, message: error.response?.data?.message || 'Invalid OTP' };
         }
@@ -120,6 +119,7 @@ export const AuthProvider = ({ children }) => {
                 register,
                 logout,
                 loading,
+                refreshUser,
                 sendOtp,
                 loginWithOtpReq,
                 isKycApproved: user?.kycStatus === 'APPROVED',

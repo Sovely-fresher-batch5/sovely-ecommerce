@@ -10,6 +10,7 @@ import authRouter from './routes/auth.routes.js';
 import userRouter from './routes/user.routes.js';
 import categoryRouter from './routes/category.routes.js';
 import productRouter from './routes/product.routes.js';
+
 import cartRouter from './routes/cart.routes.js';
 import orderRouter from './routes/order.routes.js';
 import invoiceRouter from './routes/invoice.routes.js';
@@ -30,7 +31,11 @@ app.use(helmet());
 const allowedOrigins = [
     process.env.CORS_ORIGIN,
     'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:5175',
     'http://127.0.0.1:5173',
+    'http://127.0.0.1:5174',
+    'http://127.0.0.1:5175',
 ].filter(Boolean);
 
 app.use(
@@ -56,6 +61,12 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
+// DEBUG LOGGING MIDDLEWARE: Logs every request to server console
+app.use((req, res, next) => {
+    console.log(`📡 [${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+    next();
+});
+
 // ==========================================
 // 2. Body Parsers & Static Files
 // ==========================================
@@ -69,15 +80,15 @@ app.use('/api/webhooks', webhookRouter);
 // 3. Mount B2B API Routes
 // ==========================================
 const apiVersion = '/api/v1';
+app.use(`${apiVersion}/products`, productRouter);
 
 // Identity & Platform Health
 app.use(`${apiVersion}/health`, healthRouter);
 app.use(`${apiVersion}/auth`, authRouter);
 app.use(`${apiVersion}/users`, userRouter);
 
-// The B2B Catalog
+// Other B2B Routes
 app.use(`${apiVersion}/categories`, categoryRouter);
-app.use(`${apiVersion}/products`, productRouter);
 app.use(`${apiVersion}/wishlist`, wishlistRouter);
 
 // The Purchasing Pipeline (Our newly rewritten engine)
@@ -93,8 +104,18 @@ app.use(`${apiVersion}/wallet`, walletRouter);
 app.use(`${apiVersion}/analytics`, analyticsRouter);
 
 // ==========================================
-// 4. Global Error Handler
+// 4. Global 404 & Error Handlers
 // ==========================================
+
+// Catch-all for routes that don't exist
+app.use((req, res, next) => {
+    console.log(`❌ 404 Not Found: ${req.method} ${req.originalUrl}`);
+    res.status(404).json({
+        success: false,
+        message: `The route ${req.method} ${req.originalUrl} does not exist on this server.`,
+    });
+});
+
 app.use((err, req, res, next) => {
     if (res.headersSent) {
         return next(err);
@@ -103,8 +124,8 @@ app.use((err, req, res, next) => {
     const statusCode = err.statusCode || 500;
     const message = err.message || 'Internal Server Error';
 
-    // Only log severe/unexpected errors in the console (ignore 401 Unauthorized / 404s)
-    if (statusCode !== 401 && statusCode !== 404) {
+    // Only log severe/unexpected errors in the console (ignore 401 Unauthorized)
+    if (statusCode !== 401) {
         console.error('🔥 Global Error Caught:', err);
     }
 

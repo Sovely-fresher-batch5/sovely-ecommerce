@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
     LayoutDashboard,
     ShoppingBag,
@@ -20,8 +21,26 @@ import AdminProducts from './admin/AdminProducts';
 import AdminUsers from './admin/AdminUsers';
 import AdminInvoices from './admin/AdminInvoices';
 
+const ADMIN_TABS = [
+    { id: 'overview', icon: TrendingUp, label: 'Overview' },
+    { id: 'orders', icon: ShoppingBag, label: 'Orders' },
+    { id: 'products', icon: Package, label: 'Products' },
+    { id: 'users', icon: ShieldCheck, label: 'Users & Resellers' },
+    { id: 'invoices', icon: FileText, label: 'Invoices' },
+    { id: 'bulk-upload', icon: Upload, label: 'Mass Import (CSV)' },
+];
+
 const AdminDashboard = () => {
-    const [activeTab, setActiveTab] = useState('orders');
+    const location = useLocation();
+    const [activeTab, setActiveTab] = useState(location.state?.tab || 'overview');
+
+    useEffect(() => {
+        if (location.state?.tab) {
+            setActiveTab(location.state.tab);
+            // Replace the state so refreshing doesn't keep locking them into that tab permanently
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state]);
 
     const renderContent = () => {
         switch (activeTab) {
@@ -57,14 +76,7 @@ const AdminDashboard = () => {
                     <h3 className="mb-4 px-3 text-[10px] font-extrabold tracking-widest text-slate-400 uppercase">
                         B2B Command Center
                     </h3>
-                    {[
-                        { id: 'overview', icon: TrendingUp, label: 'Platform Telemetry' },
-                        { id: 'orders', icon: ShoppingBag, label: 'Dropship & Fulfillment' },
-                        { id: 'products', icon: Package, label: 'B2B Catalog & Tiers' },
-                        { id: 'users', icon: ShieldCheck, label: 'Resellers & KYC' },
-                        { id: 'invoices', icon: FileText, label: 'GST Billing' },
-                        { id: 'bulk-upload', icon: Upload, label: 'Mass Import (CSV)' },
-                    ].map((tab) => (
+                    {ADMIN_TABS.map((tab) => (
                         <motion.button
                             whileHover={{ scale: 1.02, x: 4 }}
                             whileTap={{ scale: 0.98 }}
@@ -102,7 +114,7 @@ const AdminDashboard = () => {
                         layoutId="pageTitle"
                         className="mb-8 text-3xl font-black tracking-tight text-slate-900 capitalize drop-shadow-sm"
                     >
-                        {activeTab.replace('-', ' ')}
+                        {ADMIN_TABS.find(t => t.id === activeTab)?.label || 'Admin Dashboard'}
                     </motion.h2>
 
                     <AnimatePresence mode="wait">

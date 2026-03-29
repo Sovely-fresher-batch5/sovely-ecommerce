@@ -11,9 +11,10 @@ function LandingPage() {
 
     const [b2bFilters, setB2bFilters] = useState({
         moq: 'all',
-        margin: 'all',
+        margin: 0,
         readyToShip: false,
         lowRtoRisk: false,
+        vendor: 'all',
     });
 
     const handleFilterChange = (key, value) => {

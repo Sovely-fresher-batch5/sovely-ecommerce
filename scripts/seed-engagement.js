@@ -2,10 +2,10 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { fakerEN_IN as faker } from '@faker-js/faker';
 
-import { User } from './src/models/User.js';
-import { Product } from './src/models/Product.js';
-import { Cart } from './src/models/Cart.js';
-import { Wishlist } from './src/models/Wishlist.js';
+import { User } from '../src/models/User.js';
+import { Product } from '../src/models/Product.js';
+import { Cart } from '../src/models/Cart.js';
+import { Wishlist } from '../src/models/Wishlist.js';
 
 dotenv.config();
 

@@ -32,7 +32,7 @@ const dropshipCustomerSchema = z.object({
 
 const Checkout = () => {
     const navigate = useNavigate();
-    const { user, isKycApproved } = useContext(AuthContext);
+    const { user, isKycApproved, refreshUser } = useContext(AuthContext);
     const { cart, fetchCart, clearCartState } = useCartStore();
 
     const [loading, setLoading] = useState(false);
@@ -211,6 +211,7 @@ const Checkout = () => {
                 },
             });
             clearCartState();
+            refreshUser(); // Sync balance with global state after deduction
 
             const createdOrders = res.data.data;
             const generatedIds = createdOrders.map((order) => order.orderId).join(', ');

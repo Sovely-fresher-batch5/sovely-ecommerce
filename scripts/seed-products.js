@@ -1,8 +1,8 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { fakerEN_IN as faker } from '@faker-js/faker';
-import { Category } from './src/models/Category.js';
-import { Product } from './src/models/Product.js';
+import { Category } from '../src/models/Category.js';
+import { Product } from '../src/models/Product.js';
 
 dotenv.config();
 

@@ -82,11 +82,15 @@ export const getProducts = asyncHandler(async (req, res) => {
         category,
         minMargin,
         maxBasePrice,
-        minBasePrice, // NEW
-        minMoq, // NEW
-        maxMoq, // NEW
-        inStock, // NEW
+        minBasePrice,
+        minMoq,
+        maxMoq,
+        inStock,
         isDropship,
+        gstSlab, // NEW
+        maxShippingDays, // NEW
+        isVerifiedSupplier, // NEW
+        sort, // NEW
         page = 1,
         limit = 20,
     } = req.query;
@@ -112,6 +116,7 @@ export const getProducts = asyncHandler(async (req, res) => {
 
     // 3. Profit Margin Filter
     if (minMargin) query.estimatedMarginPercent = { $gte: Number(minMargin) };
+    if (req.query.margin) query.estimatedMarginPercent = { $gte: Number(req.query.margin) };
 
     // 4. Base Price Filters
     if (minBasePrice || maxBasePrice) {
@@ -136,17 +141,46 @@ export const getProducts = asyncHandler(async (req, res) => {
         query['inventory.stock'] = { $gt: 0 };
     }
 
-    if (req.query.margin) {
-        query.estimatedMarginPercent = { $gte: Number(req.query.margin) };
+    // 7. RTO Risk
+    if (req.query.lowRtoRisk === 'true') {
+        query.historicalRtoRate = { $lte: 10 };
     }
 
-    if (req.query.lowRtoRisk === 'true') {
-        query.historicalRtoRate = { $lte: 10 }; // Only show products with < 10% RTO rate
+    // 8. GST Slab
+    if (gstSlab) {
+        const slabs = gstSlab.split(',').map(Number);
+        query.gstSlab = { $in: slabs };
+    }
+
+    // 9. Dispatch Days
+    if (maxShippingDays) {
+        if (maxShippingDays === '1') {
+            query.shippingDays = { $in: ['1', '1 Day', 'Same Day', '24h', 'Immediate'] };
+        } else if (maxShippingDays === '3') {
+            query.shippingDays = { $in: ['1', '2', '3', '1-3', '2-3', '1 Day', '3 Days', 'Same Day', '2-4 Days'] };
+        } else if (maxShippingDays === '7') {
+            query.shippingDays = { $in: ['1', '2', '3', '4', '5', '6', '7', '1-3', '3-5', '5-7', '1 Day', '3 Days', '7 Days', 'Same Day', '2-4 Days', '5-7 Days'] };
+        }
+    }
+
+    // 10. Verified Supplier
+    if (isVerifiedSupplier === 'true') {
+        query.isVerifiedSupplier = true;
+    }
+
+    // 11. Specific Vendor Filter
+    if (req.query.vendor) {
+        query.vendor = req.query.vendor;
     }
 
     // Setup Pagination & Sorting
     const skip = (Number(page) - 1) * Number(limit);
-    const sortParams = { createdAt: -1 };
+    
+    // Default sort
+    let sortParams = { createdAt: -1 };
+    if (sort === 'price-asc') sortParams = { dropshipBasePrice: 1 };
+    if (sort === 'price-desc') sortParams = { dropshipBasePrice: -1 };
+    if (sort === 'margin') sortParams = { estimatedMarginPercent: -1 };
 
     const products = await Product.find(query, projection)
         .sort(sortParams)
@@ -205,6 +239,13 @@ export const updateProduct = asyncHandler(async (req, res) => {
     }
 
     // Update fields (Mongoose will trigger the pre-save hook to recalculate margins if prices change)
+    // FIX: Properly handle nested "inventory.stock" if sent as a flat key with dot-notation
+    if (req.body['inventory.stock'] !== undefined) {
+        if (!product.inventory) product.inventory = {};
+        product.inventory.stock = Number(req.body['inventory.stock']);
+        delete req.body['inventory.stock']; // Don't let Object.assign try to add it as a root property
+    }
+
     Object.assign(product, req.body);
     await product.save();
 

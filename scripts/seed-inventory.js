@@ -2,9 +2,9 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { fakerEN_IN as faker } from '@faker-js/faker';
 
-import { User } from './src/models/User.js';
-import { Product } from './src/models/Product.js';
-import { StockAdjustment } from './src/models/StockAdjustment.js';
+import { User } from '../src/models/User.js';
+import { Product } from '../src/models/Product.js';
+import { StockAdjustment } from '../src/models/StockAdjustment.js';
 
 dotenv.config();
 

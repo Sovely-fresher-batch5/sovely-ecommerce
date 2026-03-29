@@ -17,6 +17,9 @@ import {
     Plus,
     ChevronDown,
     Check,
+    Settings,
+    Bell,
+    Upload,
 } from 'lucide-react';
 import { useCartStore } from '../store/cartStore';
 
@@ -43,10 +46,7 @@ const HighlightText = ({ text = '', highlight = '' }) => {
 function Navbar({ onToggleSidebar, onSelectCategory }) {
     const { user, logout, loading, isAdmin } = useContext(AuthContext);
 
-    const cartCount = useCartStore((state) => {
-        if (!state.cart?.items) return 0;
-        return state.cart.items.reduce((total, item) => total + item.qty, 0);
-    });
+    const cartCount = useCartStore((state) => state.cart?.items?.length || 0);
     const addToCart = useCartStore((state) => state.addToCart);
 
     const [catDropOpen, setCatDropOpen] = useState(false);
@@ -181,9 +181,14 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                                             animate={{ opacity: 1, y: 0, scale: 1 }}
                                             exit={{ opacity: 0, y: 10, scale: 0.98 }}
                                             transition={{ duration: 0.15, ease: 'easeOut' }}
-                                            className="absolute top-full -left-4 mt-3 w-[400px] origin-top-left rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
+                                            className="absolute top-full -left-4 mt-3 w-[600px] origin-top-left rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl"
                                         >
-                                            <div className="grid grid-cols-2 gap-1">
+                                            <div className="mb-3 px-2">
+                                                <h4 className="text-[10px] font-black tracking-[0.1em] text-slate-400 uppercase">
+                                                    Browse Collections
+                                                </h4>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-1">
                                                 {displayCategories.map((cat, i) => (
                                                     <button
                                                         key={cat._id || i}
@@ -195,15 +200,15 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                                                                 `/search?category=${encodeURIComponent(cat.name)}`
                                                             );
                                                         }}
-                                                        className="group flex items-center gap-3 rounded-lg border border-transparent p-2.5 transition-colors hover:bg-slate-50"
+                                                        className="group flex items-center gap-3 rounded-xl border border-transparent p-3 transition-all hover:bg-slate-50 hover:shadow-sm"
                                                     >
                                                         <span
-                                                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-slate-100 transition-transform group-hover:scale-110"
+                                                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 transition-transform group-hover:scale-110 group-hover:bg-white group-hover:shadow-md"
                                                             style={{ color: cat.iconColor }}
                                                         >
-                                                            <cat.Icon size={16} strokeWidth={2} />
+                                                            <cat.Icon size={18} strokeWidth={2.5} />
                                                         </span>
-                                                        <span className="truncate text-left text-xs font-bold text-slate-700 group-hover:text-slate-900">
+                                                        <span className="truncate text-left text-[11px] font-extrabold text-slate-700 group-hover:text-emerald-600">
                                                             {cat.name}
                                                         </span>
                                                     </button>
@@ -214,12 +219,22 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                                 </AnimatePresence>
                             </li>
                             <li>
-                                <Link
-                                    to={ROUTES.QUICK_ORDER}
-                                    className="text-sm font-semibold text-slate-600 transition-colors hover:text-slate-900"
-                                >
-                                    Quick Order
-                                </Link>
+                                {isAdmin ? (
+                                    <Link
+                                        to={ROUTES.ADMIN}
+                                        state={{ tab: 'bulk-upload' }}
+                                        className="flex items-center gap-1.5 text-sm font-semibold text-slate-600 transition-colors hover:text-emerald-700"
+                                    >
+                                        <Upload size={14} /> Quick Upload
+                                    </Link>
+                                ) : (
+                                    <Link
+                                        to={ROUTES.QUICK_ORDER}
+                                        className="text-sm font-semibold text-slate-600 transition-colors hover:text-slate-900"
+                                    >
+                                        Quick Order
+                                    </Link>
+                                )}
                             </li>
                         </ul>
                     </div>
@@ -387,41 +402,66 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                         {isAdmin && (
                             <Link
                                 to={ROUTES.ADMIN}
-                                className="hidden items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-blue-700 transition-colors hover:bg-blue-100 sm:flex"
+                                className="hidden items-center gap-2 rounded-full border border-slate-900 bg-slate-900 px-6 py-2.5 text-white transition-all hover:bg-slate-800 hover:shadow-lg sm:flex"
                             >
-                                <ShieldCheck size={14} strokeWidth={2.5} />{' '}
-                                <span className="text-xs font-bold">Admin</span>
+                                <ShieldCheck size={18} strokeWidth={2.5} />{' '}
+                                <span className="text-sm font-black tracking-wide">ADMIN CONSOLE</span>
                             </Link>
                         )}
 
-                        {user && (
+                        {!isAdmin && user && (
                             <button
                                 onClick={() => navigate(ROUTES.WALLET)}
-                                className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                                className="group flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 transition-all hover:border-emerald-200 hover:bg-emerald-50"
                                 title="Wallet Balance"
                             >
-                                <Wallet size={20} strokeWidth={2} />
+                                <Wallet
+                                    size={18}
+                                    strokeWidth={2.5}
+                                    className="text-slate-400 transition-colors group-hover:text-emerald-600"
+                                />
+                                <span className="text-xs font-black text-slate-700 group-hover:text-emerald-700">
+                                    ₹{(user.walletBalance || 0).toLocaleString('en-IN')}
+                                </span>
                             </button>
                         )}
 
-                        <button
-                            onClick={() => setIsCartOpen(true)}
-                            className="relative rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
-                            title="Cart"
-                        >
-                            <ShoppingCart size={20} strokeWidth={2} />
-                            {cartCount > 0 && (
-                                <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-emerald-500 text-[10px] font-bold text-white shadow-sm">
-                                    {cartCount > 99 ? '99+' : cartCount}
-                                </span>
-                            )}
-                        </button>
+                        {!isAdmin && (
+                            <button
+                                onClick={() => setIsCartOpen(true)}
+                                className="relative rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                                title="Cart"
+                            >
+                                <ShoppingCart size={20} strokeWidth={2} />
+                                {cartCount > 0 && (
+                                    <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-emerald-500 text-[10px] font-bold text-white shadow-sm">
+                                        {cartCount > 99 ? '99+' : cartCount}
+                                    </span>
+                                )}
+                            </button>
+                        )}
 
                         <div className="ml-1 hidden border-l border-slate-200 pl-4 lg:block">
                             {loading ? (
                                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-emerald-600"></div>
                             ) : user ? (
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-3">
+                                    <Link
+                                        to={ROUTES.MY_ACCOUNT}
+                                        className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-slate-100 bg-slate-100 shadow-sm transition-transform hover:scale-105"
+                                    >
+                                        {user?.avatar ? (
+                                            <img
+                                                src={`http://localhost:8014${user.avatar}`}
+                                                alt=""
+                                                className="h-full w-full object-cover"
+                                            />
+                                        ) : (
+                                            <span className="text-[10px] font-black text-slate-500">
+                                                {user?.name?.charAt(0).toUpperCase() || 'U'}
+                                            </span>
+                                        )}
+                                    </Link>
                                     <div className="flex flex-col">
                                         <Link
                                             to={ROUTES.MY_ACCOUNT}

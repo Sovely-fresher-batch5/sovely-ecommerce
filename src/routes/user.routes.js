@@ -9,7 +9,10 @@ import {
     updateMyProfile,
     updatePassword,
     updateKycDetails,
+    updateUserRole,
+    updateAvatar,
 } from '../controllers/user.controller.js';
+import { uploadImages } from '../middlewares/multer.middleware.js';
 
 import { verifyJWT, authorizeRoles } from '../middlewares/auth.middleware.js';
 
@@ -28,10 +31,12 @@ router.post('/login-otp', loginWithOtp);
 router.get('/admin/all', verifyJWT, authorizeRoles('ADMIN'), getAllUsers);
 router.put('/admin/:id/kyc-status', verifyJWT, authorizeRoles('ADMIN'), updateKycStatus);
 router.put('/admin/:id/toggle-status', verifyJWT, authorizeRoles('ADMIN'), toggleUserStatus);
+router.put('/admin/:id/role', verifyJWT, authorizeRoles('ADMIN'), updateUserRole);
 
 // ==========================================
 // LOGGED-IN USER (RESELLER) ROUTES
 // ==========================================
+router.post('/avatar', verifyJWT, uploadImages.single('avatar'), updateAvatar);
 router.put('/profile', verifyJWT, updateMyProfile);
 router.put('/security/password', verifyJWT, updatePassword);
 router.put('/kyc-update', verifyJWT, updateKycDetails);

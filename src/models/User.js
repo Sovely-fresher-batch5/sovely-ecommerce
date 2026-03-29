@@ -39,6 +39,12 @@ const userSchema = new mongoose.Schema(
                 'Invalid GSTIN format',
             ],
         },
+        panNumber: {
+            type: String,
+            trim: true,
+            uppercase: true,
+            match: [/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, 'Invalid PAN format'],
+        },
         kycStatus: {
             type: String,
             enum: ['PENDING', 'APPROVED', 'REJECTED'],
@@ -62,6 +68,11 @@ const userSchema = new mongoose.Schema(
             state: { type: String },
             zip: { type: String },
         },
+
+        // Preferences
+        emailNotifications: { type: Boolean, default: true },
+        orderSms: { type: Boolean, default: true },
+        promotionalEmails: { type: Boolean, default: false },
 
         // Account Status
         isActive: { type: Boolean, default: true },

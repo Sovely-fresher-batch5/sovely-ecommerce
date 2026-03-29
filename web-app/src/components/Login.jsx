@@ -108,7 +108,11 @@ const Login = () => {
             const response = await login(email, password);
             if (response.success) {
                 toast.success('Welcome back!');
-                navigate('/');
+                if (response.user?.role === 'ADMIN') {
+                    navigate('/admin');
+                } else {
+                    navigate('/');
+                }
             } else throw new Error(response.message || 'Invalid credentials');
         } catch (err) {
             toast.error(err.message);
@@ -127,7 +131,11 @@ const Login = () => {
             const response = await loginWithOtpReq(phoneNumber, finalOtp);
             if (response.success) {
                 toast.success('Welcome back!');
-                navigate('/');
+                if (response.user?.role === 'ADMIN') {
+                    navigate('/admin');
+                } else {
+                    navigate('/');
+                }
             } else throw new Error(response.message || 'Invalid OTP');
         } catch (err) {
             toast.error(err.message);

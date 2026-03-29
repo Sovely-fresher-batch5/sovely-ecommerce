@@ -3,18 +3,18 @@ import dotenv from 'dotenv';
 import { fakerEN_IN as faker } from '@faker-js/faker';
 
 // Import all your models
-import { User } from './src/models/User.js';
-import { Category } from './src/models/Category.js';
-import { Product } from './src/models/Product.js';
-import { UserPricing } from './src/models/UserPricing.js';
-import { Cart } from './src/models/Cart.js';
-import { Wishlist } from './src/models/Wishlist.js';
-import { Order } from './src/models/Order.js';
-import { Invoice } from './src/models/Invoice.js';
-import { Payment } from './src/models/Payment.js';
-import { WalletTransaction } from './src/models/WalletTransaction.js';
-import { StockAdjustment } from './src/models/StockAdjustment.js';
-import { Counter } from './src/models/Counter.js';
+import { User } from '../src/models/User.js';
+import { Category } from '../src/models/Category.js';
+import { Product } from '../src/models/Product.js';
+import { UserPricing } from '../src/models/UserPricing.js';
+import { Cart } from '../src/models/Cart.js';
+import { Wishlist } from '../src/models/Wishlist.js';
+import { Order } from '../src/models/Order.js';
+import { Invoice } from '../src/models/Invoice.js';
+import { Payment } from '../src/models/Payment.js';
+import { WalletTransaction } from '../src/models/WalletTransaction.js';
+import { StockAdjustment } from '../src/models/StockAdjustment.js';
+import { Counter } from '../src/models/Counter.js';
 
 dotenv.config();
 

@@ -3,11 +3,11 @@ import dotenv from 'dotenv';
 import { fakerEN_IN as faker } from '@faker-js/faker';
 
 // Models
-import { User } from './src/models/User.js';
-import { Product } from './src/models/Product.js';
-import { Order } from './src/models/Order.js';
-import { Invoice } from './src/models/Invoice.js';
-import { Payment } from './src/models/Payment.js';
+import { User } from '../src/models/User.js';
+import { Product } from '../src/models/Product.js';
+import { Order } from '../src/models/Order.js';
+import { Invoice } from '../src/models/Invoice.js';
+import { Payment } from '../src/models/Payment.js';
 
 dotenv.config();
 

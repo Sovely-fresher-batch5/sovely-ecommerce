@@ -150,13 +150,21 @@ export const getAllUsers = asyncHandler(async (req, res) => {
 });
 
 export const updateKycStatus = asyncHandler(async (req, res) => {
-    const { kycStatus } = req.body;
+    const { kycStatus, kycRejectionReason } = req.body;
 
     if (!['PENDING', 'APPROVED', 'REJECTED'].includes(kycStatus)) {
         throw new ApiError(400, 'Invalid KYC Status. Must be PENDING, APPROVED, or REJECTED.');
     }
 
-    const user = await User.findByIdAndUpdate(req.params.id, { kycStatus }, { new: true }).select(
+    const updateData = { kycStatus };
+    if (kycStatus === 'APPROVED') {
+        updateData.isActive = true; // Auto-activate on approval
+        updateData.kycRejectionReason = null; // Clear any old rejection reason
+    } else if (kycStatus === 'REJECTED') {
+        updateData.kycRejectionReason = kycRejectionReason || 'Details do not match our records.';
+    }
+
+    const user = await User.findByIdAndUpdate(req.params.id, updateData, { new: true }).select(
         '-passwordHash -refreshToken'
     );
 
@@ -197,7 +205,16 @@ export const toggleUserStatus = asyncHandler(async (req, res) => {
 // ==========================================
 
 export const updateMyProfile = asyncHandler(async (req, res) => {
-    const { name, email, companyName, gstin, billingAddress } = req.body;
+    const {
+        name,
+        email,
+        companyName,
+        gstin,
+        billingAddress,
+        emailNotifications,
+        orderSms,
+        promotionalEmails,
+    } = req.body;
 
     const updateData = {};
     if (name) updateData.name = name;
@@ -206,6 +223,11 @@ export const updateMyProfile = asyncHandler(async (req, res) => {
     if (gstin) updateData.gstin = gstin;
     if (billingAddress) updateData.billingAddress = billingAddress;
 
+    // Preferences (Can be false, so check if not undefined)
+    if (emailNotifications !== undefined) updateData.emailNotifications = emailNotifications;
+    if (orderSms !== undefined) updateData.orderSms = orderSms;
+    if (promotionalEmails !== undefined) updateData.promotionalEmails = promotionalEmails;
+
     const user = await User.findByIdAndUpdate(
         req.user._id,
         { $set: updateData },
@@ -213,6 +235,28 @@ export const updateMyProfile = asyncHandler(async (req, res) => {
     ).select('-passwordHash -refreshToken');
 
     return res.status(200).json(new ApiResponse(200, user, 'Profile updated successfully'));
+});
+
+// NEW: Update Profile Picture
+export const updateAvatar = asyncHandler(async (req, res) => {
+    if (!req.file) {
+        throw new ApiError(400, 'Please select a valid image file (JPEG, PNG, or WEBP)');
+    }
+
+    // Path in public folder
+    const avatarUrl = `/avatars/${req.file.filename}`;
+
+    const user = await User.findByIdAndUpdate(
+        req.user._id,
+        { $set: { avatar: avatarUrl } },
+        { new: true }
+    ).select('-passwordHash -refreshToken');
+
+    if (!user) {
+        throw new ApiError(404, 'User not found in system');
+    }
+
+    return res.status(200).json(new ApiResponse(200, user, 'Profile photo updated successfully'));
 });
 
 // NEW: Update password logic
@@ -267,4 +311,31 @@ export const updateKycDetails = asyncHandler(async (req, res) => {
     return res
         .status(200)
         .json(new ApiResponse(200, updatedUser, 'KYC details submitted for review'));
+});
+
+// Admin ONLY: Change User Role (e.g. CUSTOMER -> ADMIN)
+export const updateUserRole = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    if (!['CUSTOMER', 'ADMIN'].includes(role)) {
+        throw new ApiError(400, 'Invalid role provided. Must be CUSTOMER or ADMIN.');
+    }
+
+    const userToUpdate = await User.findById(id);
+    if (!userToUpdate) {
+        throw new ApiError(404, 'User not found in system.');
+    }
+
+    // Prevent Admin from accidentally demoting themselves to Customer and losing access
+    if (userToUpdate._id.toString() === req.user._id.toString() && role === 'CUSTOMER') {
+        throw new ApiError(403, 'You cannot demote yourself to a Customer.');
+    }
+
+    userToUpdate.role = role;
+    await userToUpdate.save({ validateBeforeSave: false });
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, userToUpdate, `User permissions successfully updated to ${role}`));
 });

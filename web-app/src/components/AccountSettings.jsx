@@ -12,6 +12,7 @@ import {
     Smartphone,
     KeyRound,
     Download,
+    TrendingUp,
     Trash2,
     AlertTriangle,
     X,
@@ -22,7 +23,7 @@ import api from '../utils/api';
 import toast from 'react-hot-toast';
 
 const AccountSettings = () => {
-    const { user, logout } = useContext(AuthContext);
+    const { user, logout, refreshUser } = useContext(AuthContext);
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('account');
     const [isLoading, setIsLoading] = useState(false);
@@ -44,6 +45,9 @@ const AccountSettings = () => {
         city: '',
         state: '',
         zip: '',
+        emailNotifications: true,
+        orderSms: true,
+        promotionalEmails: false,
     });
 
     const [securityData, setSecurityData] = useState({ oldPassword: '', newPassword: '' });
@@ -59,16 +63,43 @@ const AccountSettings = () => {
                 city: user.billingAddress?.city || '',
                 state: user.billingAddress?.state || '',
                 zip: user.billingAddress?.zip || '',
+                emailNotifications: user.emailNotifications !== undefined ? user.emailNotifications : true,
+                orderSms: user.orderSms !== undefined ? user.orderSms : true,
+                promotionalEmails: user.promotionalEmails !== undefined ? user.promotionalEmails : false,
             });
             if (user.avatar) setAvatarPreview(user.avatar);
         }
     }, [user]);
 
-    const handleAvatarChange = (e) => {
+    const handleAvatarChange = async (e) => {
         const file = e.target.files[0];
-        if (file) {
-            setAvatarPreview(URL.createObjectURL(file));
-            toast.success('Profile photo updated locally. (Backend upload pending)');
+        if (!file) return;
+
+        // Basic validation: 5MB limit
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('File is too large (Maximum 5MB)');
+            return;
+        }
+
+        // Preview for instant feedback
+        const previewUrl = URL.createObjectURL(file);
+        setAvatarPreview(previewUrl);
+
+        const formData = new FormData();
+        formData.append('avatar', file);
+
+        setIsLoading(true);
+        try {
+            const response = await api.post('/users/avatar', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            toast.success('Your photo was updated successfully!');
+            await refreshUser();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Server rejected the photo upload');
+            setAvatarPreview(user?.avatar || null);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -90,8 +121,12 @@ const AccountSettings = () => {
                         zip: profileData.zip,
                     },
                 }),
+                emailNotifications: profileData.emailNotifications,
+                orderSms: profileData.orderSms,
+                promotionalEmails: profileData.promotionalEmails,
             });
-            toast.success('Profile updated successfully! Refresh to see changes.');
+            toast.success('Profile updated successfully!');
+            await refreshUser();
         } catch (error) {
             toast.error(error.response?.data?.message || 'Failed to update profile');
         } finally {
@@ -520,6 +555,86 @@ const AccountSettings = () => {
                                     className="flex w-fit items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold text-red-600 transition-colors hover:bg-red-50"
                                 >
                                     <Trash2 size={16} /> Request Account Deletion
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'notifications' && (
+                    <div className="animate-in fade-in max-w-2xl space-y-8 duration-300">
+                        <div>
+                            <h3 className="mb-6 flex items-center gap-2 text-lg font-bold text-slate-900">
+                                <Bell className="text-emerald-500" size={20} /> Notification
+                                Preferences
+                            </h3>
+
+                            <div className="space-y-4">
+                                {[
+                                    {
+                                        id: 'emailNotifications',
+                                        title: 'Critical Alerts & Wholesale Updates',
+                                        desc: 'Get notified about stock arrivals, KYC status, and price drops.',
+                                        icon: <ShieldCheck size={18} />,
+                                    },
+                                    {
+                                        id: 'orderSms',
+                                        title: 'SMS Transaction Alerts',
+                                        desc: 'Receive real-time tracking IDs and delivery confirmations via SMS.',
+                                        icon: <Smartphone size={18} />,
+                                    },
+                                    {
+                                        id: 'promotionalEmails',
+                                        title: 'Exclusive Offers & Trends',
+                                        desc: 'Weekly reports on winning products and platform-wide sales.',
+                                        icon: <TrendingUp size={18} />,
+                                    },
+                                ].map((pref) => (
+                                    <div
+                                        key={pref.id}
+                                        className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50/50 p-5 transition-colors hover:border-slate-200"
+                                    >
+                                        <div className="flex items-start gap-4">
+                                            <div className="mt-1 rounded-lg bg-white p-2 text-slate-400 shadow-sm">
+                                                {pref.icon}
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-bold text-slate-900">
+                                                    {pref.title}
+                                                </h4>
+                                                <p className="text-xs font-medium text-slate-500">
+                                                    {pref.desc}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() =>
+                                                setProfileData({
+                                                    ...profileData,
+                                                    [pref.id]: !profileData[pref.id],
+                                                })
+                                            }
+                                            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 focus:outline-none ${profileData[pref.id] ? 'bg-emerald-500' : 'bg-slate-200'}`}
+                                        >
+                                            <span
+                                                className={`absolute top-1 left-1 h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${profileData[pref.id] ? 'translate-x-5' : 'translate-x-0 shadow-sm'}`}
+                                            />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="mt-8 flex justify-end">
+                                <button
+                                    onClick={handleProfileSubmit}
+                                    disabled={isLoading}
+                                    className="rounded-xl bg-emerald-600 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-700 disabled:opacity-50"
+                                >
+                                    {isLoading ? (
+                                        <Loader2 size={16} className="animate-spin" />
+                                    ) : (
+                                        'Save Preferences'
+                                    )}
                                 </button>
                             </div>
                         </div>

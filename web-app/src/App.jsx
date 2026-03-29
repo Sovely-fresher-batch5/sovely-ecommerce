@@ -41,8 +41,9 @@ const NotFound = () => (
 
 // 1. Traffic Cop for the Root URL
 const HomeRouter = () => {
-    const { user, loading } = useContext(AuthContext);
+    const { user, loading, isAdmin } = useContext(AuthContext);
     if (loading) return <LoadingScreen />;
+    if (isAdmin) return <Navigate to="/admin" replace />;
     if (user) return <Navigate to={ROUTES.CATALOG} replace />;
     return <MarketingLandingPage />;
 };

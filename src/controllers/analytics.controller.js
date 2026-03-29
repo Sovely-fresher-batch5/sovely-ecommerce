@@ -75,10 +75,9 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
     ]);
     const totalRevenue = totalRevenueAgg[0]?.total || 0;
 
-    // FIX: Changed role to 'RESELLER' and excluded deleted/banned accounts
+    // FIX: Optimized to count ALL resellers representing real user growth (not just active ones)
     const totalCustomers = await User.countDocuments({
         role: 'RESELLER',
-        isActive: true,
         deletedAt: null,
     });
 

@@ -30,8 +30,16 @@ export const getCategoryIcon = (categoryName) => {
 
     if (name.includes('electronic'))
         return { Icon: Laptop, color: '#D1FAE5', iconColor: '#059669' };
-    if (name.includes('toy') || name.includes('game'))
+    if (name.includes('mobile') || name.includes('phone cover') || name.includes('phone case') || name.includes('sim'))
+        return { Icon: Laptop, color: '#DBEAFE', iconColor: '#2563EB' };
+    if (name.includes('toy') || name.includes('game') || name.includes('pichkari') || name.includes('water gun') || name.includes('holi'))
         return { Icon: Gamepad2, color: '#E0E7FF', iconColor: '#4F46E5' };
+    if (name.includes('kitchen') || name.includes('cookware') || name.includes('utensil'))
+        return { Icon: Utensils, color: '#FFF7ED', iconColor: '#EA580C' };
+    if (name.includes('stationery') || name.includes('notebook') || name.includes('pen') || name.includes('writing'))
+        return { Icon: Printer, color: '#E0E7FF', iconColor: '#6366F1' };
+    if (name.includes('cover') || name.includes('pouch') || name.includes('case') || name.includes('bag') || name.includes('backpack'))
+        return { Icon: ShoppingBag, color: '#FEF3C7', iconColor: '#D97706' };
     if (name.includes('business') || name.includes('industrial'))
         return { Icon: Factory, color: '#F1F5F9', iconColor: '#475569' };
     if (name.includes('home') || name.includes('garden'))

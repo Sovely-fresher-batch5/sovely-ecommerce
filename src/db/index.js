@@ -3,7 +3,7 @@ import { DB_NAME } from '../constants.js';
 
 const connectDB = async () => {
     try {
-        const connectionInstance = await mongoose.connect(`${process.env.MONGODB_URI}/${DB_NAME}`, {
+        const connectionInstance = await mongoose.connect(process.env.MONGODB_URI, {
             maxPoolSize: 50,
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
