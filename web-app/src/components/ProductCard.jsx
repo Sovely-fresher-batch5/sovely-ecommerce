@@ -30,7 +30,10 @@ export default function ProductCard({ product }) {
             exit={{ opacity: 0, scale: 0.95 }}
             className="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition-all hover:border-slate-300 hover:shadow-lg"
         >
-            <Link to={`/product/${product.id}`} className="relative aspect-square overflow-hidden bg-slate-50">
+            <Link
+                to={`/product/${product.id}`}
+                className="relative aspect-square overflow-hidden bg-slate-50"
+            >
                 <img
                     src={product.image}
                     alt={product.name}
@@ -50,16 +53,25 @@ export default function ProductCard({ product }) {
                     <span className="text-xs font-medium text-slate-500">SKU: {product.skuId}</span>
                     <span className="text-xs font-bold text-slate-700">MOQ: {product.moq}</span>
                 </div>
-                <Link to={`/product/${product.id}`} className="line-clamp-2 text-sm font-bold text-slate-900 transition-colors hover:text-emerald-600">
+                <Link
+                    to={`/product/${product.id}`}
+                    className="line-clamp-2 text-sm font-bold text-slate-900 transition-colors hover:text-emerald-600"
+                >
                     {product.name}
                 </Link>
                 <div className="mt-auto flex items-end justify-between pt-4">
                     <div>
-                        <span className="block text-xs font-medium text-slate-400 line-through">₹{product.originalPrice}</span>
-                        <span className="text-lg font-extrabold text-slate-900">₹{product.price.toLocaleString()}</span>
+                        <span className="block text-xs font-medium text-slate-400 line-through">
+                            ₹{product.originalPrice}
+                        </span>
+                        <span className="text-lg font-extrabold text-slate-900">
+                            ₹{product.price.toLocaleString()}
+                        </span>
                     </div>
                     <div className="text-right">
-                        <span className="block text-sm font-bold text-emerald-600">{product.margin}% Margin</span>
+                        <span className="block text-sm font-bold text-emerald-600">
+                            {product.margin}% Margin
+                        </span>
                     </div>
                 </div>
 
@@ -69,7 +81,9 @@ export default function ProductCard({ product }) {
                         <input
                             type="number"
                             value={currentQty}
-                            onChange={(e) => handleQtyChange(parseInt(e.target.value) || product.moq)}
+                            onChange={(e) =>
+                                handleQtyChange(parseInt(e.target.value) || product.moq)
+                            }
                             className="w-full bg-transparent text-center text-sm font-bold text-slate-900 outline-none"
                             min={product.moq}
                             step={product.moq}

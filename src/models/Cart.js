@@ -23,6 +23,9 @@ const cartItemSchema = new mongoose.Schema(
         gstSlab: { type: Number, default: 0 },
         taxAmountPerUnit: { type: Number, default: 0 },
         shippingCost: { type: Number, default: 0 },
+        actualWeight: { type: Number, default: 0 },
+        volumetricWeight: { type: Number, default: 0 },
+        billableWeight: { type: Number, default: 0 },
 
         totalItemPlatformCost: { type: Number, required: true },
         expectedProfit: { type: Number, default: 0 },
@@ -45,6 +48,10 @@ const cartSchema = new mongoose.Schema(
         grandTotalPlatformCost: { type: Number, default: 0 },
 
         totalExpectedProfit: { type: Number, default: 0 },
+        totalActualWeight: { type: Number, default: 0 },
+        totalVolumetricWeight: { type: Number, default: 0 },
+        totalBillableWeight: { type: Number, default: 0 },
+        weightType: { type: String, enum: ['ACTUAL', 'VOLUMETRIC'] },
     },
     { timestamps: true }
 );

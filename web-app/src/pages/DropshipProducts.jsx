@@ -79,7 +79,10 @@ export default function DropshipProducts({
     const dbCategories = useMemo(() => {
         return rawCategories.filter((cat, index, list) => {
             const normalizedName = cat.name.trim().toLowerCase();
-            return index === list.findIndex((item) => item.name.trim().toLowerCase() === normalizedName);
+            return (
+                index ===
+                list.findIndex((item) => item.name.trim().toLowerCase() === normalizedName)
+            );
         });
     }, [rawCategories]);
 
@@ -100,7 +103,7 @@ export default function DropshipProducts({
             selectedGst,
             maxDispatchDays,
             verifiedOnly,
-            b2bFilters.moq,         // Note: margin removed from here
+            b2bFilters.moq, // Note: margin removed from here
             b2bFilters.readyToShip,
             b2bFilters.lowRtoRisk,
             b2bFilters.vendor,
@@ -116,18 +119,19 @@ export default function DropshipProducts({
             if (selectedGst.length > 0) params.append('gstSlab', selectedGst.join(','));
             if (maxDispatchDays) params.append('maxShippingDays', maxDispatchDays);
             if (verifiedOnly) params.append('isVerifiedSupplier', 'true');
-            
+
             // FIX: Removed minMargin from the API call
-            
+
             if (b2bFilters.moq === 'under-50') params.append('maxMoq', '50');
             else if (b2bFilters.moq === '50-500') {
                 params.append('minMoq', '50');
                 params.append('maxMoq', '500');
             } else if (b2bFilters.moq === 'bulk') params.append('minMoq', '500');
-            
+
             if (b2bFilters.readyToShip) params.append('inStock', 'true');
             if (b2bFilters.lowRtoRisk) params.append('lowRtoRisk', 'true');
-            if (b2bFilters.vendor && b2bFilters.vendor !== 'all') params.append('vendor', b2bFilters.vendor);
+            if (b2bFilters.vendor && b2bFilters.vendor !== 'all')
+                params.append('vendor', b2bFilters.vendor);
 
             const res = await api.get(`/products?${params.toString()}`);
             return res.data.data;
@@ -142,7 +146,7 @@ export default function DropshipProducts({
 
     const displayProducts = useMemo(() => {
         if (!data) return [];
-        
+
         let mappedProducts = data.pages
             .flatMap((page) => page.products || [])
             .map((p) => {
@@ -227,25 +231,29 @@ export default function DropshipProducts({
                                 className="cursor-pointer appearance-none bg-transparent py-1 pr-6 text-sm font-bold text-slate-900 outline-none"
                             >
                                 {SORT_OPTIONS.map((o) => (
-                                    <option key={o.value} value={o.value}>{o.label}</option>
+                                    <option key={o.value} value={o.value}>
+                                        {o.label}
+                                    </option>
                                 ))}
                             </select>
-                            <ChevronDown size={14} className="pointer-events-none absolute top-1/2 right-0 -translate-y-1/2 text-slate-500" />
+                            <ChevronDown
+                                size={14}
+                                className="pointer-events-none absolute top-1/2 right-0 -translate-y-1/2 text-slate-500"
+                            />
                         </div>
                     </div>
                 </div>
             </div>
 
             <div className="flex flex-col items-start gap-6 lg:flex-row">
-                
                 {isMobileFilterOpen && (
-                    <div 
+                    <div
                         className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm lg:hidden"
                         onClick={() => setIsMobileFilterOpen(false)}
                     />
                 )}
 
-                <ProductFilterSidebar 
+                <ProductFilterSidebar
                     isMobileFilterOpen={isMobileFilterOpen}
                     setIsMobileFilterOpen={setIsMobileFilterOpen}
                     category={category}
@@ -269,8 +277,16 @@ export default function DropshipProducts({
                 {/* MAIN PRODUCT AREA */}
                 <div className="no-scrollbar w-full min-w-0 flex-1 pb-12">
                     {isLoading ? (
-                        <div className={viewMode === 'table' ? 'flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white' : 'grid grid-cols-2 gap-4 xl:grid-cols-3 2xl:grid-cols-4'}>
-                            {[...Array(8)].map((_, i) => <ProductSkeleton key={i} viewMode={viewMode} />)}
+                        <div
+                            className={
+                                viewMode === 'table'
+                                    ? 'flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white'
+                                    : 'grid grid-cols-2 gap-4 xl:grid-cols-3 2xl:grid-cols-4'
+                            }
+                        >
+                            {[...Array(8)].map((_, i) => (
+                                <ProductSkeleton key={i} viewMode={viewMode} />
+                            ))}
                         </div>
                     ) : displayProducts.length === 0 ? (
                         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white py-24 text-center shadow-sm">
@@ -278,20 +294,27 @@ export default function DropshipProducts({
                                 <Box className="text-slate-400" size={32} />
                             </div>
                             <h3 className="text-lg font-bold text-slate-900">No products found</h3>
-                            <button onClick={resetAll} className="mt-6 rounded-lg border border-slate-200 bg-white px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                            <button
+                                onClick={resetAll}
+                                className="mt-6 rounded-lg border border-slate-200 bg-white px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                            >
                                 Clear All Filters
                             </button>
                         </div>
                     ) : (
                         // FIX: Added AnimatePresence with mode="wait" and a key on the motion.div
                         <AnimatePresence mode="wait">
-                            <motion.div 
+                            <motion.div
                                 key={viewMode}
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
                                 transition={{ duration: 0.2 }}
-                                className={viewMode === 'table' ? 'flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm' : 'grid grid-cols-2 gap-4 xl:grid-cols-3 2xl:grid-cols-4'}
+                                className={
+                                    viewMode === 'table'
+                                        ? 'flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm'
+                                        : 'grid grid-cols-2 gap-4 xl:grid-cols-3 2xl:grid-cols-4'
+                                }
                             >
                                 {viewMode === 'table' && (
                                     <div className="hidden grid-cols-[auto_1fr_120px_120px_120px_160px] items-center gap-4 border-b border-slate-200 bg-slate-50/80 px-4 py-3 text-xs font-semibold tracking-wider text-slate-500 uppercase md:grid">
@@ -304,11 +327,16 @@ export default function DropshipProducts({
                                     </div>
                                 )}
 
-                                {displayProducts.map((product) => (
-                                    viewMode === 'table' 
-                                        ? <ProductTableRow key={`${product.id}-table`} product={product} /> 
-                                        : <ProductCard key={`${product.id}-grid`} product={product} />
-                                ))}
+                                {displayProducts.map((product) =>
+                                    viewMode === 'table' ? (
+                                        <ProductTableRow
+                                            key={`${product.id}-table`}
+                                            product={product}
+                                        />
+                                    ) : (
+                                        <ProductCard key={`${product.id}-grid`} product={product} />
+                                    )
+                                )}
                             </motion.div>
                         </AnimatePresence>
                     )}

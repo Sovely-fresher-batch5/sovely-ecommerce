@@ -23,7 +23,7 @@ export default function ProductSkeleton({ viewMode }) {
             </div>
         );
     }
-    
+
     return (
         <div className="flex animate-pulse flex-col rounded-xl border border-slate-100 p-4">
             <div className="mb-4 aspect-square rounded-lg bg-slate-100"></div>

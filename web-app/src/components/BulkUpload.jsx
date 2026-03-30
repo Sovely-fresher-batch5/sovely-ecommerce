@@ -126,7 +126,9 @@ const BulkUpload = () => {
         } catch (err) {
             const msg = err.response?.data?.message || `Import failed: ${err.message}`;
             const fullUrl = (api.defaults.baseURL || '') + 'products/import-csv';
-            alert(`🔍 FRONTEND DEBUG:\nStatus: ${err.response?.status}\nURL: ${fullUrl}\nError: ${err.message}`);
+            alert(
+                `🔍 FRONTEND DEBUG:\nStatus: ${err.response?.status}\nURL: ${fullUrl}\nError: ${err.message}`
+            );
             setError(msg);
             setParsedData((prev) => prev.map((p) => ({ ...p, status: 'error' })));
         } finally {
@@ -183,7 +185,9 @@ const BulkUpload = () => {
         const csvContent = isAdmin
             ? 'data:text/csv;charset=utf-8,Handle,Title,Body (HTML),Vendor,Type,Tags,Variant SKU,Variant Grams,Variant Price,Cost per item,Image Src,Image Position,Status\nexample-product,Example Product,<p>Description here</p>,Your Brand,Electronics,tag1,SKU-001,500,999,799,https://image.url/product.jpg,1,active\n'
             : 'data:text/csv;charset=utf-8,SKU,Quantity\nITEM-001,50\nITEM-002,100\n';
-        const filename = isAdmin ? 'sovely_product_import_template.csv' : 'sovely_bulk_order_template.csv';
+        const filename = isAdmin
+            ? 'sovely_product_import_template.csv'
+            : 'sovely_bulk_order_template.csv';
         const link = document.createElement('a');
         link.setAttribute('href', encodeURI(csvContent));
         link.setAttribute('download', filename);
@@ -213,8 +217,8 @@ const BulkUpload = () => {
             ? 'Importing Products...'
             : 'Import Products to Catalog'
         : isLoading
-        ? 'Processing Bulk Order...'
-        : 'Add All to Procurement Cart';
+          ? 'Processing Bulk Order...'
+          : 'Add All to Procurement Cart';
 
     const primaryButtonDisabled = isAdmin
         ? isImporting || !uploadedFile
@@ -258,7 +262,10 @@ const BulkUpload = () => {
                         {activeTab === 'UPLOAD' || isAdmin ? (
                             <div className="space-y-4">
                                 <div
-                                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                                    onDragOver={(e) => {
+                                        e.preventDefault();
+                                        setIsDragging(true);
+                                    }}
                                     onDragLeave={() => setIsDragging(false)}
                                     onDrop={handleDrop}
                                     onClick={() => fileInputRef.current?.click()}
@@ -276,17 +283,22 @@ const BulkUpload = () => {
                                         className={`mb-3 ${isDragging ? 'text-indigo-500' : 'text-slate-400'}`}
                                     />
                                     <p className="text-sm font-extrabold text-slate-700">
-                                        {uploadedFile ? uploadedFile.name : 'Drag & Drop your CSV here'}
+                                        {uploadedFile
+                                            ? uploadedFile.name
+                                            : 'Drag & Drop your CSV here'}
                                     </p>
                                     <p className="mt-1 text-xs font-medium text-slate-500">
-                                        {uploadedFile ? `${(uploadedFile.size / 1024).toFixed(1)} KB — click to change` : 'or click to browse files'}
+                                        {uploadedFile
+                                            ? `${(uploadedFile.size / 1024).toFixed(1)} KB — click to change`
+                                            : 'or click to browse files'}
                                     </p>
                                 </div>
                                 <button
                                     onClick={downloadTemplate}
                                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-50 py-3 text-sm font-bold text-indigo-600 transition-colors hover:bg-indigo-100"
                                 >
-                                    <Download size={16} /> Download {isAdmin ? 'Product Import' : 'Order'} Template
+                                    <Download size={16} /> Download{' '}
+                                    {isAdmin ? 'Product Import' : 'Order'} Template
                                 </button>
                             </div>
                         ) : (
@@ -320,10 +332,22 @@ const BulkUpload = () => {
                     {/* Admin: format info card */}
                     {isAdmin && (
                         <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-xs text-blue-800">
-                            <p className="mb-1 font-extrabold">✅ Supported Format: Shopify Product Export CSV</p>
-                            <p className="font-medium text-blue-700">Required columns: <span className="font-mono">Handle, Title, Variant Price, Type, Image Src, Status</span></p>
-                            <p className="mt-1 font-medium text-blue-700">If <span className="font-mono">Cost per item</span> is empty, base price = 80% of selling price.</p>
-                            <p className="mt-1 font-medium text-blue-700">Existing SKUs will be updated, new ones inserted.</p>
+                            <p className="mb-1 font-extrabold">
+                                ✅ Supported Format: Shopify Product Export CSV
+                            </p>
+                            <p className="font-medium text-blue-700">
+                                Required columns:{' '}
+                                <span className="font-mono">
+                                    Handle, Title, Variant Price, Type, Image Src, Status
+                                </span>
+                            </p>
+                            <p className="mt-1 font-medium text-blue-700">
+                                If <span className="font-mono">Cost per item</span> is empty, base
+                                price = 80% of selling price.
+                            </p>
+                            <p className="mt-1 font-medium text-blue-700">
+                                Existing SKUs will be updated, new ones inserted.
+                            </p>
                         </div>
                     )}
                 </div>
@@ -333,7 +357,11 @@ const BulkUpload = () => {
                     <div className="flex h-full flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                         <div className="mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
                             <h3 className="flex items-center gap-2 text-lg font-extrabold text-slate-900">
-                                {isAdmin ? <Package size={20} className="text-slate-400" /> : <ShoppingCart size={20} className="text-slate-400" />}
+                                {isAdmin ? (
+                                    <Package size={20} className="text-slate-400" />
+                                ) : (
+                                    <ShoppingCart size={20} className="text-slate-400" />
+                                )}
                                 {isAdmin ? 'Import Preview' : 'Order Preview'}
                             </h3>
                             <div className="flex items-center gap-2">
@@ -341,7 +369,10 @@ const BulkUpload = () => {
                                     {parsedData.length} {isAdmin ? 'File' : 'Valid Rows'}
                                 </span>
                                 {parsedData.length > 0 && (
-                                    <button onClick={reset} className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-red-500 transition-colors">
+                                    <button
+                                        onClick={reset}
+                                        className="flex items-center gap-1 text-xs font-bold text-slate-400 transition-colors hover:text-red-500"
+                                    >
                                         <RefreshCw size={12} /> Reset
                                     </button>
                                 )}
@@ -363,23 +394,42 @@ const BulkUpload = () => {
                         {/* Admin import result breakdown */}
                         {importResult && (
                             <div className="mb-4 grid grid-cols-3 gap-3">
-                                <div className="rounded-xl bg-emerald-50 p-3 text-center border border-emerald-100">
-                                    <p className="text-2xl font-black text-emerald-600">{importResult.inserted}</p>
-                                    <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">New Products</p>
+                                <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-center">
+                                    <p className="text-2xl font-black text-emerald-600">
+                                        {importResult.inserted}
+                                    </p>
+                                    <p className="text-[10px] font-bold tracking-wider text-emerald-700 uppercase">
+                                        New Products
+                                    </p>
                                 </div>
-                                <div className="rounded-xl bg-blue-50 p-3 text-center border border-blue-100">
-                                    <p className="text-2xl font-black text-blue-600">{importResult.updated}</p>
-                                    <p className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Updated</p>
+                                <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-center">
+                                    <p className="text-2xl font-black text-blue-600">
+                                        {importResult.updated}
+                                    </p>
+                                    <p className="text-[10px] font-bold tracking-wider text-blue-700 uppercase">
+                                        Updated
+                                    </p>
                                 </div>
-                                <div className="rounded-xl bg-amber-50 p-3 text-center border border-amber-100">
-                                    <p className="text-2xl font-black text-amber-600">{importResult.skipped}</p>
-                                    <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Skipped</p>
+                                <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-center">
+                                    <p className="text-2xl font-black text-amber-600">
+                                        {importResult.skipped}
+                                    </p>
+                                    <p className="text-[10px] font-bold tracking-wider text-amber-700 uppercase">
+                                        Skipped
+                                    </p>
                                 </div>
                                 {importResult.errors?.length > 0 && (
                                     <div className="col-span-3 rounded-xl border border-red-100 bg-red-50 p-3">
-                                        <p className="mb-1 text-[10px] font-extrabold text-red-700 uppercase">Errors (first 10):</p>
+                                        <p className="mb-1 text-[10px] font-extrabold text-red-700 uppercase">
+                                            Errors (first 10):
+                                        </p>
                                         {importResult.errors.map((e, i) => (
-                                            <p key={i} className="font-mono text-[10px] text-red-600">{e}</p>
+                                            <p
+                                                key={i}
+                                                className="font-mono text-[10px] text-red-600"
+                                            >
+                                                {e}
+                                            </p>
                                         ))}
                                     </div>
                                 )}
@@ -404,25 +454,36 @@ const BulkUpload = () => {
                                     <table className="w-full text-left text-sm text-slate-600">
                                         <thead className="sticky top-0 z-10 bg-slate-50 text-xs font-extrabold text-slate-500 uppercase shadow-sm">
                                             <tr>
-                                                <th className="px-4 py-3">{isAdmin ? 'File Name' : 'SKU'}</th>
-                                                <th className="px-4 py-3 text-center">{isAdmin ? 'Size' : 'Qty'}</th>
+                                                <th className="px-4 py-3">
+                                                    {isAdmin ? 'File Name' : 'SKU'}
+                                                </th>
+                                                <th className="px-4 py-3 text-center">
+                                                    {isAdmin ? 'Size' : 'Qty'}
+                                                </th>
                                                 <th className="px-4 py-3 text-center">Status</th>
                                                 <th className="px-4 py-3 text-right">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
                                             {parsedData.map((row, idx) => (
-                                                <tr key={idx} className="transition-colors hover:bg-slate-50">
+                                                <tr
+                                                    key={idx}
+                                                    className="transition-colors hover:bg-slate-50"
+                                                >
                                                     <td className="px-4 py-3 font-mono font-bold text-slate-900">
                                                         {row.sku}
                                                     </td>
                                                     <td className="px-4 py-3 text-center font-bold text-slate-900">
-                                                        {isAdmin && uploadedFile ? `${(uploadedFile.size / 1024).toFixed(0)} KB` : row.qty}
+                                                        {isAdmin && uploadedFile
+                                                            ? `${(uploadedFile.size / 1024).toFixed(0)} KB`
+                                                            : row.qty}
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
                                                         {row.status === 'pending' && (
                                                             <span className="rounded bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600 uppercase">
-                                                                {isImporting ? 'Importing...' : 'Ready'}
+                                                                {isImporting
+                                                                    ? 'Importing...'
+                                                                    : 'Ready'}
                                                             </span>
                                                         )}
                                                         {row.status === 'success' && (
@@ -439,7 +500,11 @@ const BulkUpload = () => {
                                                     <td className="px-4 py-3 text-right">
                                                         <button
                                                             onClick={() => removeRow(idx)}
-                                                            disabled={isLoading || isImporting || row.status === 'success'}
+                                                            disabled={
+                                                                isLoading ||
+                                                                isImporting ||
+                                                                row.status === 'success'
+                                                            }
                                                             className="text-slate-400 transition-colors hover:text-red-500 disabled:opacity-30"
                                                         >
                                                             <Trash2 size={16} />

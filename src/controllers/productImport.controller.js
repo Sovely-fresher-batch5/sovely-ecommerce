@@ -19,7 +19,10 @@ const toNum = (val) => {
 };
 const parseTags = (tagStr) => {
     if (!tagStr) return [];
-    return tagStr.split(',').map((t) => t.trim()).filter(Boolean);
+    return tagStr
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
 };
 const parseDimensions = (html) => {
     if (!html) return { length: 1, width: 1, height: 1 };
@@ -39,10 +42,15 @@ export const importProductsFromCSV = asyncHandler(async (req, res) => {
     console.log('🚀 [DRY-RUN] CSV Import Process Started');
     if (!req.file) {
         console.error('❌ No file uploaded');
-        throw new ApiError(400, 'No CSV file uploaded. Please attach a file with field name "csvFile".');
+        throw new ApiError(
+            400,
+            'No CSV file uploaded. Please attach a file with field name "csvFile".'
+        );
     }
 
-    console.log(`📦 File received: ${req.file.originalname} (${(req.file.size / 1024 / 1024).toFixed(2)} MB)`);
+    console.log(
+        `📦 File received: ${req.file.originalname} (${(req.file.size / 1024 / 1024).toFixed(2)} MB)`
+    );
     // --- Parse CSV from uploaded buffer ---
     const productMap = new Map();
     await new Promise((resolve, reject) => {
@@ -161,13 +169,17 @@ export const importProductsFromCSV = asyncHandler(async (req, res) => {
         }
     }
 
-    console.log(`✅ Import Finished: ${inserted} inserted, ${updated} updated, ${skipped} skipped.`);
-
-    return res.status(200).json(
-        new ApiResponse(
-            200,
-            { inserted, updated, skipped, errors: errors.slice(0, 10) },
-            `Import complete: ${inserted} new products, ${updated} updated, ${skipped} skipped.`
-        )
+    console.log(
+        `✅ Import Finished: ${inserted} inserted, ${updated} updated, ${skipped} skipped.`
     );
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                { inserted, updated, skipped, errors: errors.slice(0, 10) },
+                `Import complete: ${inserted} new products, ${updated} updated, ${skipped} skipped.`
+            )
+        );
 });

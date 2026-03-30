@@ -1,3 +1,4 @@
+import StructuredDescription from './StructuredDescription';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -51,6 +52,8 @@ const ProductPage = () => {
     const [orderType, setOrderType] = useState('WHOLESALE');
     const [quantity, setQuantity] = useState(1);
     const [customSellingPrice, setCustomSellingPrice] = useState(0);
+    const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+    const [activeTab, setActiveTab] = useState('description');
 
     useEffect(() => {
         const fetchProduct = async () => {
@@ -140,26 +143,55 @@ const ProductPage = () => {
                 variants={staggerContainer}
                 className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12"
             >
-                {/* LEFT COLUMN: Image & Specs */}
+                {/* LEFT COLUMN: Image Gallery & Specs */}
                 <div className="space-y-6 lg:col-span-5">
-                    {/* Main Image Frame */}
+                    {/* Main Image Viewer */}
                     <motion.div
                         variants={fadeUp}
                         className="group relative aspect-square w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
                     >
                         <img
-                            src={product.images?.[0]?.url || 'https://via.placeholder.com/600'}
-                            alt={product.title}
+                            src={
+                                product.images?.[selectedImageIndex]?.url ||
+                                'https://via.placeholder.com/600'
+                            }
+                            alt={`${product.title} - View ${selectedImageIndex + 1}`}
                             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                         />
-                        <div className="absolute top-4 left-4 flex flex-col gap-2">
-                            {product.isVerifiedSupplier !== false && (
-                                <span className="flex items-center gap-1 rounded-md border border-blue-100 bg-white/90 px-2.5 py-1 text-xs font-bold text-blue-700 shadow-sm backdrop-blur-sm">
+                        {product.isVerifiedSupplier !== false && (
+                            <div className="absolute top-4 left-4">
+                                <span className="flex items-center gap-1 rounded-md border border-blue-100 bg-white/95 px-2.5 py-1 text-xs font-bold text-blue-700 shadow-sm backdrop-blur-sm">
                                     <ShieldCheck size={14} /> Verified Vendor
                                 </span>
-                            )}
-                        </div>
+                            </div>
+                        )}
                     </motion.div>
+
+                    {/* Interactive Thumbnail Gallery */}
+                    {product.images?.length > 1 && (
+                        <motion.div
+                            variants={fadeUp}
+                            className="custom-scrollbar flex gap-3 overflow-x-auto pb-2"
+                        >
+                            {product.images.map((img, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => setSelectedImageIndex(idx)}
+                                    className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
+                                        selectedImageIndex === idx
+                                            ? 'border-indigo-600 ring-2 ring-indigo-100'
+                                            : 'border-slate-200 opacity-70 hover:border-slate-300 hover:opacity-100'
+                                    }`}
+                                >
+                                    <img
+                                        src={img.url}
+                                        alt={`Thumbnail ${idx + 1}`}
+                                        className="h-full w-full object-cover"
+                                    />
+                                </button>
+                            ))}
+                        </motion.div>
+                    )}
 
                     {/* Hard Data / Spec Table */}
                     <motion.div
@@ -506,22 +538,82 @@ const ProductPage = () => {
                         </motion.div>
                     )}
 
-                    {/* PRODUCT DESCRIPTION */}
+                    {/* PROFESSIONAL TABBED DESCRIPTION */}
                     <motion.div
                         variants={fadeUp}
-                        className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+                        className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
                     >
-                        <h2 className="mb-4 border-b border-slate-100 pb-4 text-lg font-extrabold text-slate-900">
-                            Supplier Overview & Specifications
-                        </h2>
-                        <div
-                            className="b2b-description text-sm leading-relaxed text-slate-600 [&>h1]:mt-6 [&>h1]:mb-3 [&>h1]:text-xl [&>h1]:font-bold [&>h1]:text-slate-900 [&>h2]:mt-6 [&>h2]:mb-3 [&>h2]:text-lg [&>h2]:font-bold [&>h2]:text-slate-900 [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:text-base [&>h3]:font-bold [&>h3]:text-slate-900 [&>h4]:mt-4 [&>h4]:mb-2 [&>h4]:text-sm [&>h4]:font-bold [&>h4]:text-slate-900 [&>p]:mb-4 [&>strong]:font-bold [&>strong]:text-slate-900 [&>ul]:mb-4 [&>ul]:ml-5 [&>ul]:list-outside [&>ul]:list-disc [&>ul>li]:mb-1.5 [&>ul>li]:pl-1"
-                            dangerouslySetInnerHTML={{
-                                __html:
-                                    product.descriptionHTML ||
-                                    '<p>No specific details provided by the manufacturer.</p>',
-                            }}
-                        />
+                        {/* Tab Headers */}
+                        <div className="flex border-b border-slate-200 bg-slate-50 px-2 pt-2">
+                            <button
+                                onClick={() => setActiveTab('description')}
+                                className={`px-6 py-3 text-sm font-bold transition-colors ${
+                                    activeTab === 'description'
+                                        ? 'rounded-t-lg border-b-2 border-indigo-600 bg-white text-indigo-700'
+                                        : 'text-slate-500 hover:text-slate-800'
+                                }`}
+                            >
+                                Product Overview
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('policies')}
+                                className={`px-6 py-3 text-sm font-bold transition-colors ${
+                                    activeTab === 'policies'
+                                        ? 'rounded-t-lg border-b-2 border-indigo-600 bg-white text-indigo-700'
+                                        : 'text-slate-500 hover:text-slate-800'
+                                }`}
+                            >
+                                Vendor Policies
+                            </button>
+                        </div>
+
+                        {/* Tab Content */}
+                        {/* Tab Content */}
+                        <div className="p-6">
+                            {activeTab === 'description' && (
+                                <StructuredDescription htmlContent={product.descriptionHTML} />
+                            )}
+
+                            {activeTab === 'policies' && (
+                                <div className="space-y-6 text-sm text-slate-600">
+                                    <div>
+                                        <h4 className="mb-2 flex items-center gap-2 font-bold text-slate-900">
+                                            <Truck size={18} /> Shipping Info
+                                        </h4>
+                                        <p>
+                                            This product usually dispatches within{' '}
+                                            <strong>{product.shippingDays} days</strong>. Final
+                                            delivery times depend on your location and the selected
+                                            courier partner during checkout.
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <h4 className="mb-2 flex items-center gap-2 font-bold text-slate-900">
+                                            <CheckCircle2 size={18} /> Return Policy
+                                        </h4>
+                                        <p>
+                                            {product.returnPolicy === 'NO_RETURNS' &&
+                                                'This item is strictly non-returnable unless damaged upon arrival.'}
+                                            {product.returnPolicy === '7_DAYS_REPLACEMENT' &&
+                                                '7-day replacement guarantee available for defective or damaged items.'}
+                                            {product.returnPolicy === '7_DAYS_RETURN' &&
+                                                'Eligible for returns within 7 days of delivery.'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <h4 className="mb-2 flex items-center gap-2 font-bold text-slate-900">
+                                            <AlertCircle size={18} /> Minimum Order Info
+                                        </h4>
+                                        <p>
+                                            The standard Minimum Order Quantity (MOQ) for wholesale
+                                            procurement is <strong>{product.moq} units</strong>.
+                                            Dropshippers may purchase single units using the
+                                            Dropship Configurator.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </motion.div>
                 </div>
             </motion.div>

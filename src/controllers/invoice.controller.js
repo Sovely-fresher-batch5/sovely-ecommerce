@@ -81,24 +81,33 @@ export const getAllInvoices = asyncHandler(async (req, res) => {
 });
 
 export const getMyInvoices = asyncHandler(async (req, res) => {
-    // Fetch all invoices belonging to the logged-in user
-    const invoices = await Invoice.find({ userId: req.user._id }) // Or resellerId, depending on your schema
+    // FIX: Using resellerId to match your schema
+    const invoices = await Invoice.find({ resellerId: req.user._id })
         .sort({ createdAt: -1 })
-        .populate('orderId', 'orderId'); // Pull in the readable order number if it's referenced
+        .populate('orderId', 'orderId');
 
-    // Format the response for the frontend table
-    const formattedInvoices = invoices.map((inv) => ({
-        _id: inv._id,
-        invoiceNumber: inv.invoiceNumber,
-        orderId: inv.orderId?.orderId || 'N/A', // Adjust based on your population
-        date: inv.createdAt,
-        taxableAmount: inv.taxableAmount || 0,
-        gstAmount: inv.taxAmount || 0,
-        totalAmount: inv.totalAmount || 0,
-        status: inv.status || 'PAID',
-        // If the user has an approved KYC with a GSTIN, it's ITC eligible!
-        isItcEligible: req.user.kycStatus === 'APPROVED' && !!req.user.gstin,
-    }));
+    // Format the response for the frontend table using the CORRECT schema keys
+    const formattedInvoices = invoices.map((inv) => {
+        // Calculate total GST dynamically
+        const totalGst = (inv.totalCgst || 0) + (inv.totalSgst || 0) + (inv.totalIgst || 0);
+
+        return {
+            _id: inv._id,
+            invoiceNumber: inv.invoiceNumber,
+            orderId: inv.orderId?.orderId || 'WALLET-TOPUP', // Fallback for wallet receipts
+            date: inv.createdAt,
+            taxableAmount: inv.totalTaxableValue || 0,
+            gstAmount: totalGst,
+            totalAmount: inv.grandTotal || 0,
+            status: inv.paymentStatus || 'PAID',
+            invoiceType: inv.invoiceType,
+            // If the user has an approved KYC with a GSTIN, it's ITC eligible!
+            isItcEligible:
+                req.user.kycStatus === 'APPROVED' &&
+                !!req.user.gstin &&
+                inv.invoiceType !== 'WALLET_TOPUP',
+        };
+    });
 
     return res
         .status(200)
@@ -496,14 +505,19 @@ export const createInvoiceFromOrder = async (orderDoc, resellerDoc, session) => 
 
     // 3. Add Shipping & COD as separate line items
     if (orderDoc.shippingTotal > 0) {
+        // Construct a detailed title. Fallback to generic if weight wasn't saved.
+        const freightTitle = orderDoc.totalBillableWeight
+            ? `Freight & Packaging Services (Billable Weight: ${orderDoc.totalBillableWeight}kg)`
+            : 'Freight & Packaging Services';
+
         invoiceItems.push({
             sku: 'FRGT-PKG-001',
-            title: 'Freight & Packaging Services',
-            hsnCode: '996813', // Standard Indian HSN for local freight/delivery
+            title: freightTitle,
+            hsnCode: '996813', // Local freight delivery
             qty: 1,
             unitBasePrice: orderDoc.shippingTotal,
             totalBaseAmount: orderDoc.shippingTotal,
-            gstSlab: 0,
+            gstSlab: 0, // NOTE: Freight usually attracts 18% GST in India, you may want to update this!
             cgstAmount: 0,
             sgstAmount: 0,
             igstAmount: 0,

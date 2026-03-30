@@ -340,5 +340,7 @@ export const updateUserRole = asyncHandler(async (req, res) => {
 
     return res
         .status(200)
-        .json(new ApiResponse(200, userToUpdate, `User permissions successfully updated to ${role}`));
+        .json(
+            new ApiResponse(200, userToUpdate, `User permissions successfully updated to ${role}`)
+        );
 });

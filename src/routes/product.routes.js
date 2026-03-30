@@ -15,13 +15,15 @@ import { validate } from '../middlewares/validate.middleware.js';
 import { productValidation } from '../validations/product.validation.js';
 
 // Multer: store CSV in memory (max 50MB for large catalogs)
-const csvUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+const csvUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 },
+});
 
 const router = Router();
 
 // --- Connectivity Check (Public) ---
 router.get('/health', (req, res) => res.json({ status: 'ok', route: '/products/health' }));
-
 
 // --- Public / Reseller Browsing ---
 router.get('/', getProducts);

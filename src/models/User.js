@@ -84,7 +84,7 @@ const userSchema = new mongoose.Schema(
 // --- Security Hooks ---
 userSchema.pre('save', async function () {
     if (!this.isModified('passwordHash')) return;
-    
+
     this.passwordHash = await bcrypt.hash(this.passwordHash, 10);
 });
 

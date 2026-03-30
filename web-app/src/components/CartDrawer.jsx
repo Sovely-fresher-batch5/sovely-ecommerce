@@ -1,10 +1,23 @@
 import React, { useEffect, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Package, ShoppingCart, TrendingUp, AlertCircle, Minus, Plus, ShieldCheck, CheckCircle, Lock } from 'lucide-react';
+import {
+    X,
+    Trash2,
+    Package,
+    ShoppingCart,
+    TrendingUp,
+    AlertCircle,
+    Minus,
+    Plus,
+    ShieldCheck,
+    CheckCircle,
+    Lock,
+} from 'lucide-react';
 import { useCartStore } from '../store/cartStore';
 import { AuthContext } from '../AuthContext';
 
+// --- ANIMATION VARIANTS (Matched to Sidebar) ---
 const drawerVariants = {
     hidden: { x: '100%', transition: { type: 'tween', duration: 0.3, ease: 'easeInOut' } },
     visible: { x: 0, transition: { type: 'tween', duration: 0.3, ease: 'easeInOut' } },
@@ -42,12 +55,26 @@ const getTierNudge = (currentQty, tieredPricing) => {
 
 const CartDrawer = ({ isOpen, onClose }) => {
     const navigate = useNavigate();
-    const { cart, isLoading, fetchCart, updateCartItem, removeFromCart, clearCart, getCartCount } = useCartStore();
+    const { cart, isLoading, fetchCart, updateCartItem, removeFromCart, clearCart, getCartCount } =
+        useCartStore();
     const { user, isKycApproved } = useContext(AuthContext);
 
+    // FIX 1: Fetch Cart on Open
     useEffect(() => {
         if (isOpen) fetchCart();
     }, [isOpen, fetchCart]);
+
+    // FIX 2: Added Body Scroll Lock (matches Sidebar exactly)
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isOpen]);
 
     const handleCheckout = () => {
         onClose();
@@ -61,7 +88,8 @@ const CartDrawer = ({ isOpen, onClose }) => {
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-50 flex justify-end font-sans">
+                <div className="fixed inset-0 z-[100] flex justify-end font-sans">
+                    {/* Dark Overlay */}
                     <motion.div
                         variants={overlayVariants}
                         initial="hidden"
@@ -69,7 +97,10 @@ const CartDrawer = ({ isOpen, onClose }) => {
                         exit="hidden"
                         className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm"
                         onClick={onClose}
+                        aria-hidden="true"
                     />
+
+                    {/* The Cart Drawer */}
                     <motion.div
                         variants={drawerVariants}
                         initial="hidden"
@@ -85,7 +116,8 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                     Procurement Cart
                                 </h2>
                                 <p className="mt-0.5 text-xs font-semibold text-slate-500">
-                                    {getCartCount()} {getCartCount() === 1 ? 'Item' : 'Items'} Selected
+                                    {getCartCount()} {getCartCount() === 1 ? 'Item' : 'Items'}{' '}
+                                    Selected
                                 </p>
                             </div>
                             <div className="flex items-center gap-2">
@@ -101,6 +133,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                 <button
                                     onClick={onClose}
                                     className="rounded-full bg-slate-50 p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                                    aria-label="Close Cart"
                                 >
                                     <X size={18} strokeWidth={2.5} />
                                 </button>
@@ -116,22 +149,35 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                     </p>
                                 </div>
                             ) : cart?.items?.length > 0 ? (
-                                <motion.div variants={staggerList} initial="hidden" animate="visible" className="space-y-3">
+                                <motion.div
+                                    variants={staggerList}
+                                    initial="hidden"
+                                    animate="visible"
+                                    className="space-y-3"
+                                >
                                     <AnimatePresence>
                                         {cart.items.map((item) => {
-                                            const nudge = getTierNudge(item.qty, item.productId?.tieredPricing);
+                                            const nudge = getTierNudge(
+                                                item.qty,
+                                                item.productId?.tieredPricing
+                                            );
                                             const isDropship = item.orderType === 'DROPSHIP';
                                             return (
                                                 <motion.div
                                                     layout
                                                     variants={itemVariants}
-                                                    key={item.productId?._id}
+                                                    // FIX: Composite key guarantees uniqueness even if the same product is added twice
+                                                    key={`${item.productId?._id}-${item.orderType}`}
                                                     className="group relative flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md"
                                                 >
                                                     <div className="flex gap-3 p-3">
                                                         <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-slate-50">
                                                             <img
-                                                                src={item.productId?.images?.[0]?.url || 'https://via.placeholder.com/80'}
+                                                                src={
+                                                                    item.productId?.images?.[0]
+                                                                        ?.url ||
+                                                                    'https://via.placeholder.com/80'
+                                                                }
                                                                 alt={item.productId?.title}
                                                                 className="h-full w-full object-cover"
                                                             />
@@ -144,14 +190,19 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                                                         onClick={onClose}
                                                                         className="line-clamp-1 text-sm font-bold text-slate-900 transition-colors hover:text-emerald-600"
                                                                     >
-                                                                        {item.productId?.title || 'Unknown Product'}
+                                                                        {item.productId?.title ||
+                                                                            'Unknown Product'}
                                                                     </Link>
                                                                     <p className="mt-0.5 text-[10px] font-semibold text-slate-400">
                                                                         SKU: {item.productId?.sku}
                                                                     </p>
                                                                 </div>
                                                                 <button
-                                                                    onClick={() => removeFromCart(item.productId?._id)}
+                                                                    onClick={() =>
+                                                                        removeFromCart(
+                                                                            item.productId?._id
+                                                                        )
+                                                                    }
                                                                     className="text-slate-400 transition-colors hover:text-red-500"
                                                                 >
                                                                     <Trash2 size={16} />
@@ -160,11 +211,13 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                                             <div className="mt-2 flex items-center gap-2">
                                                                 {isDropship ? (
                                                                     <span className="flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                                                                        <Package size={12} /> Dropship
+                                                                        <Package size={12} />{' '}
+                                                                        Dropship
                                                                     </span>
                                                                 ) : (
                                                                     <span className="flex items-center gap-1 rounded border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-                                                                        <ShoppingCart size={12} /> Wholesale
+                                                                        <ShoppingCart size={12} />{' '}
+                                                                        Wholesale
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -174,12 +227,34 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                                     <div className="flex items-end justify-between border-t border-slate-100 bg-slate-50/50 px-4 py-3">
                                                         <div className="flex flex-col gap-2">
                                                             <span className="text-xs font-semibold text-slate-600">
-                                                                ₹{item.platformUnitCost?.toLocaleString('en-IN')} <span className="opacity-75">/ unit</span>
+                                                                ₹
+                                                                {item.platformUnitCost?.toLocaleString(
+                                                                    'en-IN'
+                                                                )}{' '}
+                                                                <span className="opacity-75">
+                                                                    / unit
+                                                                </span>
                                                             </span>
                                                             <div className="flex w-fit items-center rounded-md border border-slate-300 bg-white">
                                                                 <button
-                                                                    onClick={() => updateCartItem(item.productId?._id, item.qty - (isDropship ? 1 : item.productId?.moq))}
-                                                                    disabled={item.qty <= (isDropship ? 1 : item.productId?.moq) || isLoading}
+                                                                    onClick={() =>
+                                                                        updateCartItem(
+                                                                            item.productId?._id,
+                                                                            item.qty -
+                                                                                (isDropship
+                                                                                    ? 1
+                                                                                    : item.productId
+                                                                                          ?.moq)
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        item.qty <=
+                                                                            (isDropship
+                                                                                ? 1
+                                                                                : item.productId
+                                                                                      ?.moq) ||
+                                                                        isLoading
+                                                                    }
                                                                     className="flex h-7 w-7 items-center justify-center text-slate-500 hover:bg-slate-100 disabled:opacity-30"
                                                                 >
                                                                     <Minus size={14} />
@@ -188,7 +263,16 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                                                     {item.qty}
                                                                 </span>
                                                                 <button
-                                                                    onClick={() => updateCartItem(item.productId?._id, item.qty + (isDropship ? 1 : item.productId?.moq))}
+                                                                    onClick={() =>
+                                                                        updateCartItem(
+                                                                            item.productId?._id,
+                                                                            item.qty +
+                                                                                (isDropship
+                                                                                    ? 1
+                                                                                    : item.productId
+                                                                                          ?.moq)
+                                                                        )
+                                                                    }
                                                                     disabled={isLoading}
                                                                     className="flex h-7 w-7 items-center justify-center text-slate-500 hover:bg-slate-100 disabled:opacity-30"
                                                                 >
@@ -199,16 +283,27 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                                         <div className="text-right">
                                                             {isDropship ? (
                                                                 <div className="flex flex-col items-end gap-0.5">
-                                                                    <span className="text-[10px] font-bold text-slate-400">Est. Margin</span>
+                                                                    <span className="text-[10px] font-bold text-slate-400">
+                                                                        Est. Margin
+                                                                    </span>
                                                                     <span className="text-sm font-bold text-emerald-600">
-                                                                        +₹{item.expectedProfit?.toLocaleString('en-IN')}
+                                                                        +₹
+                                                                        {item.expectedProfit?.toLocaleString(
+                                                                            'en-IN'
+                                                                        )}
                                                                     </span>
                                                                 </div>
                                                             ) : (
                                                                 <div className="flex flex-col items-end gap-0.5">
-                                                                    <span className="text-[10px] font-bold text-slate-400">Subtotal</span>
+                                                                    <span className="text-[10px] font-bold text-slate-400">
+                                                                        Subtotal
+                                                                    </span>
                                                                     <span className="text-sm font-bold text-slate-900">
-                                                                        ₹{(item.platformUnitCost * item.qty).toLocaleString('en-IN')}
+                                                                        ₹
+                                                                        {(
+                                                                            item.platformUnitCost *
+                                                                            item.qty
+                                                                        ).toLocaleString('en-IN')}
                                                                     </span>
                                                                 </div>
                                                             )}
@@ -218,21 +313,40 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                                     {!isDropship && nudge && (
                                                         <div className="flex items-center justify-between border-t border-emerald-100 bg-emerald-50 px-4 py-2">
                                                             <p className="text-[10px] font-semibold text-emerald-800">
-                                                                Add <span className="font-bold">{nudge.unitsNeeded}</span> more for <span className="font-bold">₹{nudge.newPrice}/ea</span>
+                                                                Add{' '}
+                                                                <span className="font-bold">
+                                                                    {nudge.unitsNeeded}
+                                                                </span>{' '}
+                                                                more for{' '}
+                                                                <span className="font-bold">
+                                                                    ₹{nudge.newPrice}/ea
+                                                                </span>
                                                             </p>
                                                             <button
-                                                                onClick={() => updateCartItem(item.productId?._id, nudge.targetQty)}
+                                                                onClick={() =>
+                                                                    updateCartItem(
+                                                                        item.productId?._id,
+                                                                        nudge.targetQty
+                                                                    )
+                                                                }
                                                                 className="text-[10px] font-bold text-emerald-600 transition-colors hover:text-emerald-800"
                                                             >
                                                                 Upgrade qty &rarr;
                                                             </button>
                                                         </div>
                                                     )}
-                                                    {!isDropship && !nudge && item.productId?.tieredPricing?.length > 0 && (
-                                                        <div className="flex items-center gap-1.5 border-t border-slate-100 bg-slate-50 px-4 py-2 text-[10px] font-semibold text-slate-500">
-                                                            <CheckCircle size={12} className="text-slate-400" /> Max volume discount applied
-                                                        </div>
-                                                    )}
+                                                    {!isDropship &&
+                                                        !nudge &&
+                                                        item.productId?.tieredPricing?.length >
+                                                            0 && (
+                                                            <div className="flex items-center gap-1.5 border-t border-slate-100 bg-slate-50 px-4 py-2 text-[10px] font-semibold text-slate-500">
+                                                                <CheckCircle
+                                                                    size={12}
+                                                                    className="text-slate-400"
+                                                                />{' '}
+                                                                Max volume discount applied
+                                                            </div>
+                                                        )}
                                                 </motion.div>
                                             );
                                         })}
@@ -243,9 +357,12 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                     <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
                                         <Package size={28} className="text-slate-400" />
                                     </div>
-                                    <h3 className="text-base font-bold text-slate-900">Your cart is empty</h3>
+                                    <h3 className="text-base font-bold text-slate-900">
+                                        Your cart is empty
+                                    </h3>
                                     <p className="mt-1 max-w-[220px] text-xs font-medium text-slate-500">
-                                        Add wholesale inventory or queue dropship orders to get started.
+                                        Add wholesale inventory or queue dropship orders to get
+                                        started.
                                     </p>
                                     <button
                                         onClick={onClose}
@@ -262,30 +379,60 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                 {isB2BPending && (
                                     <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-medium text-amber-800">
                                         <Lock size={14} className="mt-0.5 shrink-0" />
-                                        <p>Checkout locked. <Link to="/kyc" onClick={onClose} className="font-bold underline hover:text-amber-900">Complete KYC</Link> to procure.</p>
+                                        <p>
+                                            Checkout locked.{' '}
+                                            <Link
+                                                to="/kyc"
+                                                onClick={onClose}
+                                                className="font-bold underline hover:text-amber-900"
+                                            >
+                                                Complete KYC
+                                            </Link>{' '}
+                                            to procure.
+                                        </p>
                                     </div>
                                 )}
                                 {hasDropshipItems && hasWholesaleItems && !isB2BPending && (
                                     <div className="mb-4 flex items-start gap-2 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2.5 text-xs font-medium text-indigo-800">
                                         <AlertCircle size={14} className="mt-0.5 shrink-0" />
-                                        <p>Mixed order: Dropship items require separate addresses at checkout.</p>
+                                        <p>
+                                            Mixed order: Dropship items require separate addresses
+                                            at checkout.
+                                        </p>
                                     </div>
                                 )}
 
                                 <div className="mb-5 space-y-2.5">
                                     <div className="flex justify-between text-xs font-semibold text-slate-500">
                                         <span>Taxable Subtotal</span>
-                                        <span>₹{cart.subTotalPlatformCost?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        <span>
+                                            ₹
+                                            {cart.subTotalPlatformCost?.toLocaleString('en-IN', {
+                                                minimumFractionDigits: 2,
+                                            })}
+                                        </span>
                                     </div>
                                     <div className="flex items-center justify-between text-xs font-semibold text-emerald-600">
-                                        <span className="flex items-center gap-1.5"><ShieldCheck size={14} /> Est. GST (ITC Claimable)</span>
-                                        <span>+ ₹{cart.totalTax?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        <span className="flex items-center gap-1.5">
+                                            <ShieldCheck size={14} /> Est. GST (ITC Claimable)
+                                        </span>
+                                        <span>
+                                            + ₹
+                                            {cart.totalTax?.toLocaleString('en-IN', {
+                                                minimumFractionDigits: 2,
+                                            })}
+                                        </span>
                                     </div>
                                     <div className="my-3 border-t border-dashed border-slate-200" />
                                     <div className="flex items-end justify-between">
-                                        <span className="text-sm font-bold text-slate-900">Total Payable</span>
+                                        <span className="text-sm font-bold text-slate-900">
+                                            Total Payable
+                                        </span>
                                         <span className="text-2xl font-black text-slate-900">
-                                            ₹{cart.grandTotalPlatformCost?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            ₹
+                                            {cart.grandTotalPlatformCost?.toLocaleString('en-IN', {
+                                                minimumFractionDigits: 2,
+                                            })}
                                         </span>
                                     </div>
                                 </div>
@@ -295,7 +442,9 @@ const CartDrawer = ({ isOpen, onClose }) => {
                                         <div className="flex items-center gap-1.5 text-xs font-bold">
                                             <TrendingUp size={16} /> Total Dropship Margin
                                         </div>
-                                        <span className="text-sm font-bold">+₹{cart.totalExpectedProfit?.toLocaleString('en-IN')}</span>
+                                        <span className="text-sm font-bold">
+                                            +₹{cart.totalExpectedProfit?.toLocaleString('en-IN')}
+                                        </span>
                                     </div>
                                 )}
 

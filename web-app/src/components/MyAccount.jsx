@@ -21,7 +21,6 @@ import {
     MapPin,
 } from 'lucide-react';
 import { AuthContext } from '../AuthContext';
-import SmartRestock from './SmartRestock';
 import LoadingScreen from './LoadingScreen';
 import ResellerAnalytics from './ResellerAnalytics';
 
@@ -182,15 +181,19 @@ const MyAccount = () => {
                                             Primary Dispatch Address
                                         </span>
                                         <span className="font-bold text-slate-900">
-                                            {user.companyAddress ||
-                                                'No address verified via KYC. Wholesale orders cannot be routed.'}
+                                            {user.billingAddress?.street ? (
+                                                `${user.billingAddress.street}, ${user.billingAddress.city}, ${user.billingAddress.state} - ${user.billingAddress.zip}`
+                                            ) : (
+                                                <span className="text-amber-600">
+                                                    No address verified via KYC. Wholesale orders
+                                                    cannot be routed.
+                                                </span>
+                                            )}
                                         </span>
                                     </div>
                                 </div>
                             </div>
                         </div>
-
-                        {isKycApproved && <SmartRestock />}
 
                         {/* Account Info */}
                         <div>

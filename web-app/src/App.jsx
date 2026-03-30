@@ -7,6 +7,7 @@ import LoadingScreen from './components/LoadingScreen';
 import MainLayout from './layouts/MainLayout';
 import PublicLayout from './layouts/PublicLayout';
 import ErrorBoundary from './ErrorBoundary';
+import ScrollToTop from './components/ScrollToTop';
 
 // Lazy loaded components
 const MarketingLandingPage = lazy(() => import('./components/MarketingLandingPage'));
@@ -88,6 +89,7 @@ const ResellerRoute = ({ children }) => {
 function App() {
     return (
         <ErrorBoundary>
+            <ScrollToTop />
             <Toaster position="bottom-right" />
 
             <Suspense fallback={<LoadingScreen />}>

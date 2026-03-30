@@ -1,6 +1,6 @@
 /**
  * 🛠️ API BASE URL LOGIC
- * This ensures that whether we are running on Vercel or Localhost, 
+ * This ensures that whether we are running on Vercel or Localhost,
  * we never end up with "double" version prefixes like /api/v1/api/v1.
  */
 

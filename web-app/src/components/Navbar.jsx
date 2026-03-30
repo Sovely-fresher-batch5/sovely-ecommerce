@@ -405,7 +405,9 @@ function Navbar({ onToggleSidebar, onSelectCategory }) {
                                 className="hidden items-center gap-2 rounded-full border border-slate-900 bg-slate-900 px-6 py-2.5 text-white transition-all hover:bg-slate-800 hover:shadow-lg sm:flex"
                             >
                                 <ShieldCheck size={18} strokeWidth={2.5} />{' '}
-                                <span className="text-sm font-black tracking-wide">ADMIN CONSOLE</span>
+                                <span className="text-sm font-black tracking-wide">
+                                    ADMIN CONSOLE
+                                </span>
                             </Link>
                         )}
 

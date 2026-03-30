@@ -4,6 +4,7 @@ import {
     addToCart,
     updateCartItem,
     removeFromCart,
+    clearCart,
 } from '../controllers/cart.controller.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 
@@ -12,7 +13,7 @@ const router = Router();
 // All cart routes require a logged-in reseller
 router.use(verifyJWT);
 
-router.route('/').get(getCart).post(addToCart);
+router.route('/').get(getCart).post(addToCart).delete(clearCart);
 
 router.route('/:productId').put(updateCartItem).delete(removeFromCart);
 

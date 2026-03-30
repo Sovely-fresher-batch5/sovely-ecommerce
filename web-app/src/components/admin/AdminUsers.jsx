@@ -94,7 +94,9 @@ const AdminUsers = () => {
                 'Invalid documents'
             );
             if (!reason) return; // Cancel if no reason provided
-        } else if (!window.confirm(`Are you sure you want to mark this Reseller as ${newStatus}?`)) {
+        } else if (
+            !window.confirm(`Are you sure you want to mark this Reseller as ${newStatus}?`)
+        ) {
             return;
         }
 
@@ -311,7 +313,10 @@ const AdminUsers = () => {
                                                             <Edit2 size={16} />
                                                         </button>
 
-                                                        {(u.accountType === 'B2B' || u.gstin || u.panNumber || u.companyName) && (
+                                                        {(u.accountType === 'B2B' ||
+                                                            u.gstin ||
+                                                            u.panNumber ||
+                                                            u.companyName) && (
                                                             <button
                                                                 onClick={() => setViewKycUser(u)}
                                                                 title="Review Business KYC"

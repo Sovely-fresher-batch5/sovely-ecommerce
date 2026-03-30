@@ -9,12 +9,34 @@ import { asyncHandler } from '../utils/asyncHandler.js';
  */
 export const createProduct = asyncHandler(async (req, res) => {
     const {
-        sku, title, descriptionHTML, vendor, categoryId, images,
-        dropshipBasePrice, suggestedRetailPrice, tieredPricing, weightGrams,
-        dimensions, hsnCode, gstSlab, shippingDays, inventory, moq, status, tags,
+        sku,
+        title,
+        descriptionHTML,
+        vendor,
+        categoryId,
+        images,
+        dropshipBasePrice,
+        suggestedRetailPrice,
+        tieredPricing,
+        weightGrams,
+        dimensions,
+        hsnCode,
+        gstSlab,
+        shippingDays,
+        inventory,
+        moq,
+        status,
+        tags,
     } = req.body;
 
-    if (!sku || !title || !dropshipBasePrice || !suggestedRetailPrice || !hsnCode || gstSlab === undefined) {
+    if (
+        !sku ||
+        !title ||
+        !dropshipBasePrice ||
+        !suggestedRetailPrice ||
+        !hsnCode ||
+        gstSlab === undefined
+    ) {
         throw new ApiError(400, 'Missing mandatory B2B fields (SKU, Title, Prices, HSN, GST Slab)');
     }
 
@@ -24,9 +46,24 @@ export const createProduct = asyncHandler(async (req, res) => {
     }
 
     const product = await Product.create({
-        sku, title, descriptionHTML, vendor, categoryId, images,
-        dropshipBasePrice, suggestedRetailPrice, tieredPricing, weightGrams,
-        dimensions, hsnCode, gstSlab, shippingDays, inventory, moq, status, tags,
+        sku,
+        title,
+        descriptionHTML,
+        vendor,
+        categoryId,
+        images,
+        dropshipBasePrice,
+        suggestedRetailPrice,
+        tieredPricing,
+        weightGrams,
+        dimensions,
+        hsnCode,
+        gstSlab,
+        shippingDays,
+        inventory,
+        moq,
+        status,
+        tags,
     });
 
     return res.status(201).json(new ApiResponse(201, product, 'B2B Product created successfully'));
@@ -38,9 +75,21 @@ export const createProduct = asyncHandler(async (req, res) => {
  */
 export const getProducts = asyncHandler(async (req, res) => {
     const {
-        search, category, minMargin, maxBasePrice, minBasePrice,
-        minMoq, maxMoq, inStock, isDropship, gstSlab, maxShippingDays,
-        isVerifiedSupplier, sort, page = 1, limit = 20,
+        search,
+        category,
+        minMargin,
+        maxBasePrice,
+        minBasePrice,
+        minMoq,
+        maxMoq,
+        inStock,
+        isDropship,
+        gstSlab,
+        maxShippingDays,
+        isVerifiedSupplier,
+        sort,
+        page = 1,
+        limit = 20,
     } = req.query;
 
     const query = { status: 'active', deletedAt: null };
@@ -101,9 +150,30 @@ export const getProducts = asyncHandler(async (req, res) => {
         if (maxShippingDays === '1') {
             query.shippingDays = { $in: ['1', '1 Day', 'Same Day', '24h', 'Immediate'] };
         } else if (maxShippingDays === '3') {
-            query.shippingDays = { $in: ['1', '2', '3', '1-3', '2-3', '1 Day', '3 Days', 'Same Day', '2-4 Days'] };
+            query.shippingDays = {
+                $in: ['1', '2', '3', '1-3', '2-3', '1 Day', '3 Days', 'Same Day', '2-4 Days'],
+            };
         } else if (maxShippingDays === '7') {
-            query.shippingDays = { $in: ['1', '2', '3', '4', '5', '6', '7', '1-3', '3-5', '5-7', '1 Day', '3 Days', '7 Days', 'Same Day', '2-4 Days', '5-7 Days'] };
+            query.shippingDays = {
+                $in: [
+                    '1',
+                    '2',
+                    '3',
+                    '4',
+                    '5',
+                    '6',
+                    '7',
+                    '1-3',
+                    '3-5',
+                    '5-7',
+                    '1 Day',
+                    '3 Days',
+                    '7 Days',
+                    'Same Day',
+                    '2-4 Days',
+                    '5-7 Days',
+                ],
+            };
         }
     }
 
@@ -116,7 +186,7 @@ export const getProducts = asyncHandler(async (req, res) => {
     }
 
     const skip = (Number(page) - 1) * Number(limit);
-    
+
     let sortParams = { createdAt: -1 };
     if (sort === 'price-asc') sortParams = { dropshipBasePrice: 1 };
     if (sort === 'price-desc') sortParams = { dropshipBasePrice: -1 };
@@ -160,7 +230,9 @@ export const getProductById = asyncHandler(async (req, res) => {
         throw new ApiError(404, 'Product not found or has been removed');
     }
 
-    return res.status(200).json(new ApiResponse(200, product, 'Product details fetched successfully'));
+    return res
+        .status(200)
+        .json(new ApiResponse(200, product, 'Product details fetched successfully'));
 });
 
 /**
@@ -177,7 +249,7 @@ export const updateProduct = asyncHandler(async (req, res) => {
     if (req.body['inventory.stock'] !== undefined) {
         if (!product.inventory) product.inventory = {};
         product.inventory.stock = Number(req.body['inventory.stock']);
-        delete req.body['inventory.stock']; 
+        delete req.body['inventory.stock'];
     }
 
     Object.assign(product, req.body);
@@ -198,10 +270,12 @@ export const deleteProduct = asyncHandler(async (req, res) => {
     }
 
     product.deletedAt = new Date();
-    product.status = 'archived'; 
+    product.status = 'archived';
     await product.save();
 
-    return res.status(200).json(new ApiResponse(200, null, 'Product successfully deleted (archived)'));
+    return res
+        .status(200)
+        .json(new ApiResponse(200, null, 'Product successfully deleted (archived)'));
 });
 
 /**
@@ -226,7 +300,7 @@ export const getAllAdminProducts = asyncHandler(async (req, res) => {
     const skip = (Number(page) - 1) * Number(limit);
 
     const products = await Product.find(query)
-        .sort({ createdAt: -1 }) 
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit))
         .populate('categoryId', 'name');
@@ -254,7 +328,7 @@ export const getAllAdminProducts = asyncHandler(async (req, res) => {
  * @route   POST /api/products/validate-bulk
  */
 export const validateBulkOrder = asyncHandler(async (req, res) => {
-    const { skus } = req.body; 
+    const { skus } = req.body;
 
     if (!skus || !Array.isArray(skus) || skus.length === 0) {
         throw new ApiError(400, 'Please provide an array of SKUs to validate.');
@@ -270,9 +344,15 @@ export const validateBulkOrder = asyncHandler(async (req, res) => {
         sku: { $in: cleanSkus },
         status: 'active',
         deletedAt: null,
-    }).select('sku title inventory.stock moq dropshipBasePrice platformSellPrice'); 
+    }).select('sku title inventory.stock moq dropshipBasePrice platformSellPrice');
 
-    return res.status(200).json(
-        new ApiResponse(200, products, `Validated ${products.length} out of ${skus.length} requested SKUs.`)
-    );
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                products,
+                `Validated ${products.length} out of ${skus.length} requested SKUs.`
+            )
+        );
 });

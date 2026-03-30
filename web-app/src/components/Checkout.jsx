@@ -350,7 +350,9 @@ const Checkout = () => {
                                         <input
                                             type="text"
                                             value={customer.name}
-                                            onChange={(e) => handleInputChange('name', e.target.value)}
+                                            onChange={(e) =>
+                                                handleInputChange('name', e.target.value)
+                                            }
                                             className={`w-full rounded-xl border px-4 py-3.5 font-bold text-slate-900 transition-all outline-none focus:ring-2 ${
                                                 fieldErrors.name
                                                     ? 'border-red-400 bg-red-50 focus:border-red-400 focus:ring-red-200'
@@ -536,7 +538,7 @@ const Checkout = () => {
                                             </div>
                                             {/* Fixed Layout: Ensured flex-wrap or shrinking prevents overlap */}
                                             <div className="flex items-center justify-between gap-2">
-                                                <div className="flex flex-col min-w-0">
+                                                <div className="flex min-w-0 flex-col">
                                                     <p className="truncate text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                                                         ₹
                                                         {item.platformUnitCost?.toLocaleString(
@@ -545,7 +547,7 @@ const Checkout = () => {
                                                         /ea
                                                     </p>
                                                     {item.shippingCost > 0 && (
-                                                        <p className="truncate mt-0.5 text-[9px] font-bold tracking-wider text-slate-400 uppercase">
+                                                        <p className="mt-0.5 truncate text-[9px] font-bold tracking-wider text-slate-400 uppercase">
                                                             + ₹
                                                             {item.shippingCost?.toLocaleString(
                                                                 'en-IN'
@@ -591,7 +593,12 @@ const Checkout = () => {
                                 {codFee > 0 && (
                                     <div className="flex justify-between font-bold text-amber-600">
                                         <span>Courier COD Fee</span>
-                                        <span>+ ₹{codFee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        <span>
+                                            + ₹
+                                            {codFee.toLocaleString('en-IN', {
+                                                minimumFractionDigits: 2,
+                                            })}
+                                        </span>
                                     </div>
                                 )}
 
@@ -608,24 +615,48 @@ const Checkout = () => {
                                 </div>
                             </div>
 
-                            {/* TRANSPARENCY TOOLTIP */}
-                            <div className="mb-6 rounded-xl border border-sky-100 bg-sky-50/50 p-4">
-                                <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-sky-800">
-                                    <Info size={14} /> How are logistics calculated?
+                            {/* DYNAMIC LOGISTICS BREAKDOWN */}
+                            <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                <h4 className="mb-3 flex items-center gap-2 text-xs font-extrabold tracking-wider text-slate-800 uppercase">
+                                    <Truck size={14} className="text-indigo-600" /> Freight
+                                    Calculation
                                 </h4>
-                                <p className="text-[10px] leading-relaxed text-sky-700">
-                                    <strong>Freight & Packaging:</strong> Billed on the higher of{' '}
-                                    <strong>Actual Weight</strong> or{' '}
-                                    <strong>Volumetric Weight</strong> (L × W × H / 5000).
-                                    <br />
-                                    <strong>Base Slabs:</strong> Up to 0.5kg (₹60), 1kg (₹95), 2kg
-                                    (₹120), 3kg (₹155), 5kg (₹190).
-                                    <br />
-                                    <strong>COD:</strong> A flat ₹35 courier collection fee applies
-                                    to Cash on Delivery.
-                                </p>
-                            </div>
 
+                                <div className="space-y-2 text-sm text-slate-600">
+                                    <div className="flex justify-between">
+                                        <span>Total Actual Weight:</span>
+                                        <span className="font-medium">
+                                            {cart.totalActualWeight || 0} kg
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Total Volumetric Weight:</span>
+                                        <span className="font-medium">
+                                            {(cart.totalVolumetricWeight || 0).toFixed(2)} kg
+                                        </span>
+                                    </div>
+
+                                    <div className="my-2 flex justify-between border-t border-slate-200/60 pt-2 font-bold text-slate-900">
+                                        <span>Applied Billable Weight:</span>
+                                        <span className="text-indigo-700">
+                                            {cart.totalBillableWeight || 0} kg
+                                            <span className="ml-1 text-[10px] font-normal text-slate-400">
+                                                (
+                                                {cart.weightType === 'VOLUMETRIC'
+                                                    ? 'Volumetric applied'
+                                                    : 'Actual applied'}
+                                                )
+                                            </span>
+                                        </span>
+                                    </div>
+
+                                    <p className="mt-3 text-[10px] leading-relaxed text-slate-500">
+                                        <strong>Formula applied:</strong> Max(Actual Weight,
+                                        L×W×H/5000). Applied to the ₹60 (0.5kg) to ₹190 (5kg) slab
+                                        scale.
+                                    </p>
+                                </div>
+                            </div>
                             {/* WALLET DEDUCTION & AUTHORIZATION */}
                             <div
                                 className={`mb-6 rounded-2xl border-2 p-5 ${isWalletSufficient ? 'border-slate-200 bg-slate-50' : 'border-red-200 bg-red-50'}`}

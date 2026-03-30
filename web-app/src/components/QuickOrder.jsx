@@ -200,7 +200,6 @@ const QuickOrder = () => {
 
     return (
         <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
-            
             {/* ADDED: Back Button */}
             <button
                 onClick={() => navigate(-1)}
@@ -362,7 +361,9 @@ const QuickOrder = () => {
                                                 <tr>
                                                     <th className="pt-1 pb-2 font-medium">SKU</th>
                                                     <th className="pt-1 pb-2 font-medium">Qty</th>
-                                                    <th className="pt-1 pb-2 font-medium">Status</th>
+                                                    <th className="pt-1 pb-2 font-medium">
+                                                        Status
+                                                    </th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
@@ -411,11 +412,13 @@ const QuickOrder = () => {
                                         >
                                             {isProcessing ? (
                                                 <>
-                                                    <Loader2 size={18} className="animate-spin" /> Pushing to Cart...
+                                                    <Loader2 size={18} className="animate-spin" />{' '}
+                                                    Pushing to Cart...
                                                 </>
                                             ) : (
                                                 <>
-                                                    <ShoppingCart size={18} /> Push {validCount} Items to Cart
+                                                    <ShoppingCart size={18} /> Push {validCount}{' '}
+                                                    Items to Cart
                                                 </>
                                             )}
                                         </button>

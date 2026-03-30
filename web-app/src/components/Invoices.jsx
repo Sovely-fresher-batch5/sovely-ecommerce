@@ -1,50 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FileText, Download, ArrowLeft, Search, ShieldCheck, AlertCircle } from 'lucide-react';
+import { FileText, Download, ArrowLeft, Search, ShieldCheck, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import api from '../utils/api';
 
 const Invoices = () => {
     const [invoices, setInvoices] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [downloadingId, setDownloadingId] = useState(null); // Track which button is spinning
 
     useEffect(() => {
         const fetchInvoices = async () => {
             try {
-                // const res = await api.get('/invoices/me');
-                // setInvoices(res.data.data);
-
-                // MOCK DATA for preview
-                setTimeout(() => {
-                    setInvoices([
-                        {
-                            _id: 'inv_1',
-                            invoiceNumber: 'INV-2026-03-042',
-                            orderId: 'ORD-99823',
-                            date: '2026-03-18T10:00:00Z',
-                            taxableAmount: 12000,
-                            gstAmount: 2160,
-                            totalAmount: 14160,
-                            status: 'PAID',
-                            isItcEligible: true,
-                        },
-                        {
-                            _id: 'inv_2',
-                            invoiceNumber: 'INV-2026-03-018',
-                            orderId: 'ORD-99750',
-                            date: '2026-03-12T14:30:00Z',
-                            taxableAmount: 4500,
-                            gstAmount: 810,
-                            totalAmount: 5310,
-                            status: 'PAID',
-                            isItcEligible: true,
-                        },
-                    ]);
-                    setIsLoading(false);
-                }, 600);
+                // REAL API CALL
+                const res = await api.get('/invoices/me');
+                setInvoices(res.data.data);
             } catch (error) {
                 console.error('Failed to fetch invoices', error);
+                toast.error('Could not load invoices from the server.');
+            } finally {
                 setIsLoading(false);
             }
         };
@@ -57,9 +33,39 @@ const Invoices = () => {
             inv.orderId.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const handleDownload = (invoiceId) => {
-        // Wire this to your actual PDF generation/download endpoint
-        console.log(`Downloading invoice ${invoiceId}`);
+    // REAL PDF DOWNLOAD LOGIC
+    const handleDownload = async (invoiceId, invoiceNumber) => {
+        try {
+            setDownloadingId(invoiceId);
+
+            // We must tell Axios we expect binary data (a blob) back, not JSON
+            const res = await api.get(`/invoices/${invoiceId}/pdf`, {
+                responseType: 'blob',
+            });
+
+            // Create a temporary local URL for the binary data
+            const url = window.URL.createObjectURL(
+                new Blob([res.data], { type: 'application/pdf' })
+            );
+
+            // Create an invisible anchor tag, click it, and remove it
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Tax_Invoice_${invoiceNumber}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            // Clean up memory
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Invoice downloaded successfully', { position: 'bottom-right' });
+        } catch (error) {
+            console.error('Failed to download PDF', error);
+            toast.error('Failed to generate PDF. Please try again.', { position: 'bottom-right' });
+        } finally {
+            setDownloadingId(null);
+        }
     };
 
     return (
@@ -107,8 +113,8 @@ const Invoices = () => {
                         </div>
                         <h3 className="text-lg font-extrabold text-slate-900">No Invoices Found</h3>
                         <p className="mt-1 text-sm font-medium text-slate-500">
-                            Completed wholesale orders will automatically generate GST invoices
-                            here.
+                            Completed wholesale orders and wallet top-ups will automatically
+                            generate invoices here.
                         </p>
                     </div>
                 ) : (
@@ -119,7 +125,7 @@ const Invoices = () => {
                                     <th className="px-6 py-4 font-bold">Invoice Details</th>
                                     <th className="px-6 py-4 font-bold">Date</th>
                                     <th className="px-6 py-4 text-right font-bold">Taxable</th>
-                                    <th className="px-6 py-4 text-right font-bold">GST (18%)</th>
+                                    <th className="px-6 py-4 text-right font-bold">GST</th>
                                     <th className="px-6 py-4 text-right font-bold">Total</th>
                                     <th className="px-6 py-4 text-center font-bold">Action</th>
                                 </tr>
@@ -153,20 +159,38 @@ const Invoices = () => {
                                             })}
                                         </td>
                                         <td className="px-6 py-4 text-right font-medium text-slate-600">
-                                            ₹{inv.taxableAmount.toLocaleString('en-IN')}
+                                            ₹
+                                            {inv.taxableAmount.toLocaleString('en-IN', {
+                                                minimumFractionDigits: 2,
+                                            })}
                                         </td>
                                         <td className="px-6 py-4 text-right font-medium text-slate-600">
-                                            ₹{inv.gstAmount.toLocaleString('en-IN')}
+                                            ₹
+                                            {inv.gstAmount.toLocaleString('en-IN', {
+                                                minimumFractionDigits: 2,
+                                            })}
                                         </td>
                                         <td className="px-6 py-4 text-right font-black text-slate-900">
-                                            ₹{inv.totalAmount.toLocaleString('en-IN')}
+                                            ₹
+                                            {inv.totalAmount.toLocaleString('en-IN', {
+                                                minimumFractionDigits: 2,
+                                            })}
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <button
-                                                onClick={() => handleDownload(inv._id)}
-                                                className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-bold text-indigo-600 shadow-sm ring-1 ring-indigo-100 transition-all ring-inset hover:bg-indigo-50 hover:ring-indigo-200"
+                                                onClick={() =>
+                                                    handleDownload(inv._id, inv.invoiceNumber)
+                                                }
+                                                disabled={downloadingId === inv._id}
+                                                className="inline-flex min-w-[70px] items-center justify-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-bold text-indigo-600 shadow-sm ring-1 ring-indigo-100 transition-all ring-inset hover:bg-indigo-50 hover:ring-indigo-200 disabled:opacity-50"
                                             >
-                                                <Download size={14} /> PDF
+                                                {downloadingId === inv._id ? (
+                                                    <Loader2 size={14} className="animate-spin" />
+                                                ) : (
+                                                    <>
+                                                        <Download size={14} /> PDF
+                                                    </>
+                                                )}
                                             </button>
                                         </td>
                                     </motion.tr>

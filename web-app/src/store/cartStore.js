@@ -74,13 +74,18 @@ export const useCartStore = create((set, get) => ({
     clearCart: async () => {
         set({ isLoading: true, error: null });
         try {
-            await api.delete('/cart');
-            set({ cart: null, isLoading: false });
-            toast.success('Cart cleared', { position: 'bottom-right' });
+            const res = await api.delete('/cart');
+
+            // Success: Set the cart to the newly returned EMPTY cart object from the backend
+            set({ cart: res.data.data, isLoading: false });
+            toast.success('Cart cleared successfully', { position: 'bottom-right' });
         } catch (error) {
-            // FIX: Force clear the frontend state even if the backend fails
-            set({ cart: null, error: error.response?.data?.message, isLoading: false });
-            toast.error('Cart cleared (Backend sync issue)', { position: 'bottom-right' });
+            // Failure: Do NOT set cart to null. Keep the existing items visible so the user knows it failed.
+            set({
+                error: error.response?.data?.message || 'Failed to clear cart',
+                isLoading: false,
+            });
+            toast.error('Could not clear cart. Please try again.', { position: 'bottom-right' });
         }
     },
 

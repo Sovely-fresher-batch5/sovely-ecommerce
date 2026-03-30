@@ -29,7 +29,7 @@ export default function ProductFilterSidebar({
 
     return (
         <aside
-            className={`fixed inset-y-0 left-0 z-50 w-72 overflow-y-auto bg-white p-6 shadow-2xl transition-transform duration-300 lg:sticky lg:top-24 lg:z-0 lg:h-[calc(100vh-theme(spacing.24)-2rem)] lg:w-64 lg:translate-x-0 lg:rounded-xl lg:border lg:border-slate-200 lg:p-5 lg:shadow-sm no-scrollbar ${isMobileFilterOpen ? 'translate-x-0' : '-translate-x-full'}`}
+            className={`no-scrollbar fixed inset-y-0 left-0 z-50 w-72 overflow-y-auto bg-white p-6 shadow-2xl transition-transform duration-300 lg:sticky lg:top-24 lg:z-0 lg:h-[calc(100vh-theme(spacing.24)-2rem)] lg:w-64 lg:translate-x-0 lg:rounded-xl lg:border lg:border-slate-200 lg:p-5 lg:shadow-sm ${isMobileFilterOpen ? 'translate-x-0' : '-translate-x-full'}`}
         >
             <div className="mb-5 flex items-center justify-between border-b border-slate-100 pb-4">
                 <h3 className="text-sm font-bold text-slate-900">Filters</h3>
@@ -72,7 +72,9 @@ export default function ProductFilterSidebar({
                                     checked={category === cat.name}
                                     onChange={() => setCategory(cat.name)}
                                 />
-                                {category === cat.name && <Check size={14} className="text-emerald-600" />}
+                                {category === cat.name && (
+                                    <Check size={14} className="text-emerald-600" />
+                                )}
                             </label>
                         ))}
                     </div>
@@ -136,7 +138,9 @@ export default function ProductFilterSidebar({
                         ].map((time) => (
                             <button
                                 key={time.val}
-                                onClick={() => setMaxDispatchDays(maxDispatchDays === time.val ? '' : time.val)}
+                                onClick={() =>
+                                    setMaxDispatchDays(maxDispatchDays === time.val ? '' : time.val)
+                                }
                                 className={`rounded-lg border px-3 py-2 text-left text-sm transition-all ${maxDispatchDays === time.val ? 'border-slate-900 bg-slate-900 font-bold text-white' : 'border-slate-200 bg-white font-medium text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
                             >
                                 {time.label}
@@ -151,14 +155,18 @@ export default function ProductFilterSidebar({
                         <span className="flex items-center gap-2 text-sm font-semibold text-slate-700 transition-colors group-hover:text-slate-900">
                             <ShieldCheck size={16} className="text-blue-600" /> Verified Vendors
                         </span>
-                        <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${verifiedOnly ? 'bg-blue-600' : 'bg-slate-200'}`}>
+                        <div
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${verifiedOnly ? 'bg-blue-600' : 'bg-slate-200'}`}
+                        >
                             <input
                                 type="checkbox"
                                 className="sr-only"
                                 checked={verifiedOnly}
                                 onChange={() => setVerifiedOnly(!verifiedOnly)}
                             />
-                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${verifiedOnly ? 'translate-x-4.5' : 'translate-x-1'}`} />
+                            <span
+                                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${verifiedOnly ? 'translate-x-4.5' : 'translate-x-1'}`}
+                            />
                         </div>
                     </label>
                 </div>
@@ -169,21 +177,27 @@ export default function ProductFilterSidebar({
                         <span className="flex items-center gap-2 text-sm font-semibold text-slate-700 transition-colors group-hover:text-slate-900">
                             <Zap size={16} className="text-amber-500" /> Ready to Ship
                         </span>
-                        <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${b2bFilters.readyToShip ? 'bg-amber-500' : 'bg-slate-200'}`}>
+                        <div
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${b2bFilters.readyToShip ? 'bg-amber-500' : 'bg-slate-200'}`}
+                        >
                             <input
                                 type="checkbox"
                                 className="sr-only"
                                 checked={b2bFilters.readyToShip}
-                                onChange={() => setB2bFilters((p) => ({ ...p, readyToShip: !p.readyToShip }))}
+                                onChange={() =>
+                                    setB2bFilters((p) => ({ ...p, readyToShip: !p.readyToShip }))
+                                }
                             />
-                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${b2bFilters.readyToShip ? 'translate-x-4.5' : 'translate-x-1'}`} />
+                            <span
+                                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${b2bFilters.readyToShip ? 'translate-x-4.5' : 'translate-x-1'}`}
+                            />
                         </div>
                     </label>
                 </div>
 
                 {/* Top Vendors Selection */}
                 <div className="space-y-3 border-t border-slate-100 pt-5 pb-4">
-                    <h4 className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <h4 className="flex items-center gap-2 text-xs font-bold tracking-wider text-slate-700 uppercase">
                         Top Verified Brands
                     </h4>
                     <div className="flex flex-col gap-1">
@@ -191,7 +205,7 @@ export default function ProductFilterSidebar({
                             <button
                                 key={v}
                                 onClick={() => setB2bFilters((p) => ({ ...p, vendor: v }))}
-                                className={`rounded-lg px-3 py-2 text-left text-sm transition-all ${b2bFilters.vendor === v ? 'bg-slate-900 font-extrabold text-white shadow-md' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'}`}
+                                className={`rounded-lg px-3 py-2 text-left text-sm transition-all ${b2bFilters.vendor === v ? 'bg-slate-900 font-extrabold text-white shadow-md' : 'font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
                             >
                                 {v === 'all' ? 'All Vendors' : v}
                             </button>

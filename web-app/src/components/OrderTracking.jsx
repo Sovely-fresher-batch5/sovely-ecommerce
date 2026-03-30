@@ -37,7 +37,8 @@ const OrderTracking = () => {
                     setUpdatedPhone(res.data.data.endCustomerDetails.phone);
                 }
             } catch (err) {
-                if (!silent) setError(err.response?.data?.message || 'Failed to load order details');
+                if (!silent)
+                    setError(err.response?.data?.message || 'Failed to load order details');
             } finally {
                 if (!silent) setLoading(false);
             }
@@ -152,7 +153,13 @@ const OrderTracking = () => {
                                 const history =
                                     order.statusHistory && order.statusHistory.length > 0
                                         ? [...order.statusHistory].reverse()
-                                        : [{ status: order.status, comment: 'Current order status', date: order.updatedAt || order.createdAt }];
+                                        : [
+                                              {
+                                                  status: order.status,
+                                                  comment: 'Current order status',
+                                                  date: order.updatedAt || order.createdAt,
+                                              },
+                                          ];
                                 return history.map((entry, idx) => (
                                     <div key={idx} className="relative">
                                         <div

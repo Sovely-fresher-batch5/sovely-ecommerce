@@ -114,7 +114,7 @@ const AdminDashboard = () => {
                         layoutId="pageTitle"
                         className="mb-8 text-3xl font-black tracking-tight text-slate-900 capitalize drop-shadow-sm"
                     >
-                        {ADMIN_TABS.find(t => t.id === activeTab)?.label || 'Admin Dashboard'}
+                        {ADMIN_TABS.find((t) => t.id === activeTab)?.label || 'Admin Dashboard'}
                     </motion.h2>
 
                     <AnimatePresence mode="wait">

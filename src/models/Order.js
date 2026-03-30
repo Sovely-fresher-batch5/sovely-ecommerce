@@ -16,6 +16,9 @@ const orderItemSnapshotSchema = new mongoose.Schema(
         taxAmountPerUnit: { type: Number, required: true },
         gstSlab: { type: Number, required: true },
         shippingCost: { type: Number, required: true },
+        actualWeight: { type: Number, required: true, default: 0 },
+        volumetricWeight: { type: Number, required: true, default: 0 },
+        billableWeight: { type: Number, required: true, default: 0 },
     },
     { _id: false }
 );
@@ -97,6 +100,10 @@ const orderSchema = new mongoose.Schema(
         shippingTotal: { type: Number, required: true, default: 0 },
         codCharge: { type: Number, required: true, default: 0 },
         totalPlatformCost: { type: Number, required: true },
+        totalActualWeight: { type: Number, default: 0 },
+        totalVolumetricWeight: { type: Number, default: 0 },
+        totalBillableWeight: { type: Number, default: 0 },
+        weightType: { type: String, enum: ['ACTUAL', 'VOLUMETRIC'] },
 
         amountToCollect: { type: Number, required: true },
         resellerProfitMargin: { type: Number, required: true },

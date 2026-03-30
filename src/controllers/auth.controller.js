@@ -176,7 +176,10 @@ export const loginUser = asyncHandler(async (req, res) => {
     // FIX: Check user existence and soft-delete status in JS memory
     // to avoid MongoDB null vs undefined field matching quirks.
     if (!user || user.deletedAt) {
-        throw new ApiError(404, `No account found with this ${cleanEmail ? 'email' : 'phone number'}`);
+        throw new ApiError(
+            404,
+            `No account found with this ${cleanEmail ? 'email' : 'phone number'}`
+        );
     }
 
     const isPasswordValid = await user.isPasswordCorrect(password);

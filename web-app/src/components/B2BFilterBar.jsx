@@ -27,7 +27,12 @@ function B2BFilterBar({ filters, onFilterChange, className = '' }) {
                 </select>
                 <div className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-slate-400">
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M19 9l-7 7-7-7"
+                        />
                     </svg>
                 </div>
             </div>
@@ -60,7 +65,12 @@ function B2BFilterBar({ filters, onFilterChange, className = '' }) {
                             : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50'
                     }`}
                 >
-                    <Zap size={16} className={filters.readyToShip ? 'fill-amber-500 text-amber-500' : 'text-slate-400'} />
+                    <Zap
+                        size={16}
+                        className={
+                            filters.readyToShip ? 'fill-amber-500 text-amber-500' : 'text-slate-400'
+                        }
+                    />
                     Ready to Dispatch
                 </button>
 
@@ -72,7 +82,10 @@ function B2BFilterBar({ filters, onFilterChange, className = '' }) {
                             : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
                     }`}
                 >
-                    <ShieldCheck size={16} className={filters.lowRtoRisk ? 'text-blue-600' : 'text-slate-400'} />
+                    <ShieldCheck
+                        size={16}
+                        className={filters.lowRtoRisk ? 'text-blue-600' : 'text-slate-400'}
+                    />
                     Low RTO Risk
                 </button>
             </div>

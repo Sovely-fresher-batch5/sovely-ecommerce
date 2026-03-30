@@ -85,6 +85,11 @@ const calculateFreightAndPackaging = (product, qty) => {
         deliveryCharge,
         packingCharge,
         totalShippingCost: deliveryCharge + packingCharge,
+        // --- NEW: Expose the math ---
+        actualWeightKg,
+        volWeightKg,
+        chargeableWeightPerUnit,
+        totalWt, // This is the billable weight for this line item
     };
 };
 
@@ -94,8 +99,18 @@ const recalculateCart = async (cart) => {
     let totalShippingCost = 0;
     let totalExpectedProfit = 0;
 
-    for (let item of cart.items) {
-        const product = await Product.findById(item.productId);
+    // --- NEW: Tracking aggregations ---
+    let totalActualWeight = 0;
+    let totalVolumetricWeight = 0;
+    let totalBillableWeight = 0;
+
+    for (let i = 0; i < cart.items.length; i++) {
+        let item = cart.items[i];
+
+        if (!item.productId) continue;
+
+        const productId = item.productId._id ? item.productId._id : item.productId;
+        const product = await Product.findById(productId);
 
         if (!product || product.status !== 'active') {
             item.toBeRemoved = true;
@@ -122,19 +137,19 @@ const recalculateCart = async (cart) => {
         item.gstSlab = product.gstSlab;
         item.taxAmountPerUnit = Number(((unitCost * product.gstSlab) / 100).toFixed(2));
 
-        // --- APPLIED NEW LOGISTICS ENGINE ---
-        const { totalShippingCost: itemShippingCost } = calculateFreightAndPackaging(
-            product,
-            item.qty
-        );
-        item.shippingCost = itemShippingCost;
+        // --- UPDATED: Catch the weight metrics ---
+        const freightData = calculateFreightAndPackaging(product, item.qty);
+        item.shippingCost = freightData.totalShippingCost;
+
+        item.actualWeight = freightData.actualWeightKg * item.qty;
+        item.volumetricWeight = freightData.volWeightKg * item.qty;
+        item.billableWeight = freightData.totalWt;
 
         item.totalItemPlatformCost = Number(
             ((unitCost + item.taxAmountPerUnit) * item.qty).toFixed(2)
         );
 
         if (item.orderType === 'DROPSHIP') {
-            // Minimum selling price = Platform Cost + Tax + Shipping
             const minimumSellingPrice =
                 unitCost + item.taxAmountPerUnit + item.shippingCost / item.qty;
 
@@ -153,6 +168,11 @@ const recalculateCart = async (cart) => {
         totalTax += item.taxAmountPerUnit * item.qty;
         totalShippingCost += item.shippingCost;
         totalExpectedProfit += item.expectedProfit;
+
+        // --- NEW: Aggregate totals ---
+        totalActualWeight += item.actualWeight;
+        totalVolumetricWeight += item.volumetricWeight;
+        totalBillableWeight += item.billableWeight;
     }
 
     cart.items = cart.items.filter((item) => !item.toBeRemoved);
@@ -162,6 +182,12 @@ const recalculateCart = async (cart) => {
     cart.totalShippingCost = Number(totalShippingCost.toFixed(2));
     cart.grandTotalPlatformCost = Number((subTotal + totalTax + totalShippingCost).toFixed(2));
     cart.totalExpectedProfit = Number(totalExpectedProfit.toFixed(2));
+
+    // --- NEW: Save cart-level weights to the document ---
+    cart.totalActualWeight = Number(totalActualWeight.toFixed(3));
+    cart.totalVolumetricWeight = Number(totalVolumetricWeight.toFixed(3));
+    cart.totalBillableWeight = Number(totalBillableWeight.toFixed(3));
+    cart.weightType = totalVolumetricWeight > totalActualWeight ? 'VOLUMETRIC' : 'ACTUAL';
 
     return cart;
 };
@@ -206,7 +232,7 @@ export const addToCart = asyncHandler(async (req, res) => {
     }
 
     const existingItemIndex = cart.items.findIndex(
-        (item) => item.productId.toString() === productId && item.orderType === orderType
+        (item) => item.productId.toString() === String(productId) && item.orderType === orderType
     );
 
     if (existingItemIndex > -1) {
@@ -287,4 +313,28 @@ export const removeFromCart = asyncHandler(async (req, res) => {
     );
 
     return res.status(200).json(new ApiResponse(200, populatedCart, 'Item removed from cart'));
+});
+
+export const clearCart = asyncHandler(async (req, res) => {
+    // Forcefully wipe the cart at the DB level and return the newly empty document
+    const emptyCart = await Cart.findOneAndUpdate(
+        { resellerId: req.user._id },
+        {
+            $set: {
+                items: [],
+                subTotalPlatformCost: 0,
+                totalTax: 0,
+                totalShippingCost: 0,
+                grandTotalPlatformCost: 0,
+                totalExpectedProfit: 0,
+            },
+        },
+        { new: true } // Returns the updated, empty document
+    );
+
+    if (!emptyCart) {
+        throw new ApiError(404, 'Cart not found to clear');
+    }
+
+    return res.status(200).json(new ApiResponse(200, emptyCart, 'Cart cleared successfully'));
 });

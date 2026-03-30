@@ -69,6 +69,9 @@ export const createOrder = asyncHandler(async (req, res) => {
                 taxAmountPerUnit: item.taxAmountPerUnit,
                 gstSlab: item.gstSlab,
                 shippingCost: item.shippingCost || 0,
+                actualWeight: item.actualWeight || 0,
+                volumetricWeight: item.volumetricWeight || 0,
+                billableWeight: item.billableWeight || 0,
             };
 
             if (item.orderType === 'DROPSHIP') {
@@ -99,7 +102,15 @@ export const createOrder = asyncHandler(async (req, res) => {
 
             const whOrderId = `OD-WH-${Math.floor(1000000 + Math.random() * 9000000)}`;
             generatedOrderIds.push(whOrderId);
-
+            const whActualWeight = wholesaleItems.reduce((acc, item) => acc + item.actualWeight, 0);
+            const whVolWeight = wholesaleItems.reduce(
+                (acc, item) => acc + item.volumetricWeight,
+                0
+            );
+            const whBillableWeight = wholesaleItems.reduce(
+                (acc, item) => acc + item.billableWeight,
+                0
+            );
             ordersToCreate.push({
                 orderId: whOrderId,
                 resellerId,
@@ -109,6 +120,13 @@ export const createOrder = asyncHandler(async (req, res) => {
                 taxTotal: whTaxTotal,
                 shippingTotal: whShippingTotal,
                 totalPlatformCost: whTotalCost,
+
+                // Assign wholesale weights
+                totalActualWeight: whActualWeight,
+                totalVolumetricWeight: whVolWeight,
+                totalBillableWeight: whBillableWeight,
+                weightType: whVolWeight > whActualWeight ? 'VOLUMETRIC' : 'ACTUAL',
+
                 amountToCollect: 0,
                 resellerProfitMargin: 0,
                 items: wholesaleItems,
@@ -149,6 +167,13 @@ export const createOrder = asyncHandler(async (req, res) => {
                 resellerProfitMargin = amountToCollect - dsTotalCost;
             }
 
+            const dsActualWeight = dropshipItems.reduce((acc, item) => acc + item.actualWeight, 0);
+            const dsVolWeight = dropshipItems.reduce((acc, item) => acc + item.volumetricWeight, 0);
+            const dsBillableWeight = dropshipItems.reduce(
+                (acc, item) => acc + item.billableWeight,
+                0
+            );
+
             ordersToCreate.push({
                 orderId: dsOrderId,
                 resellerId,
@@ -158,8 +183,15 @@ export const createOrder = asyncHandler(async (req, res) => {
                 subTotal: dsSubTotal,
                 taxTotal: dsTaxTotal,
                 shippingTotal: dsShippingTotal,
-                codCharge, // <-- Save snapshot
+                codCharge,
                 totalPlatformCost: dsTotalCost,
+
+                // Assign dropship weights
+                totalActualWeight: dsActualWeight,
+                totalVolumetricWeight: dsVolWeight,
+                totalBillableWeight: dsBillableWeight,
+                weightType: dsVolWeight > dsActualWeight ? 'VOLUMETRIC' : 'ACTUAL',
+
                 amountToCollect,
                 resellerProfitMargin,
                 items: dropshipItems,
@@ -171,6 +203,7 @@ export const createOrder = asyncHandler(async (req, res) => {
                 ],
             });
         }
+
         const createdOrders = await Order.insertMany(ordersToCreate, { session });
 
         for (const orderDoc of createdOrders) {
@@ -364,7 +397,9 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
                 });
                 order.status = 'PROFIT_CREDITED';
                 await order.save();
-                return res.status(200).json(new ApiResponse(200, order, 'Order delivered and profit credited'));
+                return res
+                    .status(200)
+                    .json(new ApiResponse(200, order, 'Order delivered and profit credited'));
             } catch (error) {
                 await session.abortTransaction();
                 session.endSession();

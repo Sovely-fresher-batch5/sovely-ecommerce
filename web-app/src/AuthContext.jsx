@@ -54,7 +54,8 @@ export const AuthProvider = ({ children }) => {
             return { success: true, user: response.data.data.user };
         } catch (error) {
             console.error('FULL LOGIN ERROR:', error);
-            const message = error.response?.data?.message || `Network or Server Error: ${error.message}`;
+            const message =
+                error.response?.data?.message || `Network or Server Error: ${error.message}`;
             return { success: false, message };
         }
     };
