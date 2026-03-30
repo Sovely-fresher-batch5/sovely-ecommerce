@@ -160,8 +160,11 @@ export const updateKycStatus = asyncHandler(async (req, res) => {
     if (kycStatus === 'APPROVED') {
         updateData.isActive = true; // Auto-activate on approval
         updateData.kycRejectionReason = null; // Clear any old rejection reason
+        updateData.role = 'RESELLER'; // Upgrade to full reseller
+        updateData.isVerifiedB2B = true; // Mark as verified B2B
     } else if (kycStatus === 'REJECTED') {
         updateData.kycRejectionReason = kycRejectionReason || 'Details do not match our records.';
+        updateData.isVerifiedB2B = false; // Revoke if rejected
     }
 
     const user = await User.findByIdAndUpdate(req.params.id, updateData, { new: true }).select(

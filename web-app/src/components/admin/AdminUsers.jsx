@@ -311,10 +311,10 @@ const AdminUsers = () => {
                                                             <Edit2 size={16} />
                                                         </button>
 
-                                                        {u.accountType === 'B2B' && (
+                                                        {(u.accountType === 'B2B' || u.gstin || u.panNumber || u.companyName) && (
                                                             <button
                                                                 onClick={() => setViewKycUser(u)}
-                                                                title="Review KYC Details"
+                                                                title="Review Business KYC"
                                                                 className="flex items-center gap-1 rounded-lg bg-blue-100 px-3 py-1.5 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-200"
                                                             >
                                                                 <FileSearch size={14} /> Review KYC

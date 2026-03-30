@@ -29,20 +29,23 @@ const OrderTracking = () => {
     const [submittingNdr, setSubmittingNdr] = useState(false);
 
     useEffect(() => {
-        const fetchOrder = async () => {
+        const fetchOrder = async (silent = false) => {
             try {
                 const res = await api.get(`/orders/${id}`);
                 setOrder(res.data.data);
-                if (res.data.data?.endCustomerDetails?.phone) {
+                if (res.data.data?.endCustomerDetails?.phone && !silent) {
                     setUpdatedPhone(res.data.data.endCustomerDetails.phone);
                 }
             } catch (err) {
-                setError(err.response?.data?.message || 'Failed to load order details');
+                if (!silent) setError(err.response?.data?.message || 'Failed to load order details');
             } finally {
-                setLoading(false);
+                if (!silent) setLoading(false);
             }
         };
         fetchOrder();
+        // Poll every 15s so status updates are reflected without a manual refresh
+        const interval = setInterval(() => fetchOrder(true), 15000);
+        return () => clearInterval(interval);
     }, [id]);
 
     const handleNdrSubmit = async (e) => {
@@ -144,26 +147,33 @@ const OrderTracking = () => {
                             Tracking History
                         </h2>
                         <div className="relative space-y-8 border-l-2 border-slate-100 pl-4">
-                            {[...order.statusHistory].reverse().map((history, idx) => (
-                                <div key={idx} className="relative">
-                                    <div
-                                        className={`absolute -left-[27px] flex h-8 w-8 items-center justify-center rounded-full border-4 border-white ${getStatusColor(history.status)} shadow-sm`}
-                                    >
-                                        {getStatusIcon(history.status)}
+                            {(() => {
+                                // For legacy orders with empty statusHistory, show current status as fallback
+                                const history =
+                                    order.statusHistory && order.statusHistory.length > 0
+                                        ? [...order.statusHistory].reverse()
+                                        : [{ status: order.status, comment: 'Current order status', date: order.updatedAt || order.createdAt }];
+                                return history.map((entry, idx) => (
+                                    <div key={idx} className="relative">
+                                        <div
+                                            className={`absolute -left-[27px] flex h-8 w-8 items-center justify-center rounded-full border-4 border-white ${getStatusColor(entry.status)} shadow-sm`}
+                                        >
+                                            {getStatusIcon(entry.status)}
+                                        </div>
+                                        <div className="pl-6">
+                                            <h3 className="text-sm font-black tracking-wider text-slate-900 uppercase">
+                                                {entry.status.replace(/_/g, ' ')}
+                                            </h3>
+                                            <p className="mt-1 text-sm font-medium text-slate-500">
+                                                {entry.comment}
+                                            </p>
+                                            <p className="mt-1 text-xs font-bold text-slate-400">
+                                                {new Date(entry.date).toLocaleString('en-IN')}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="pl-6">
-                                        <h3 className="text-sm font-black tracking-wider text-slate-900 uppercase">
-                                            {history.status.replace('_', ' ')}
-                                        </h3>
-                                        <p className="mt-1 text-sm font-medium text-slate-500">
-                                            {history.comment}
-                                        </p>
-                                        <p className="mt-1 text-xs font-bold text-slate-400">
-                                            {new Date(history.date).toLocaleString('en-IN')}
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
+                                ));
+                            })()}
                         </div>
                     </div>
 

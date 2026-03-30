@@ -350,13 +350,21 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
                     { session }
                 );
 
-                order.statusHistory.push({
-                    status: 'PROFIT_CREDITED',
-                    comment: `₹${order.resellerProfitMargin} added to wallet`,
-                });
-
                 await session.commitTransaction();
                 session.endSession();
+
+                // Push both status entries into tracking history
+                order.statusHistory.push({
+                    status: 'DELIVERED',
+                    comment: 'Order delivered to customer',
+                });
+                order.statusHistory.push({
+                    status: 'PROFIT_CREDITED',
+                    comment: `Rs.${order.resellerProfitMargin} profit margin credited to your wallet`,
+                });
+                order.status = 'PROFIT_CREDITED';
+                await order.save();
+                return res.status(200).json(new ApiResponse(200, order, 'Order delivered and profit credited'));
             } catch (error) {
                 await session.abortTransaction();
                 session.endSession();
@@ -367,6 +375,24 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
             }
         }
     }
+
+    // Record every status change in tracking history
+    const statusComment = {
+        PENDING: 'Order placed and awaiting confirmation',
+        PROCESSING: 'Order is being processed and packed',
+        SHIPPED: awbNumber
+            ? `Order shipped via ${courierName || 'courier'} (AWB: ${awbNumber})`
+            : 'Order shipped',
+        NDR: `Delivery attempt failed: ${ndrReason || 'Customer Unavailable'}`,
+        DELIVERED: 'Order delivered to customer',
+        RTO: 'Order returned to origin (RTO)',
+        CANCELLED: 'Order has been cancelled',
+    };
+
+    order.statusHistory.push({
+        status,
+        comment: statusComment[status] || `Status updated to ${status}`,
+    });
 
     order.status = status;
     await order.save();

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
     Search,
     Filter,
@@ -29,6 +30,7 @@ const AdminOrders = () => {
     const [filterOption, setFilterOption] = useState('ALL');
 
     const [selectedOrder, setSelectedOrder] = useState(null);
+    const [viewMode, setViewMode] = useState(false);
     const [editForm, setEditForm] = useState({});
     const [isSaving, setIsSaving] = useState(false);
 
@@ -268,6 +270,7 @@ const AdminOrders = () => {
                                                 <button
                                                     onClick={() => {
                                                         setSelectedOrder(order);
+                                                        setViewMode(isCompleted);
                                                         setEditForm({
                                                             status: order.status,
                                                             courierName:
@@ -318,7 +321,8 @@ const AdminOrders = () => {
                 </button>
             </div>
 
-            {/* Solid Fast-Slide Modal */}
+            {/* Modal rendered via portal to escape parent overflow/transform clipping */}
+            {createPortal(
             <AnimatePresence>
                 {selectedOrder && (
                     <>
@@ -362,7 +366,7 @@ const AdminOrders = () => {
                                             Platform Cost
                                         </p>
                                         <p className="text-lg font-black text-slate-900">
-                                            ₹{selectedOrder.totalPlatformCost}
+                                            ₹{selectedOrder.totalPlatformCost?.toLocaleString('en-IN')}
                                         </p>
                                         <p className="text-[9px] font-bold text-slate-400">
                                             Pre-deducted
@@ -375,7 +379,7 @@ const AdminOrders = () => {
                                                 COD Collect
                                             </p>
                                             <p className="text-lg font-black text-amber-900">
-                                                ₹{selectedOrder.amountToCollect}
+                                                ₹{selectedOrder.amountToCollect?.toLocaleString('en-IN')}
                                             </p>
                                             <p className="text-[9px] font-bold text-amber-700">
                                                 Must collect on delivery
@@ -431,113 +435,162 @@ const AdminOrders = () => {
                                     </div>
                                 </div>
 
-                                {/* Action Form */}
-                                <div className="border-t border-slate-200 pt-5">
-                                    <h4 className="mb-3 flex items-center gap-1.5 text-[10px] font-extrabold tracking-wider text-slate-400 uppercase">
-                                        <Package size={12} /> Status & Tracking Update
-                                    </h4>
-
-                                    <div className="flex flex-col gap-3">
-                                        <div>
-                                            <label className="mb-1 block text-[10px] font-bold text-slate-500 uppercase">
-                                                Update Status
-                                            </label>
-                                            <select
-                                                value={editForm.status}
-                                                onChange={(e) =>
-                                                    setEditForm({
-                                                        ...editForm,
-                                                        status: e.target.value,
-                                                    })
-                                                }
-                                                className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs font-bold text-slate-900 outline-none focus:border-slate-600 focus:ring-1 focus:ring-slate-600"
-                                            >
-                                                <option value="PENDING">Pending (New)</option>
-                                                <option value="PROCESSING">
-                                                    Processing (Packing)
-                                                </option>
-                                                <option value="SHIPPED">
-                                                    Shipped (In Transit)
-                                                </option>
-                                                <option value="NDR">
-                                                    NDR (Failed Delivery Attempt)
-                                                </option>
-                                                <option value="DELIVERED">
-                                                    Delivered (Releases Profit)
-                                                </option>
-                                                <option value="CANCELLED">Cancelled</option>
-                                            </select>
-                                            {editForm.status === 'DELIVERED' && (
-                                                <p className="mt-1 flex items-center gap-1 text-[10px] font-bold text-emerald-600">
-                                                    <TrendingUp size={10} /> Warning: Will instantly
-                                                    credit ₹{selectedOrder.resellerProfitMargin} to
-                                                    reseller wallet.
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        {(editForm.status === 'SHIPPED' ||
-                                            editForm.status === 'DELIVERED' ||
-                                            editForm.status === 'NDR') && (
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <div>
-                                                    <label className="mb-1 block text-[10px] font-bold text-slate-500 uppercase">
-                                                        Courier Partner
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        placeholder="e.g. Delhivery"
-                                                        value={editForm.courierName}
-                                                        onChange={(e) =>
-                                                            setEditForm({
-                                                                ...editForm,
-                                                                courierName: e.target.value,
-                                                            })
-                                                        }
-                                                        className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs font-bold text-slate-900 outline-none focus:border-slate-600"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="mb-1 block text-[10px] font-bold text-slate-500 uppercase">
-                                                        AWB Number
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        placeholder="e.g. AWB123456"
-                                                        value={editForm.awbNumber}
-                                                        onChange={(e) =>
-                                                            setEditForm({
-                                                                ...editForm,
-                                                                awbNumber: e.target.value,
-                                                            })
-                                                        }
-                                                        className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs font-bold text-slate-900 outline-none focus:border-slate-600"
-                                                    />
+                                {/* VIEW MODE: Order Items + Tracking History */}
+                                {viewMode && (
+                                    <>
+                                        {selectedOrder.items && selectedOrder.items.length > 0 && (
+                                            <div>
+                                                <h4 className="mb-2 flex items-center gap-1.5 text-[10px] font-extrabold tracking-wider text-slate-400 uppercase">
+                                                    <Package size={12} /> Items ({selectedOrder.items.length})
+                                                </h4>
+                                                <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                                                    {selectedOrder.items.map((item, i) => (
+                                                        <div key={i} className="flex items-center gap-3 p-3">
+                                                            {item.image ? (
+                                                                <img src={item.image} alt={item.title} className="h-10 w-10 flex-shrink-0 rounded-lg border border-slate-200 object-cover" />
+                                                            ) : (
+                                                                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-100">
+                                                                    <Package size={14} className="text-slate-400" />
+                                                                </div>
+                                                            )}
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="truncate text-xs font-bold text-slate-900">{item.title}</p>
+                                                                <p className="text-[10px] font-bold text-slate-400">SKU: {item.sku} &nbsp;·&nbsp; Qty: {item.qty}</p>
+                                                            </div>
+                                                            <p className="shrink-0 text-xs font-black text-slate-700">₹{item.platformBasePrice?.toLocaleString('en-IN')}</p>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
                                         )}
 
-                                        {editForm.status === 'NDR' && (
+                                        {selectedOrder.statusHistory && selectedOrder.statusHistory.length > 0 && (
                                             <div>
-                                                <label className="mb-1 flex items-center gap-1 text-[10px] font-bold text-amber-700 uppercase">
-                                                    <AlertOctagon size={10} /> NDR Reason
+                                                <h4 className="mb-3 flex items-center gap-1.5 text-[10px] font-extrabold tracking-wider text-slate-400 uppercase">
+                                                    <TrendingUp size={12} /> Tracking Timeline
+                                                </h4>
+                                                <div className="relative space-y-4 border-l-2 border-slate-100 pl-5">
+                                                    {[...selectedOrder.statusHistory].reverse().map((h, i) => (
+                                                        <div key={i} className="relative">
+                                                            <div className={`absolute -left-[23px] flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-[8px] font-black text-white shadow-sm ${
+                                                                h.status === 'DELIVERED' || h.status === 'PROFIT_CREDITED' ? 'bg-emerald-500' :
+                                                                h.status === 'SHIPPED' ? 'bg-indigo-500' :
+                                                                h.status === 'NDR' ? 'bg-amber-500' :
+                                                                h.status === 'CANCELLED' || h.status === 'RTO' ? 'bg-red-500' :
+                                                                'bg-slate-400'
+                                                            }`}>●</div>
+                                                            <p className="text-[10px] font-extrabold tracking-wider text-slate-800 uppercase">{h.status.replace(/_/g, ' ')}</p>
+                                                            {h.comment && <p className="mt-0.5 text-[10px] text-slate-500">{h.comment}</p>}
+                                                            <p className="mt-0.5 text-[9px] font-bold text-slate-400">{new Date(h.date).toLocaleString('en-IN')}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {/* PROCESS MODE: Edit Form */}
+                                {!viewMode && (
+                                    <div className="border-t border-slate-200 pt-5">
+                                        <h4 className="mb-3 flex items-center gap-1.5 text-[10px] font-extrabold tracking-wider text-slate-400 uppercase">
+                                            <Package size={12} /> Status & Tracking Update
+                                        </h4>
+
+                                        <div className="flex flex-col gap-3">
+                                            <div>
+                                                <label className="mb-1 block text-[10px] font-bold text-slate-500 uppercase">
+                                                    Update Status
                                                 </label>
-                                                <input
-                                                    type="text"
-                                                    placeholder="e.g. Address not found"
-                                                    value={editForm.ndrReason || ''}
+                                                <select
+                                                    value={editForm.status}
                                                     onChange={(e) =>
                                                         setEditForm({
                                                             ...editForm,
-                                                            ndrReason: e.target.value,
+                                                            status: e.target.value,
                                                         })
                                                     }
-                                                    className="w-full rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs font-bold text-amber-900 outline-none focus:border-amber-500"
-                                                />
+                                                    className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs font-bold text-slate-900 outline-none focus:border-slate-600 focus:ring-1 focus:ring-slate-600"
+                                                >
+                                                    <option value="PENDING">Pending (New)</option>
+                                                    <option value="PROCESSING">Processing (Packing)</option>
+                                                    <option value="SHIPPED">Shipped (In Transit)</option>
+                                                    <option value="NDR">NDR (Failed Delivery Attempt)</option>
+                                                    <option value="DELIVERED">Delivered (Releases Profit)</option>
+                                                    <option value="CANCELLED">Cancelled</option>
+                                                </select>
+                                                {editForm.status === 'DELIVERED' && (
+                                                    <p className="mt-1 flex items-center gap-1 text-[10px] font-bold text-emerald-600">
+                                                        <TrendingUp size={10} /> Warning: Will instantly
+                                                        credit ₹{selectedOrder.resellerProfitMargin} to
+                                                        reseller wallet.
+                                                    </p>
+                                                )}
                                             </div>
-                                        )}
+
+                                            {(editForm.status === 'SHIPPED' ||
+                                                editForm.status === 'DELIVERED' ||
+                                                editForm.status === 'NDR') && (
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="mb-1 block text-[10px] font-bold text-slate-500 uppercase">
+                                                            Courier Partner
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="e.g. Delhivery"
+                                                            value={editForm.courierName}
+                                                            onChange={(e) =>
+                                                                setEditForm({
+                                                                    ...editForm,
+                                                                    courierName: e.target.value,
+                                                                })
+                                                            }
+                                                            className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs font-bold text-slate-900 outline-none focus:border-slate-600"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="mb-1 block text-[10px] font-bold text-slate-500 uppercase">
+                                                            AWB Number
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="e.g. AWB123456"
+                                                            value={editForm.awbNumber}
+                                                            onChange={(e) =>
+                                                                setEditForm({
+                                                                    ...editForm,
+                                                                    awbNumber: e.target.value,
+                                                                })
+                                                            }
+                                                            className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs font-bold text-slate-900 outline-none focus:border-slate-600"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {editForm.status === 'NDR' && (
+                                                <div>
+                                                    <label className="mb-1 flex items-center gap-1 text-[10px] font-bold text-amber-700 uppercase">
+                                                        <AlertOctagon size={10} /> NDR Reason
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="e.g. Address not found"
+                                                        value={editForm.ndrReason || ''}
+                                                        onChange={(e) =>
+                                                            setEditForm({
+                                                                ...editForm,
+                                                                ndrReason: e.target.value,
+                                                            })
+                                                        }
+                                                        className="w-full rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs font-bold text-amber-900 outline-none focus:border-amber-500"
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
 
                             {/* Sticky Footer */}
@@ -546,20 +599,23 @@ const AdminOrders = () => {
                                     onClick={() => setSelectedOrder(null)}
                                     className="flex-1 rounded-lg border border-slate-300 bg-white py-3 text-xs font-extrabold text-slate-600 hover:bg-slate-50"
                                 >
-                                    Cancel
+                                    {viewMode ? 'Close' : 'Cancel'}
                                 </button>
-                                <button
-                                    disabled={isSaving}
-                                    onClick={() => submitOrderUpdate(selectedOrder._id)}
-                                    className="flex-1 rounded-lg bg-slate-900 py-3 text-xs font-extrabold text-white hover:bg-slate-800 disabled:opacity-50"
-                                >
-                                    {isSaving ? 'Processing...' : 'Save Update'}
-                                </button>
+                                {!viewMode && (
+                                    <button
+                                        disabled={isSaving}
+                                        onClick={() => submitOrderUpdate(selectedOrder._id)}
+                                        className="flex-1 rounded-lg bg-slate-900 py-3 text-xs font-extrabold text-white hover:bg-slate-800 disabled:opacity-50"
+                                    >
+                                        {isSaving ? 'Processing...' : 'Save Update'}
+                                    </button>
+                                )}
                             </div>
                         </motion.div>
                     </>
                 )}
             </AnimatePresence>
+            , document.body)}
         </div>
     );
 };

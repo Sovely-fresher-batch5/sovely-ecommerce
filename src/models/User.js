@@ -50,6 +50,7 @@ const userSchema = new mongoose.Schema(
             enum: ['PENDING', 'APPROVED', 'REJECTED'],
             default: 'PENDING',
         },
+        kycRejectionReason: { type: String, default: null },
 
         // Financials & Payouts
         walletBalance: { type: Number, default: 0 },

@@ -204,12 +204,12 @@ const AdminInvoices = () => {
                                         </td>
                                         <td className="p-4">
                                             <div className="line-clamp-1 font-bold text-slate-800">
-                                                {inv.buyerDetails?.companyName || 'Unknown Entity'}
+                                                {inv.billedTo?.companyName || 'Unknown Entity'}
                                             </div>
                                             <div className="text-[11px] font-bold text-slate-500">
                                                 GSTIN:{' '}
                                                 <span className="font-mono text-slate-600">
-                                                    {inv.buyerDetails?.gstin || 'N/A'}
+                                                    {inv.billedTo?.gstin || 'N/A'}
                                                 </span>
                                             </div>
                                         </td>
