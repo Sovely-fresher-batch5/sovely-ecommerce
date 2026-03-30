@@ -9,35 +9,12 @@ import { asyncHandler } from '../utils/asyncHandler.js';
  */
 export const createProduct = asyncHandler(async (req, res) => {
     const {
-        sku,
-        title,
-        descriptionHTML,
-        vendor,
-        categoryId,
-        images,
-        dropshipBasePrice,
-        suggestedRetailPrice,
-        tieredPricing,
-        weightGrams,
-        dimensions,
-        hsnCode,
-        gstSlab,
-        shippingDays,
-        inventory,
-        moq,
-        status,
-        tags,
+        sku, title, descriptionHTML, vendor, categoryId, images,
+        dropshipBasePrice, suggestedRetailPrice, tieredPricing, weightGrams,
+        dimensions, hsnCode, gstSlab, shippingDays, inventory, moq, status, tags,
     } = req.body;
 
-    // Basic B2B Validation
-    if (
-        !sku ||
-        !title ||
-        !dropshipBasePrice ||
-        !suggestedRetailPrice ||
-        !hsnCode ||
-        gstSlab === undefined
-    ) {
+    if (!sku || !title || !dropshipBasePrice || !suggestedRetailPrice || !hsnCode || gstSlab === undefined) {
         throw new ApiError(400, 'Missing mandatory B2B fields (SKU, Title, Prices, HSN, GST Slab)');
     }
 
@@ -47,27 +24,10 @@ export const createProduct = asyncHandler(async (req, res) => {
     }
 
     const product = await Product.create({
-        sku,
-        title,
-        descriptionHTML,
-        vendor,
-        categoryId,
-        images,
-        dropshipBasePrice,
-        suggestedRetailPrice,
-        tieredPricing,
-        weightGrams,
-        dimensions,
-        hsnCode,
-        gstSlab,
-        shippingDays,
-        inventory,
-        moq,
-        status,
-        tags,
+        sku, title, descriptionHTML, vendor, categoryId, images,
+        dropshipBasePrice, suggestedRetailPrice, tieredPricing, weightGrams,
+        dimensions, hsnCode, gstSlab, shippingDays, inventory, moq, status, tags,
     });
-
-    // Note: estimatedMarginPercent is auto-calculated by the Mongoose pre-save hook!
 
     return res.status(201).json(new ApiResponse(201, product, 'B2B Product created successfully'));
 });
@@ -78,31 +38,17 @@ export const createProduct = asyncHandler(async (req, res) => {
  */
 export const getProducts = asyncHandler(async (req, res) => {
     const {
-        search,
-        category,
-        minMargin,
-        maxBasePrice,
-        minBasePrice,
-        minMoq,
-        maxMoq,
-        inStock,
-        isDropship,
-        gstSlab, // NEW
-        maxShippingDays, // NEW
-        isVerifiedSupplier, // NEW
-        sort, // NEW
-        page = 1,
-        limit = 20,
+        search, category, minMargin, maxBasePrice, minBasePrice,
+        minMoq, maxMoq, inStock, isDropship, gstSlab, maxShippingDays,
+        isVerifiedSupplier, sort, page = 1, limit = 20,
     } = req.query;
 
     const query = { status: 'active', deletedAt: null };
     let projection = { '-__v': 0 };
 
-    // 1. Regex Text Search
     if (search) {
         const safeSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const searchRegex = new RegExp(safeSearch, 'i');
-
         query.$or = [
             { title: { $regex: searchRegex } },
             { sku: { $regex: searchRegex } },
@@ -111,21 +57,23 @@ export const getProducts = asyncHandler(async (req, res) => {
         ];
     }
 
-    // 2. Category Filter
     if (category) query.categoryId = category;
 
-    // 3. Profit Margin Filter
+    // FIX: Ensure margin comparisons are strictly treated as numbers
     if (minMargin) query.estimatedMarginPercent = { $gte: Number(minMargin) };
-    if (req.query.margin) query.estimatedMarginPercent = { $gte: Number(req.query.margin) };
+    if (req.query.margin) {
+        const marginVal = Number(req.query.margin);
+        if (marginVal > 0) {
+            query.estimatedMarginPercent = { $gte: marginVal };
+        }
+    }
 
-    // 4. Base Price Filters
     if (minBasePrice || maxBasePrice) {
         query.dropshipBasePrice = {};
         if (minBasePrice) query.dropshipBasePrice.$gte = Number(minBasePrice);
         if (maxBasePrice) query.dropshipBasePrice.$lte = Number(maxBasePrice);
     }
 
-    // 5. MOQ Filters
     if (minMoq || maxMoq) {
         query.moq = {};
         if (minMoq) query.moq.$gte = Number(minMoq);
@@ -136,23 +84,19 @@ export const getProducts = asyncHandler(async (req, res) => {
         query.moq = { $gt: 1 };
     }
 
-    // 6. Ready to Ship (In Stock) Filter
     if (inStock === 'true') {
         query['inventory.stock'] = { $gt: 0 };
     }
 
-    // 7. RTO Risk
     if (req.query.lowRtoRisk === 'true') {
         query.historicalRtoRate = { $lte: 10 };
     }
 
-    // 8. GST Slab
     if (gstSlab) {
         const slabs = gstSlab.split(',').map(Number);
         query.gstSlab = { $in: slabs };
     }
 
-    // 9. Dispatch Days
     if (maxShippingDays) {
         if (maxShippingDays === '1') {
             query.shippingDays = { $in: ['1', '1 Day', 'Same Day', '24h', 'Immediate'] };
@@ -163,20 +107,16 @@ export const getProducts = asyncHandler(async (req, res) => {
         }
     }
 
-    // 10. Verified Supplier
     if (isVerifiedSupplier === 'true') {
         query.isVerifiedSupplier = true;
     }
 
-    // 11. Specific Vendor Filter
     if (req.query.vendor) {
         query.vendor = req.query.vendor;
     }
 
-    // Setup Pagination & Sorting
     const skip = (Number(page) - 1) * Number(limit);
     
-    // Default sort
     let sortParams = { createdAt: -1 };
     if (sort === 'price-asc') sortParams = { dropshipBasePrice: 1 };
     if (sort === 'price-desc') sortParams = { dropshipBasePrice: -1 };
@@ -207,11 +147,10 @@ export const getProducts = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Get single product details (Includes Tiered Pricing for UI rendering)
+ * @desc    Get single product details
  * @route   GET /api/products/:id
  */
 export const getProductById = asyncHandler(async (req, res) => {
-    // FIX: Ensure we don't fetch soft-deleted products
     const product = await Product.findOne({ _id: req.params.id, deletedAt: null }).populate(
         'categoryId',
         'name slug'
@@ -221,9 +160,7 @@ export const getProductById = asyncHandler(async (req, res) => {
         throw new ApiError(404, 'Product not found or has been removed');
     }
 
-    return res
-        .status(200)
-        .json(new ApiResponse(200, product, 'Product details fetched successfully'));
+    return res.status(200).json(new ApiResponse(200, product, 'Product details fetched successfully'));
 });
 
 /**
@@ -231,19 +168,16 @@ export const getProductById = asyncHandler(async (req, res) => {
  * @route   PUT /api/products/:id
  */
 export const updateProduct = asyncHandler(async (req, res) => {
-    // FIX: Prevent updating a product that has been soft-deleted
     const product = await Product.findOne({ _id: req.params.id, deletedAt: null });
 
     if (!product) {
         throw new ApiError(404, 'Product not found or has been removed');
     }
 
-    // Update fields (Mongoose will trigger the pre-save hook to recalculate margins if prices change)
-    // FIX: Properly handle nested "inventory.stock" if sent as a flat key with dot-notation
     if (req.body['inventory.stock'] !== undefined) {
         if (!product.inventory) product.inventory = {};
         product.inventory.stock = Number(req.body['inventory.stock']);
-        delete req.body['inventory.stock']; // Don't let Object.assign try to add it as a root property
+        delete req.body['inventory.stock']; 
     }
 
     Object.assign(product, req.body);
@@ -257,30 +191,26 @@ export const updateProduct = asyncHandler(async (req, res) => {
  * @route   DELETE /api/products/:id
  */
 export const deleteProduct = asyncHandler(async (req, res) => {
-    // We don't use findByIdAndDelete because we need to preserve historical orders
     const product = await Product.findOne({ _id: req.params.id, deletedAt: null });
 
     if (!product) {
         throw new ApiError(404, 'Product not found or already deleted');
     }
 
-    // Apply Soft Delete
     product.deletedAt = new Date();
-    product.status = 'archived'; // Double safety to remove it from active queries
+    product.status = 'archived'; 
     await product.save();
 
-    return res
-        .status(200)
-        .json(new ApiResponse(200, null, 'Product successfully deleted (archived)'));
+    return res.status(200).json(new ApiResponse(200, null, 'Product successfully deleted (archived)'));
 });
+
 /**
- * @desc    Get ALL products (including inactive/deleted) for Admin Dashboard
+ * @desc    Get ALL products for Admin Dashboard
  * @route   GET /api/products/admin/all
  */
 export const getAllAdminProducts = asyncHandler(async (req, res) => {
     const { page = 1, limit = 20, search } = req.query;
 
-    // Admins need to see everything, so we don't filter out deletedAt or inactive status
     const query = {};
 
     if (search) {
@@ -296,7 +226,7 @@ export const getAllAdminProducts = asyncHandler(async (req, res) => {
     const skip = (Number(page) - 1) * Number(limit);
 
     const products = await Product.find(query)
-        .sort({ createdAt: -1 }) // Newest first
+        .sort({ createdAt: -1 }) 
         .skip(skip)
         .limit(Number(limit))
         .populate('categoryId', 'name');
@@ -322,37 +252,27 @@ export const getAllAdminProducts = asyncHandler(async (req, res) => {
 /**
  * @desc    Validate a bulk list of SKUs for B2B Quick Orders
  * @route   POST /api/products/validate-bulk
- * @access  Private (B2B/Reseller)
  */
 export const validateBulkOrder = asyncHandler(async (req, res) => {
-    const { skus } = req.body; // Expects an array of string SKUs
+    const { skus } = req.body; 
 
     if (!skus || !Array.isArray(skus) || skus.length === 0) {
         throw new ApiError(400, 'Please provide an array of SKUs to validate.');
     }
 
-    // Protect against massive payloads crashing the DB
     if (skus.length > 500) {
         throw new ApiError(400, 'Maximum 500 SKUs allowed per bulk validation request.');
     }
 
-    // Convert all to uppercase/trimmed to match DB format
     const cleanSkus = skus.map((sku) => sku.trim().toUpperCase());
 
-    // ONE QUERY: Find all matching active products
     const products = await Product.find({
         sku: { $in: cleanSkus },
         status: 'active',
         deletedAt: null,
-    }).select('sku title inventory.stock moq dropshipBasePrice platformSellPrice'); // Only return what we need for validation!
+    }).select('sku title inventory.stock moq dropshipBasePrice platformSellPrice'); 
 
-    return res
-        .status(200)
-        .json(
-            new ApiResponse(
-                200,
-                products,
-                `Validated ${products.length} out of ${skus.length} requested SKUs.`
-            )
-        );
+    return res.status(200).json(
+        new ApiResponse(200, products, `Validated ${products.length} out of ${skus.length} requested SKUs.`)
+    );
 });

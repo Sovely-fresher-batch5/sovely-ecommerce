@@ -19,7 +19,7 @@ import {
 import api from '../utils/api.js';
 import { useCartStore } from '../store/cartStore';
 import { AuthContext } from '../AuthContext';
-import LoadingScreen from './LoadingScreen';
+import LoadingScreen from './LoadingScreen'; // Assuming you have this component
 
 const dropshipCustomerSchema = z.object({
     name: z.string().trim().min(2, 'Name must be at least 2 characters'),
@@ -116,8 +116,8 @@ const Checkout = () => {
     const hasWholesale = cart.items.some((item) => item.orderType === 'WHOLESALE');
     const codFee = hasDropship && paymentMethod === 'COD' ? 35 : 0;
     const finalGrandTotal = cart.grandTotalPlatformCost + codFee;
-    const isWalletSufficient = user?.walletBalance >= cart.grandTotalPlatformCost;
-    const projectedBalance = (user?.walletBalance || 0) - (cart.grandTotalPlatformCost || 0);
+    const isWalletSufficient = user?.walletBalance >= finalGrandTotal;
+    const projectedBalance = (user?.walletBalance || 0) - (finalGrandTotal || 0);
 
     const handlePinCodeChange = async (e) => {
         const pin = e.target.value.replace(/\D/g, '').slice(0, 6);
@@ -145,15 +145,6 @@ const Checkout = () => {
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
         setError('');
-
-        const isB2BPending = user?.accountType === 'B2B' && !isKycApproved;
-
-        if (isB2BPending) {
-            setError(
-                'Business KYC must be approved to procure B2B inventory. Please complete your KYC verification in settings.'
-            );
-            return;
-        }
 
         if (!isWalletSufficient) {
             setError(
@@ -359,9 +350,7 @@ const Checkout = () => {
                                         <input
                                             type="text"
                                             value={customer.name}
-                                            onChange={(e) =>
-                                                handleInputChange('name', e.target.value)
-                                            }
+                                            onChange={(e) => handleInputChange('name', e.target.value)}
                                             className={`w-full rounded-xl border px-4 py-3.5 font-bold text-slate-900 transition-all outline-none focus:ring-2 ${
                                                 fieldErrors.name
                                                     ? 'border-red-400 bg-red-50 focus:border-red-400 focus:ring-red-200'
@@ -508,12 +497,12 @@ const Checkout = () => {
                                 </span>
                             </h3>
 
-                            {/* ITEM LIST (Fixed: Only shows item details, not global totals) */}
+                            {/* ITEM LIST (Layout fixed) */}
                             <div className="custom-scrollbar mb-6 max-h-[250px] space-y-4 overflow-y-auto pr-2">
                                 {cart.items.map((item, idx) => (
                                     <div
                                         key={idx}
-                                        className="flex gap-4 border-b border-slate-50 pb-4 last:border-0 last:pb-0"
+                                        className="flex gap-3 border-b border-slate-50 pb-4 last:border-0 last:pb-0"
                                     >
                                         <div className="relative shrink-0">
                                             <img
@@ -528,24 +517,27 @@ const Checkout = () => {
                                                 {item.qty}
                                             </span>
                                         </div>
+                                        {/* Fixed Layout: Changed to min-w-0 to allow text truncation */}
                                         <div className="flex min-w-0 flex-1 flex-col justify-center">
                                             <div className="mb-1 flex items-center gap-2">
                                                 {item.orderType === 'DROPSHIP' ? (
-                                                    <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[8px] font-extrabold text-amber-800 uppercase shadow-sm">
+                                                    <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[8px] font-extrabold text-amber-800 uppercase shadow-sm">
                                                         Drop
                                                     </span>
                                                 ) : (
-                                                    <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[8px] font-extrabold text-indigo-800 uppercase shadow-sm">
+                                                    <span className="shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 text-[8px] font-extrabold text-indigo-800 uppercase shadow-sm">
                                                         Bulk
                                                     </span>
                                                 )}
+                                                {/* Text truncation ensures it doesn't push the price off screen */}
                                                 <h4 className="truncate text-sm font-bold text-slate-900">
                                                     {item.productId?.title}
                                                 </h4>
                                             </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex flex-col">
-                                                    <p className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                                            {/* Fixed Layout: Ensured flex-wrap or shrinking prevents overlap */}
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex flex-col min-w-0">
+                                                    <p className="truncate text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                                                         ₹
                                                         {item.platformUnitCost?.toLocaleString(
                                                             'en-IN'
@@ -553,7 +545,7 @@ const Checkout = () => {
                                                         /ea
                                                     </p>
                                                     {item.shippingCost > 0 && (
-                                                        <p className="mt-0.5 text-[9px] font-bold tracking-wider text-slate-400 uppercase">
+                                                        <p className="truncate mt-0.5 text-[9px] font-bold tracking-wider text-slate-400 uppercase">
                                                             + ₹
                                                             {item.shippingCost?.toLocaleString(
                                                                 'en-IN'
@@ -562,7 +554,7 @@ const Checkout = () => {
                                                         </p>
                                                     )}
                                                 </div>
-                                                <span className="text-sm font-extrabold text-slate-900">
+                                                <span className="shrink-0 text-sm font-extrabold text-slate-900">
                                                     ₹
                                                     {item.totalItemPlatformCost?.toLocaleString(
                                                         'en-IN'
@@ -574,7 +566,7 @@ const Checkout = () => {
                                 ))}
                             </div>
 
-                            {/* TOTALS BREAKDOWN (Fixed: Order-level fees correctly placed here) */}
+                            {/* TOTALS BREAKDOWN */}
                             <div className="mb-5 space-y-3 border-y border-slate-100 py-5 text-sm">
                                 <div className="flex justify-between font-bold text-slate-500">
                                     <span>Platform Subtotal</span>
@@ -599,7 +591,7 @@ const Checkout = () => {
                                 {codFee > 0 && (
                                     <div className="flex justify-between font-bold text-amber-600">
                                         <span>Courier COD Fee</span>
-                                        <span>+ ₹35.00</span>
+                                        <span>+ ₹{codFee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                     </div>
                                 )}
 

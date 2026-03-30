@@ -1,5 +1,6 @@
 import React, { useState, useContext, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate, Link } from 'react-router-dom'; // ADDED useNavigate
 import {
     UploadCloud,
     FileText,
@@ -10,14 +11,15 @@ import {
     XCircle,
     FileSpreadsheet,
     Loader2,
+    ArrowLeft, // ADDED ArrowLeft
 } from 'lucide-react';
 import { useCartStore } from '../store/cartStore';
-import { Link } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
 import toast from 'react-hot-toast';
-import api from '../utils/api'; // Needed to fetch SKU actual IDs
+import api from '../utils/api';
 
 const QuickOrder = () => {
+    const navigate = useNavigate(); // Initialize useNavigate
     const { user, isKycApproved } = useContext(AuthContext);
     const isB2BPending = user?.accountType === 'B2B' && !isKycApproved;
 
@@ -42,7 +44,6 @@ const QuickOrder = () => {
         const rawItems = [];
         const skusToFetch = [];
 
-        // Step 1: Parse the text and gather SKUs
         lines.forEach((line) => {
             if (!line.trim()) return;
             const parts = line.split(',');
@@ -51,7 +52,7 @@ const QuickOrder = () => {
                 const qty = parseInt(parts[1].trim(), 10);
                 if (sku && !isNaN(qty) && qty > 0) {
                     rawItems.push({ sku, qty, status: 'pending' });
-                    skusToFetch.push(sku); // Collect SKU for the bulk query
+                    skusToFetch.push(sku);
                 } else {
                     rawItems.push({
                         sku: parts[0] || 'Unknown',
@@ -76,14 +77,12 @@ const QuickOrder = () => {
             return;
         }
 
-        // Step 2: The Ultra-Fast Bulk Database Query
         try {
             const res = await api.post('/products/validate-bulk', { skus: skusToFetch });
-            const dbProducts = res.data.data; // Array of valid products from the DB
+            const dbProducts = res.data.data;
 
-            // Step 3: Map the DB results back to the user's input to assign Statuses
             const validatedItems = rawItems.map((item) => {
-                if (item.status === 'error') return item; // Skip ones that already failed parsing
+                if (item.status === 'error') return item;
 
                 const dbProduct = dbProducts.find((p) => p.sku === item.sku);
 
@@ -139,7 +138,6 @@ const QuickOrder = () => {
         };
         reader.readAsText(file);
 
-        // Reset input so the same file can be selected again if needed
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -170,7 +168,6 @@ const QuickOrder = () => {
         setSkuInput('');
     };
 
-    // UI: Guardrail
     if (isB2BPending) {
         return (
             <main className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
@@ -203,6 +200,15 @@ const QuickOrder = () => {
 
     return (
         <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+            
+            {/* ADDED: Back Button */}
+            <button
+                onClick={() => navigate(-1)}
+                className="mb-6 flex w-fit items-center gap-2 rounded-lg px-2 py-1 text-sm font-bold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            >
+                <ArrowLeft size={16} /> Back
+            </button>
+
             <div className="mb-8">
                 <h1 className="text-3xl font-black tracking-tight text-slate-900">
                     Quick Order Pad
@@ -213,7 +219,6 @@ const QuickOrder = () => {
             </div>
 
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-                {/* LEFT: Input Area */}
                 <div className="space-y-6 lg:col-span-5">
                     <div className="flex gap-2 border-b border-slate-200 pb-px">
                         <button
@@ -297,7 +302,6 @@ const QuickOrder = () => {
                     )}
                 </div>
 
-                {/* RIGHT: Verification & Action Console */}
                 <div className="flex flex-col rounded-3xl border border-slate-200 bg-white shadow-sm lg:col-span-7">
                     <div className="rounded-t-3xl border-b border-slate-100 bg-slate-50 px-6 py-4">
                         <h3 className="flex items-center gap-2 text-lg font-extrabold text-slate-900">
@@ -330,7 +334,6 @@ const QuickOrder = () => {
                                     animate={{ opacity: 1 }}
                                     className="flex h-full flex-col"
                                 >
-                                    {/* Stats Banner */}
                                     <div className="mb-4 flex gap-4">
                                         <div className="flex-1 rounded-xl border border-emerald-100 bg-emerald-50 p-3">
                                             <p className="text-[10px] font-bold text-emerald-600 uppercase">
@@ -350,7 +353,6 @@ const QuickOrder = () => {
                                         </div>
                                     </div>
 
-                                    {/* Scrollable List */}
                                     <div
                                         className="custom-scrollbar mb-4 flex-1 overflow-y-auto pr-2"
                                         style={{ maxHeight: '400px' }}
@@ -360,9 +362,7 @@ const QuickOrder = () => {
                                                 <tr>
                                                     <th className="pt-1 pb-2 font-medium">SKU</th>
                                                     <th className="pt-1 pb-2 font-medium">Qty</th>
-                                                    <th className="pt-1 pb-2 font-medium">
-                                                        Status
-                                                    </th>
+                                                    <th className="pt-1 pb-2 font-medium">Status</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
@@ -403,7 +403,6 @@ const QuickOrder = () => {
                                         </table>
                                     </div>
 
-                                    {/* Action Button */}
                                     <div className="border-t border-slate-100 pt-4">
                                         <button
                                             onClick={handleBulkAdd}
@@ -412,13 +411,11 @@ const QuickOrder = () => {
                                         >
                                             {isProcessing ? (
                                                 <>
-                                                    <Loader2 size={18} className="animate-spin" />{' '}
-                                                    Pushing to Cart...
+                                                    <Loader2 size={18} className="animate-spin" /> Pushing to Cart...
                                                 </>
                                             ) : (
                                                 <>
-                                                    <ShoppingCart size={18} /> Push {validCount}{' '}
-                                                    Items to Cart
+                                                    <ShoppingCart size={18} /> Push {validCount} Items to Cart
                                                 </>
                                             )}
                                         </button>

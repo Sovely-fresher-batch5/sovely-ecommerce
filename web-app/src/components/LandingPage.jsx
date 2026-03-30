@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import DropshipProducts from './DropshipProducts';
+import DropshipProducts from '../pages/DropshipProducts';
 import B2BFilterBar from './B2BFilterBar';
 import { PackageSearch, Search, X } from 'lucide-react';
 

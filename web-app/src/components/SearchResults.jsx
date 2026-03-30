@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import DropshipProducts from './DropshipProducts';
+import DropshipProducts from '../pages/DropshipProducts';
 import { Search, ArrowLeft } from 'lucide-react';
 import { ROUTES } from '../utils/routes';
 
