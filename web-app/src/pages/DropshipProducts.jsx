@@ -18,6 +18,14 @@ const SORT_OPTIONS = [
     { value: 'margin', label: 'Highest Margin' },
 ];
 
+const DEFAULT_B2B_FILTERS = {
+    moq: 'all',
+    margin: 0,
+    readyToShip: false,
+    lowRtoRisk: false,
+    vendor: 'all',
+};
+
 const parseNonNegativeInt = (value) => {
     if (value === '' || value === undefined || value === null) return null;
     const parsed = Number(value);
@@ -29,6 +37,7 @@ export default function DropshipProducts({
     filters = {},
     globalSearchQuery = '',
     initialCategory = 'All Categories',
+    onResetB2bFilters,
 }) {
     const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
     const [viewMode, setViewMode] = useState('grid');
@@ -40,13 +49,7 @@ export default function DropshipProducts({
 
     const [maxDispatchDays, setMaxDispatchDays] = useState('');
     const [verifiedOnly, setVerifiedOnly] = useState(false);
-    const [b2bFilters, setB2bFilters] = useState({
-        moq: 'all',
-        margin: 0,
-        readyToShip: false,
-        lowRtoRisk: false,
-        vendor: 'all',
-    });
+    const [b2bFilters, setB2bFilters] = useState(DEFAULT_B2B_FILTERS);
 
     const debouncedMinPrice = useDebounce(minPrice, 500);
     const debouncedMaxPrice = useDebounce(maxPrice, 500);
@@ -54,14 +57,10 @@ export default function DropshipProducts({
     const stringifiedFilters = JSON.stringify(filters);
     useEffect(() => {
         const parsedFilters = JSON.parse(stringifiedFilters);
-        setB2bFilters((prev) => ({
-            ...prev,
-            moq: parsedFilters.moq || 'all',
-            margin: parsedFilters.margin || 0,
-            readyToShip: parsedFilters.readyToShip || false,
-            lowRtoRisk: parsedFilters.lowRtoRisk || false,
-            vendor: parsedFilters.vendor || 'all',
-        }));
+        setB2bFilters({
+            ...DEFAULT_B2B_FILTERS,
+            ...parsedFilters,
+        });
     }, [stringifiedFilters]);
 
     useEffect(() => {
@@ -201,6 +200,11 @@ export default function DropshipProducts({
         setCategory('All Categories');
         setSort('default');
         resetAdvancedFilters();
+        setB2bFilters(DEFAULT_B2B_FILTERS);
+
+        if (typeof onResetB2bFilters === 'function') {
+            onResetB2bFilters();
+        }
     };
 
     return (
