@@ -13,6 +13,8 @@ import {
 import { uploadImages } from '../middlewares/multer.middleware.js';
 
 import { verifyJWT, authorizeRoles } from '../middlewares/auth.middleware.js';
+import { validate } from '../middlewares/validate.middleware.js';
+import { userValidation } from '../validations/user.validation.js';
 
 const router = Router();
 
@@ -37,8 +39,13 @@ router.put('/admin/:id/toggle-status', verifyJWT, authorizeRoles('ADMIN'), toggl
 router.put('/admin/:id/role', verifyJWT, authorizeRoles('ADMIN'), updateUserRole);
 
 router.post('/avatar', verifyJWT, uploadImages.single('avatar'), updateAvatar);
-router.put('/profile', verifyJWT, updateMyProfile);
-router.put('/security/password', verifyJWT, updatePassword);
+router.put('/profile', verifyJWT, validate(userValidation.updateMyProfile), updateMyProfile);
+router.put(
+    '/security/password',
+    verifyJWT,
+    validate(userValidation.updatePassword),
+    updatePassword
+);
 router.put('/kyc-update', verifyJWT, updateKycDetails);
 
 export default router;

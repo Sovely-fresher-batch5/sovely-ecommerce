@@ -18,10 +18,26 @@ const SORT_OPTIONS = [
     { value: 'margin', label: 'Highest Margin' },
 ];
 
+const DEFAULT_B2B_FILTERS = {
+    moq: 'all',
+    margin: 0,
+    readyToShip: false,
+    lowRtoRisk: false,
+    vendor: 'all',
+};
+
+const parseNonNegativeInt = (value) => {
+    if (value === '' || value === undefined || value === null) return null;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) return null;
+    return Math.floor(parsed);
+};
+
 export default function DropshipProducts({
     filters = {},
     globalSearchQuery = '',
     initialCategory = 'All Categories',
+    onResetB2bFilters,
 }) {
     const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
     const [viewMode, setViewMode] = useState('grid');
@@ -33,13 +49,7 @@ export default function DropshipProducts({
 
     const [maxDispatchDays, setMaxDispatchDays] = useState('');
     const [verifiedOnly, setVerifiedOnly] = useState(false);
-    const [b2bFilters, setB2bFilters] = useState({
-        moq: 'all',
-        margin: 0,
-        readyToShip: false,
-        lowRtoRisk: false,
-        vendor: 'all',
-    });
+    const [b2bFilters, setB2bFilters] = useState(DEFAULT_B2B_FILTERS);
 
     const debouncedMinPrice = useDebounce(minPrice, 500);
     const debouncedMaxPrice = useDebounce(maxPrice, 500);
@@ -47,14 +57,10 @@ export default function DropshipProducts({
     const stringifiedFilters = JSON.stringify(filters);
     useEffect(() => {
         const parsedFilters = JSON.parse(stringifiedFilters);
-        setB2bFilters((prev) => ({
-            ...prev,
-            moq: parsedFilters.moq || 'all',
-            margin: parsedFilters.margin || 0,
-            readyToShip: parsedFilters.readyToShip || false,
-            lowRtoRisk: parsedFilters.lowRtoRisk || false,
-            vendor: parsedFilters.vendor || 'all',
-        }));
+        setB2bFilters({
+            ...DEFAULT_B2B_FILTERS,
+            ...parsedFilters,
+        });
     }, [stringifiedFilters]);
 
     useEffect(() => {
@@ -108,8 +114,18 @@ export default function DropshipProducts({
             if (selectedCatId) params.append('category', selectedCatId);
             if (globalSearchQuery) params.append('search', globalSearchQuery);
             if (sort !== 'default') params.append('sort', sort);
-            if (debouncedMinPrice) params.append('minBasePrice', debouncedMinPrice);
-            if (debouncedMaxPrice) params.append('maxBasePrice', debouncedMaxPrice);
+
+            const minBasePrice = parseNonNegativeInt(debouncedMinPrice);
+            const maxBasePrice = parseNonNegativeInt(debouncedMaxPrice);
+
+            if (minBasePrice !== null && maxBasePrice !== null) {
+                params.append('minBasePrice', String(Math.min(minBasePrice, maxBasePrice)));
+                params.append('maxBasePrice', String(Math.max(minBasePrice, maxBasePrice)));
+            } else if (minBasePrice !== null) {
+                params.append('minBasePrice', String(minBasePrice));
+            } else if (maxBasePrice !== null) {
+                params.append('maxBasePrice', String(maxBasePrice));
+            }
 
             if (maxDispatchDays) params.append('maxShippingDays', maxDispatchDays);
             if (verifiedOnly) params.append('isVerifiedSupplier', 'true');
@@ -191,6 +207,11 @@ export default function DropshipProducts({
             vendor: 'all',
         });
         resetAdvancedFilters();
+        setB2bFilters(DEFAULT_B2B_FILTERS);
+
+        if (typeof onResetB2bFilters === 'function') {
+            onResetB2bFilters();
+        }
     };
 
     return (

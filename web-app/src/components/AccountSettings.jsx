@@ -23,6 +23,13 @@ import { ROUTES } from '../utils/routes';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 
+const NAME_REGEX = /^[A-Za-z][A-Za-z .'-]{1,59}$/;
+const CITY_STATE_REGEX = /^[A-Za-z][A-Za-z .'-]{1,59}$/;
+const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z][A-Z0-9][0-9A-Z]$/;
+const PIN_REGEX = /^[1-9][0-9]{5}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,64}$/;
+
 const AccountSettings = () => {
     const { user, logout, refreshUser } = useContext(AuthContext);
     const navigate = useNavigate();
@@ -51,6 +58,13 @@ const AccountSettings = () => {
     });
 
     const [securityData, setSecurityData] = useState({ oldPassword: '', newPassword: '' });
+    const [profileErrors, setProfileErrors] = useState({});
+    const [securityErrors, setSecurityErrors] = useState({});
+    const [sessions, setSessions] = useState([]);
+    const [sessionsLoading, setSessionsLoading] = useState(false);
+    const [revokeSessionId, setRevokeSessionId] = useState('');
+    const [revokingOthers, setRevokingOthers] = useState(false);
+    const [sessionDetailsOpen, setSessionDetailsOpen] = useState({});
 
     useEffect(() => {
         if (user) {
@@ -73,6 +87,187 @@ const AccountSettings = () => {
             if (user.twoFactorEnabled) setIs2FAEnabled(true);
         }
     }, [user]);
+
+    const sanitizeName = (value) => value.replace(/[^A-Za-z .'-]/g, '').slice(0, 60);
+    const sanitizeCityState = (value) => value.replace(/[^A-Za-z .'-]/g, '').slice(0, 60);
+    const sanitizeCompanyName = (value) => value.replace(/\s+/g, ' ').slice(0, 100);
+    const sanitizeGstin = (value) =>
+        value
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, '')
+            .slice(0, 15);
+    const sanitizePin = (value) => value.replace(/\D/g, '').slice(0, 6);
+
+    const validateProfileData = () => {
+        const nextErrors = {};
+        const trimmedName = profileData.name.trim();
+        const trimmedEmail = profileData.email.trim().toLowerCase();
+        const trimmedCompany = profileData.companyName.trim();
+        const trimmedGstin = profileData.gstin.trim().toUpperCase();
+        const trimmedStreet = profileData.street.trim();
+        const trimmedCity = profileData.city.trim();
+        const trimmedState = profileData.state.trim();
+        const trimmedZip = profileData.zip.trim();
+
+        if (!NAME_REGEX.test(trimmedName)) {
+            nextErrors.name = 'Use 2-60 letters only (spaces, dot, apostrophe allowed).';
+        }
+
+        if (!EMAIL_REGEX.test(trimmedEmail)) {
+            nextErrors.email = 'Enter a valid email address.';
+        }
+
+        if (!isBusinessLocked) {
+            if (trimmedCompany && trimmedCompany.length < 2) {
+                nextErrors.companyName = 'Company name must be at least 2 characters.';
+            }
+            if (trimmedGstin && !GSTIN_REGEX.test(trimmedGstin)) {
+                nextErrors.gstin = 'Enter a valid 15-character GSTIN.';
+            }
+            if (trimmedStreet.length > 200) {
+                nextErrors.street = 'Street address must be at most 200 characters.';
+            }
+            if (trimmedCity && !CITY_STATE_REGEX.test(trimmedCity)) {
+                nextErrors.city = 'City must be 2-60 letters only.';
+            }
+            if (trimmedState && !CITY_STATE_REGEX.test(trimmedState)) {
+                nextErrors.state = 'State must be 2-60 letters only.';
+            }
+            if (trimmedZip && !PIN_REGEX.test(trimmedZip)) {
+                nextErrors.zip = 'PIN code must be a valid 6-digit Indian PIN.';
+            }
+        }
+
+        setProfileErrors(nextErrors);
+        return Object.keys(nextErrors).length === 0;
+    };
+
+    const validateSecurityData = () => {
+        const nextErrors = {};
+        const oldPassword = securityData.oldPassword || '';
+        const newPassword = securityData.newPassword || '';
+
+        if (!oldPassword.trim()) {
+            nextErrors.oldPassword = 'Current password is required.';
+        }
+
+        if (!STRONG_PASSWORD_REGEX.test(newPassword)) {
+            nextErrors.newPassword =
+                'Use 8+ chars with uppercase, lowercase, number, and special character.';
+        } else if (oldPassword && oldPassword === newPassword) {
+            nextErrors.newPassword = 'New password must be different from current password.';
+        }
+
+        setSecurityErrors(nextErrors);
+        return Object.keys(nextErrors).length === 0;
+    };
+
+    const updateProfileField = (key, value) => {
+        setProfileData((prev) => ({ ...prev, [key]: value }));
+        setProfileErrors((prev) => {
+            if (!prev[key]) return prev;
+            const next = { ...prev };
+            delete next[key];
+            return next;
+        });
+    };
+
+    const formatLastActive = (lastSeenAt) => {
+        if (!lastSeenAt) return 'Last active recently';
+        const diffMs = Date.now() - new Date(lastSeenAt).getTime();
+        if (diffMs <= 2 * 60 * 1000) return 'Active Now';
+        const mins = Math.floor(diffMs / (60 * 1000));
+        if (mins < 60) return `Last active ${mins} minute${mins === 1 ? '' : 's'} ago`;
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return `Last active ${hours} hour${hours === 1 ? '' : 's'} ago`;
+        const days = Math.floor(hours / 24);
+        return `Last active ${days} day${days === 1 ? '' : 's'} ago`;
+    };
+
+    const formatSignedIn = (createdAt) => {
+        if (!createdAt) return 'Signed in recently';
+        const diffMs = Date.now() - new Date(createdAt).getTime();
+        const mins = Math.floor(diffMs / (60 * 1000));
+        if (mins < 60) return `Signed in ${mins} minute${mins === 1 ? '' : 's'} ago`;
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return `Signed in ${hours} hour${hours === 1 ? '' : 's'} ago`;
+        const days = Math.floor(hours / 24);
+        return `Signed in ${days} day${days === 1 ? '' : 's'} ago`;
+    };
+
+    const getIpLabel = (ip) => {
+        const normalized = String(ip || '').trim();
+        if (!normalized) return 'Unknown network';
+        if (normalized === '::1' || normalized === '127.0.0.1') return 'Localhost';
+        if (normalized.startsWith('::ffff:127.0.0.1')) return 'Localhost';
+        return 'Network session';
+    };
+
+    const loadSessions = async () => {
+        setSessionsLoading(true);
+        try {
+            const response = await api.get('/auth/sessions');
+            setSessions(response.data?.data?.sessions || []);
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to load active sessions');
+        } finally {
+            setSessionsLoading(false);
+        }
+    };
+
+    const handleRevokeSession = async (sessionId, isCurrent) => {
+        if (!sessionId) return;
+        const confirmationText = isCurrent
+            ? 'This will sign out this current device. Continue?'
+            : 'Sign out this device?';
+        if (!window.confirm(confirmationText)) return;
+
+        setRevokeSessionId(sessionId);
+        try {
+            const response = await api.delete(`/auth/sessions/${sessionId}`);
+            const signedOut = Boolean(response.data?.data?.signedOut);
+            toast.success(
+                signedOut ? 'Current session revoked. Signing out...' : 'Session revoked successfully'
+            );
+            if (signedOut || isCurrent) {
+                await logout();
+                return;
+            }
+            await loadSessions();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to revoke session');
+        } finally {
+            setRevokeSessionId('');
+        }
+    };
+
+    const handleRevokeOtherSessions = async () => {
+        if (!window.confirm('Sign out all other devices and keep only this current device active?')) {
+            return;
+        }
+
+        setRevokingOthers(true);
+        try {
+            const response = await api.delete('/auth/sessions/others');
+            const revokedCount = response.data?.data?.revokedCount ?? 0;
+            toast.success(
+                revokedCount > 0
+                    ? `${revokedCount} session${revokedCount === 1 ? '' : 's'} signed out`
+                    : 'No other active sessions found'
+            );
+            await loadSessions();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to sign out other sessions');
+        } finally {
+            setRevokingOthers(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'security' && user?._id) {
+            loadSessions();
+        }
+    }, [activeTab, user?._id]);
 
     const handleAvatarChange = async (e) => {
         const file = e.target.files[0];
@@ -105,26 +300,35 @@ const AccountSettings = () => {
 
     const handleProfileSubmit = async (e) => {
         e.preventDefault();
+        if (!validateProfileData()) {
+            toast.error('Please fix the highlighted profile fields.');
+            return;
+        }
+
+        const payload = {
+            name: profileData.name.trim(),
+            email: profileData.email.trim().toLowerCase(),
+            emailNotifications: profileData.emailNotifications,
+            orderSms: profileData.orderSms,
+            promotionalEmails: profileData.promotionalEmails,
+        };
+
+        if (!isBusinessLocked) {
+            payload.companyName = profileData.companyName.trim();
+            payload.gstin = profileData.gstin.trim().toUpperCase();
+            payload.billingAddress = {
+                street: profileData.street.trim(),
+                city: profileData.city.trim(),
+                state: profileData.state.trim(),
+                zip: profileData.zip.trim(),
+            };
+        }
+
         setIsLoading(true);
         try {
-            await api.put('/users/profile', {
-                name: profileData.name,
-                email: profileData.email,
-                ...(!isBusinessLocked && {
-                    companyName: profileData.companyName,
-                    gstin: profileData.gstin,
-                    billingAddress: {
-                        street: profileData.street,
-                        city: profileData.city,
-                        state: profileData.state,
-                        zip: profileData.zip,
-                    },
-                }),
-                emailNotifications: profileData.emailNotifications,
-                orderSms: profileData.orderSms,
-                promotionalEmails: profileData.promotionalEmails,
-            });
+            await api.put('/users/profile', payload);
             toast.success('Profile updated successfully!');
+            setProfileErrors({});
             await refreshUser();
         } catch (error) {
             toast.error(error.response?.data?.message || 'Failed to update profile');
@@ -135,11 +339,19 @@ const AccountSettings = () => {
 
     const handleSecuritySubmit = async (e) => {
         e.preventDefault();
+        if (!validateSecurityData()) {
+            toast.error('Please fix password requirements before submitting.');
+            return;
+        }
         setIsLoading(true);
         try {
-            await api.put('/users/security/password', securityData);
+            await api.put('/users/security/password', {
+                oldPassword: securityData.oldPassword,
+                newPassword: securityData.newPassword,
+            });
             toast.success('Password updated successfully!');
             setSecurityData({ oldPassword: '', newPassword: '' });
+            setSecurityErrors({});
         } catch (error) {
             toast.error(error.response?.data?.message || 'Failed to update password');
         } finally {
@@ -295,14 +507,17 @@ const AccountSettings = () => {
                                             type="text"
                                             value={profileData.name}
                                             onChange={(e) =>
-                                                setProfileData({
-                                                    ...profileData,
-                                                    name: e.target.value,
-                                                })
+                                                updateProfileField('name', sanitizeName(e.target.value))
                                             }
                                             className={inputClasses}
                                             required
+                                            maxLength={60}
                                         />
+                                        {profileErrors.name && (
+                                            <p className="mt-1 text-xs font-semibold text-red-600">
+                                                {profileErrors.name}
+                                            </p>
+                                        )}
                                     </div>
                                     <div>
                                         <label className={labelClasses}>Email Address</label>
@@ -310,14 +525,16 @@ const AccountSettings = () => {
                                             type="email"
                                             value={profileData.email}
                                             onChange={(e) =>
-                                                setProfileData({
-                                                    ...profileData,
-                                                    email: e.target.value,
-                                                })
+                                                updateProfileField('email', e.target.value.trimStart())
                                             }
                                             className={inputClasses}
                                             required
                                         />
+                                        {profileErrors.email && (
+                                            <p className="mt-1 text-xs font-semibold text-red-600">
+                                                {profileErrors.email}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className={labelClasses}>
@@ -373,13 +590,19 @@ const AccountSettings = () => {
                                             disabled={isBusinessLocked}
                                             value={profileData.companyName}
                                             onChange={(e) =>
-                                                setProfileData({
-                                                    ...profileData,
-                                                    companyName: e.target.value,
-                                                })
+                                                updateProfileField(
+                                                    'companyName',
+                                                    sanitizeCompanyName(e.target.value)
+                                                )
                                             }
                                             className={inputClasses}
+                                            maxLength={100}
                                         />
+                                        {profileErrors.companyName && (
+                                            <p className="mt-1 text-xs font-semibold text-red-600">
+                                                {profileErrors.companyName}
+                                            </p>
+                                        )}
                                     </div>
                                     <div>
                                         <label className={labelClasses}>GSTIN Number</label>
@@ -388,14 +611,16 @@ const AccountSettings = () => {
                                             disabled={isBusinessLocked}
                                             value={profileData.gstin}
                                             onChange={(e) =>
-                                                setProfileData({
-                                                    ...profileData,
-                                                    gstin: e.target.value,
-                                                })
+                                                updateProfileField('gstin', sanitizeGstin(e.target.value))
                                             }
                                             className={`${inputClasses} uppercase`}
                                             maxLength={15}
                                         />
+                                        {profileErrors.gstin && (
+                                            <p className="mt-1 text-xs font-semibold text-red-600">
+                                                {profileErrors.gstin}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className={labelClasses}>Street Address</label>
@@ -403,15 +628,16 @@ const AccountSettings = () => {
                                             type="text"
                                             disabled={isBusinessLocked}
                                             value={profileData.street}
-                                            onChange={(e) =>
-                                                setProfileData({
-                                                    ...profileData,
-                                                    street: e.target.value,
-                                                })
-                                            }
+                                            onChange={(e) => updateProfileField('street', e.target.value)}
                                             className={inputClasses}
                                             placeholder="Building, Floor, Street"
+                                            maxLength={200}
                                         />
+                                        {profileErrors.street && (
+                                            <p className="mt-1 text-xs font-semibold text-red-600">
+                                                {profileErrors.street}
+                                            </p>
+                                        )}
                                     </div>
                                     <div>
                                         <label className={labelClasses}>City</label>
@@ -420,13 +646,19 @@ const AccountSettings = () => {
                                             disabled={isBusinessLocked}
                                             value={profileData.city}
                                             onChange={(e) =>
-                                                setProfileData({
-                                                    ...profileData,
-                                                    city: e.target.value,
-                                                })
+                                                updateProfileField(
+                                                    'city',
+                                                    sanitizeCityState(e.target.value)
+                                                )
                                             }
                                             className={inputClasses}
+                                            maxLength={60}
                                         />
+                                        {profileErrors.city && (
+                                            <p className="mt-1 text-xs font-semibold text-red-600">
+                                                {profileErrors.city}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
@@ -436,13 +668,19 @@ const AccountSettings = () => {
                                                 disabled={isBusinessLocked}
                                                 value={profileData.state}
                                                 onChange={(e) =>
-                                                    setProfileData({
-                                                        ...profileData,
-                                                        state: e.target.value,
-                                                    })
+                                                    updateProfileField(
+                                                        'state',
+                                                        sanitizeCityState(e.target.value)
+                                                    )
                                                 }
                                                 className={inputClasses}
+                                                maxLength={60}
                                             />
+                                            {profileErrors.state && (
+                                                <p className="mt-1 text-xs font-semibold text-red-600">
+                                                    {profileErrors.state}
+                                                </p>
+                                            )}
                                         </div>
                                         <div>
                                             <label className={labelClasses}>PIN Code</label>
@@ -451,13 +689,17 @@ const AccountSettings = () => {
                                                 disabled={isBusinessLocked}
                                                 value={profileData.zip}
                                                 onChange={(e) =>
-                                                    setProfileData({
-                                                        ...profileData,
-                                                        zip: e.target.value,
-                                                    })
+                                                    updateProfileField('zip', sanitizePin(e.target.value))
                                                 }
                                                 className={inputClasses}
+                                                inputMode="numeric"
+                                                maxLength={6}
                                             />
+                                            {profileErrors.zip && (
+                                                <p className="mt-1 text-xs font-semibold text-red-600">
+                                                    {profileErrors.zip}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -494,14 +736,27 @@ const AccountSettings = () => {
                                         type="password"
                                         value={securityData.oldPassword}
                                         onChange={(e) =>
-                                            setSecurityData({
-                                                ...securityData,
-                                                oldPassword: e.target.value,
-                                            })
+                                            {
+                                                setSecurityData((prev) => ({
+                                                    ...prev,
+                                                    oldPassword: e.target.value,
+                                                }));
+                                                setSecurityErrors((prev) => {
+                                                    if (!prev.oldPassword) return prev;
+                                                    const next = { ...prev };
+                                                    delete next.oldPassword;
+                                                    return next;
+                                                });
+                                            }
                                         }
                                         className={inputClasses}
                                         required
                                     />
+                                    {securityErrors.oldPassword && (
+                                        <p className="mt-1 text-xs font-semibold text-red-600">
+                                            {securityErrors.oldPassword}
+                                        </p>
+                                    )}
                                 </div>
                                 <div>
                                     <label className={labelClasses}>New Password</label>
@@ -509,15 +764,32 @@ const AccountSettings = () => {
                                         type="password"
                                         value={securityData.newPassword}
                                         onChange={(e) =>
-                                            setSecurityData({
-                                                ...securityData,
-                                                newPassword: e.target.value,
-                                            })
+                                            {
+                                                setSecurityData((prev) => ({
+                                                    ...prev,
+                                                    newPassword: e.target.value,
+                                                }));
+                                                setSecurityErrors((prev) => {
+                                                    if (!prev.newPassword) return prev;
+                                                    const next = { ...prev };
+                                                    delete next.newPassword;
+                                                    return next;
+                                                });
+                                            }
                                         }
                                         className={inputClasses}
                                         required
                                         minLength={8}
                                     />
+                                    {securityErrors.newPassword && (
+                                        <p className="mt-1 text-xs font-semibold text-red-600">
+                                            {securityErrors.newPassword}
+                                        </p>
+                                    )}
+                                    <p className="mt-1 text-xs font-medium text-slate-500">
+                                        Must include uppercase, lowercase, number, and special
+                                        character.
+                                    </p>
                                 </div>
                                 <div className="pt-2">
                                     <button
@@ -558,41 +830,95 @@ const AccountSettings = () => {
                                 {is2FAEnabled ? 'Manage 2FA Settings' : 'Set Up 2FA'}
                             </button>
                         </div>
-
                         <div className="rounded-2xl border border-slate-100 p-6">
-                            <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-900">
-                                <Monitor className="text-emerald-500" size={20} /> Active Sessions
-                            </h3>
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
-                                    <div>
-                                        <p className="text-sm font-bold text-slate-900">
-                                            Windows • Chrome
-                                        </p>
-                                        <p className="text-xs font-medium text-slate-500">
-                                            Bengaluru, India • Active Now
-                                        </p>
-                                    </div>
-                                    <span className="text-xs font-bold text-emerald-600">
-                                        Current Device
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-white p-4">
-                                    <div>
-                                        <p className="text-sm font-bold text-slate-900">
-                                            iOS • Safari
-                                        </p>
-                                        <p className="text-xs font-medium text-slate-500">
-                                            Mumbai, India • Last active 2 hours ago
-                                        </p>
-                                    </div>
-                                    <button className="text-xs font-bold text-red-600 hover:underline">
-                                        Revoke
-                                    </button>
-                                </div>
+                            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                                <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                                    <Monitor className="text-emerald-500" size={20} /> Active Sessions
+                                </h3>
+                                <button
+                                    onClick={handleRevokeOtherSessions}
+                                    disabled={revokingOthers || sessionsLoading || sessions.length <= 1}
+                                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {revokingOthers ? 'Signing Out...' : 'Sign Out Other Devices'}
+                                </button>
                             </div>
-                        </div>
+                            {sessionsLoading ? (
+                                <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm font-medium text-slate-600">
+                                    <Loader2 size={16} className="animate-spin" />
+                                    Loading active sessions...
+                                </div>
+                            ) : sessions.length === 0 ? (
+                                <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm font-medium text-slate-600">
+                                    No active sessions found.
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {sessions.map((session) => {
+                                        const isCurrent = Boolean(session.isCurrent);
+                                        const deviceType = session.deviceType || 'Device';
+                                        const title = `${deviceType} - ${session.os || 'Unknown OS'} - ${session.browser || 'Unknown Browser'}`;
+                                        const subtitle = isCurrent
+                                            ? `Current session - ${formatLastActive(session.lastSeenAt)}`
+                                            : `${formatLastActive(session.lastSeenAt)} - ${formatSignedIn(session.createdAt)}`;
+                                        const isRevoking = revokeSessionId === session.id;
+                                        const showDetails = Boolean(sessionDetailsOpen[session.id]);
 
+                                        return (
+                                            <div
+                                                key={session.id}
+                                                className={`flex items-center justify-between rounded-xl border p-4 ${isCurrent ? 'border-emerald-100 bg-emerald-50/50' : 'border-slate-100 bg-white'}`}
+                                            >
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-bold text-slate-900">
+                                                        {title}
+                                                    </p>
+                                                    <p className="text-xs font-medium text-slate-500">
+                                                        {subtitle}
+                                                    </p>
+                                                    {showDetails && (
+                                                        <p className="mt-1 text-xs font-medium text-slate-400">
+                                                            {`Network: ${getIpLabel(session.ipAddress)} (${session.ipAddress || 'Unknown'})`}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <div className="ml-4 flex shrink-0 items-center gap-3">
+                                                    <button
+                                                        onClick={() =>
+                                                            setSessionDetailsOpen((prev) => ({
+                                                                ...prev,
+                                                                [session.id]: !prev[session.id],
+                                                            }))
+                                                        }
+                                                        className="text-xs font-bold text-slate-500 hover:underline"
+                                                    >
+                                                        {showDetails ? 'Hide Details' : 'Details'}
+                                                    </button>
+                                                    {isCurrent ? (
+                                                        <span className="text-xs font-bold text-emerald-600">
+                                                            Current Device
+                                                        </span>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() =>
+                                                                handleRevokeSession(
+                                                                    session.id,
+                                                                    isCurrent
+                                                                )
+                                                            }
+                                                            disabled={isRevoking}
+                                                            className="text-xs font-bold text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                                                        >
+                                                            {isRevoking ? 'Revoking...' : 'Revoke'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                         <div className="rounded-2xl border border-slate-100 p-6">
                             <h4 className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-900">
                                 <ShieldCheck className="text-emerald-500" size={20} /> Privacy &

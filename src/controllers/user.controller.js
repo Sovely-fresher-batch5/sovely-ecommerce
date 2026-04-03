@@ -1,9 +1,9 @@
 import { User } from '../models/User.js';
+import { UserSession } from '../models/UserSession.js';
 import { OtpToken } from '../models/OtpToken.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 
@@ -15,6 +15,57 @@ const cookieOptions = {
 
 const escapeRegex = (string) => {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+const parseExpiryToMs = (value, fallbackMs) => {
+    if (!value) return fallbackMs;
+    if (/^\d+$/.test(value)) return Number(value) * 1000;
+
+    const match = String(value).trim().match(/^(\d+)\s*([smhd])$/i);
+    if (!match) return fallbackMs;
+
+    const qty = Number(match[1]);
+    const unit = match[2].toLowerCase();
+    const unitMap = { s: 1000, m: 60 * 1000, h: 60 * 60 * 1000, d: 24 * 60 * 60 * 1000 };
+    return qty * (unitMap[unit] || 0) || fallbackMs;
+};
+
+const refreshTokenExpiryMs = parseExpiryToMs(
+    process.env.REFRESH_TOKEN_EXPIRY?.trim(),
+    10 * 24 * 60 * 60 * 1000
+);
+
+const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+
+const getClientIp = (req) => {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded && typeof forwarded === 'string') {
+        return forwarded.split(',')[0].trim();
+    }
+    return req.ip || req.socket?.remoteAddress || '';
+};
+
+const parseDeviceInfo = (userAgent = '') => {
+    const ua = String(userAgent).toLowerCase();
+    let deviceType = 'Unknown';
+    if (/ipad|tablet/.test(ua)) deviceType = 'Tablet';
+    else if (/mobi|android|iphone/.test(ua)) deviceType = 'Mobile';
+    else if (ua) deviceType = 'Desktop';
+
+    let os = 'Unknown OS';
+    if (ua.includes('windows')) os = 'Windows';
+    else if (ua.includes('android')) os = 'Android';
+    else if (/iphone|ipad|ipod|ios/.test(ua)) os = 'iOS';
+    else if (ua.includes('mac os') || ua.includes('macintosh')) os = 'macOS';
+    else if (ua.includes('linux')) os = 'Linux';
+
+    let browser = 'Unknown Browser';
+    if (ua.includes('edg/')) browser = 'Edge';
+    else if (ua.includes('chrome/') && !ua.includes('edg/')) browser = 'Chrome';
+    else if (ua.includes('firefox/')) browser = 'Firefox';
+    else if (ua.includes('safari/') && !ua.includes('chrome/')) browser = 'Safari';
+
+    return { deviceType, os, browser };
 };
 
 export const sendSignupOtp = asyncHandler(async (req, res) => {
@@ -75,12 +126,24 @@ export const loginWithOtp = asyncHandler(async (req, res) => {
 
     if (!validOtp) throw new ApiError(400, 'Invalid or expired OTP');
 
-    const accessToken = user.generateAccessToken();
-    const refreshToken = jwt.sign(
-        { _id: user._id },
-        process.env.REFRESH_TOKEN_SECRET || 'fallback_refresh_secret',
-        { expiresIn: process.env.REFRESH_TOKEN_EXPIRY || '7d' }
-    );
+    const userAgent = req.get('user-agent') || '';
+    const ipAddress = getClientIp(req);
+    const device = parseDeviceInfo(userAgent);
+
+    const session = await UserSession.create({
+        userId: user._id,
+        tokenHash: 'pending',
+        userAgent,
+        ipAddress,
+        ...device,
+        lastSeenAt: new Date(),
+        expiresAt: new Date(Date.now() + refreshTokenExpiryMs),
+    });
+
+    const accessToken = user.generateAccessToken(session._id);
+    const refreshToken = user.generateRefreshToken(session._id);
+    session.tokenHash = hashToken(refreshToken);
+    await session.save({ validateBeforeSave: false });
 
     user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
@@ -178,6 +241,13 @@ export const updateKycStatus = asyncHandler(async (req, res) => {
 export const toggleUserStatus = asyncHandler(async (req, res) => {
     const { isActive } = req.body;
 
+    if (isActive === false) {
+        await UserSession.updateMany(
+            { userId: req.params.id, isRevoked: false },
+            { isRevoked: true, revokedAt: new Date() }
+        );
+    }
+
     const user = await User.findByIdAndUpdate(
         req.params.id,
         {
@@ -213,11 +283,18 @@ export const updateMyProfile = asyncHandler(async (req, res) => {
     } = req.body;
 
     const updateData = {};
-    if (name) updateData.name = name;
-    if (email) updateData.email = email;
-    if (companyName) updateData.companyName = companyName;
-    if (gstin) updateData.gstin = gstin;
-    if (billingAddress) updateData.billingAddress = billingAddress;
+    if (name !== undefined) updateData.name = name.trim();
+    if (email !== undefined) updateData.email = email.trim().toLowerCase();
+    if (companyName !== undefined) updateData.companyName = companyName.trim();
+    if (gstin !== undefined) updateData.gstin = gstin.trim().toUpperCase();
+    if (billingAddress) {
+        updateData.billingAddress = {
+            street: billingAddress.street?.trim() || '',
+            city: billingAddress.city?.trim() || '',
+            state: billingAddress.state?.trim() || '',
+            zip: billingAddress.zip?.trim() || '',
+        };
+    }
 
     if (emailNotifications !== undefined) updateData.emailNotifications = emailNotifications;
     if (orderSms !== undefined) updateData.orderSms = orderSms;
@@ -255,6 +332,9 @@ export const updateAvatar = asyncHandler(async (req, res) => {
 export const updatePassword = asyncHandler(async (req, res) => {
     const { oldPassword, newPassword } = req.body;
     if (!oldPassword || !newPassword) throw new ApiError(400, 'Both passwords are required');
+    if (oldPassword === newPassword) {
+        throw new ApiError(400, 'New password must be different from current password');
+    }
 
     const user = await User.findById(req.user._id);
 

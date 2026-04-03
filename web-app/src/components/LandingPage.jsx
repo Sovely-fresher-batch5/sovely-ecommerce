@@ -5,18 +5,20 @@ import DropshipProducts from '../pages/DropshipProducts';
 import B2BFilterBar from './B2BFilterBar';
 import { PackageSearch, Search, X } from 'lucide-react';
 
+const DEFAULT_B2B_FILTERS = {
+    moq: 'all',
+    margin: 0,
+    readyToShip: false,
+    lowRtoRisk: false,
+    vendor: 'all',
+};
+
 function LandingPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const { categoryName } = useParams();
     const globalSearchQuery = searchParams.get('search') || '';
 
-    const [b2bFilters, setB2bFilters] = useState({
-        moq: 'all',
-        margin: 0,
-        readyToShip: false,
-        lowRtoRisk: false,
-        vendor: 'all',
-    });
+    const [b2bFilters, setB2bFilters] = useState(DEFAULT_B2B_FILTERS);
 
     const handleFilterChange = (key, value) => {
         setB2bFilters((prev) => ({ ...prev, [key]: value }));
@@ -93,6 +95,7 @@ function LandingPage() {
                         filters={b2bFilters}
                         globalSearchQuery={globalSearchQuery}
                         initialCategory={categoryName ? decodeURIComponent(categoryName) : 'All Categories'}
+                        onResetB2bFilters={() => setB2bFilters(DEFAULT_B2B_FILTERS)}
                     />
                 </div>
             </main>
