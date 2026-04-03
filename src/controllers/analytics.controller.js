@@ -9,6 +9,8 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
 
     const now = new Date();
     let startDate = new Date();
+    startDate.setUTCHours(0, 0, 0, 0); // Always normalize to start of day for accurate interval counts
+
     let groupingFormat = '%Y-%m-%d';
     let intervals = 30;
     let labelFormat = { month: 'short', day: '2-digit' };
@@ -132,13 +134,23 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
     ]);
     const periodRevenue = periodRevenueAgg[0]?.total || 0;
 
-    const totalCustomers = await User.countDocuments({ role: 'RESELLER', deletedAt: null });
-    const processingOrders = await Order.countDocuments({ status: 'PROCESSING' });
+    // Fixed Comparisons (Always show 30d/7d for secondary metrics if needed, but here we just return period total)
+    // Period-specific KPIs (Now reactive to the selected time range)
+    const totalCustomers = await User.countDocuments({ 
+        role: 'RESELLER', 
+        deletedAt: null,
+        createdAt: { $gte: startDate } 
+    });
+    const processingOrders = await Order.countDocuments({ 
+        status: 'PROCESSING',
+        createdAt: { $gte: startDate }
+    });
     const pendingKycCount = await User.countDocuments({
         role: 'RESELLER',
         kycStatus: 'PENDING',
         isActive: true,
         deletedAt: null,
+        createdAt: { $gte: startDate }
     });
 
     return res.status(200).json(
@@ -161,8 +173,32 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
 
 export const getResellerAnalytics = asyncHandler(async (req, res) => {
     const resellerId = req.user._id;
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const { range = 'month' } = req.query;
+
+    const now = new Date();
+    let startDate = new Date();
+    startDate.setUTCHours(0, 0, 0, 0);
+
+    let intervals = 30; // Default days
+    let labelFormat = { month: 'short', day: 'numeric' };
+
+    switch (range) {
+        case 'week':
+            startDate.setDate(now.getDate() - 7);
+            intervals = 7;
+            break;
+        case 'month':
+            startDate.setDate(now.getDate() - 30);
+            intervals = 30;
+            break;
+        case '3months':
+            startDate.setDate(now.getDate() - 90);
+            intervals = 90;
+            break;
+        default:
+            startDate.setDate(now.getDate() - 30);
+            intervals = 30;
+    }
 
     const kpiAggregation = await Order.aggregate([
         { $match: { resellerId: resellerId } },
@@ -222,11 +258,12 @@ export const getResellerAnalytics = asyncHandler(async (req, res) => {
     const rtoRate =
         kpis.totalOrders > 0 ? Math.round((kpis.rtoOrders / kpis.totalOrders) * 100) : 0;
 
+    // 2. Profit Trend Based on Selected Range
     const trendAggregation = await Order.aggregate([
         {
             $match: {
                 resellerId: resellerId,
-                createdAt: { $gte: thirtyDaysAgo },
+                createdAt: { $gte: startDate },
                 status: { $ne: 'CANCELLED' },
             },
         },
@@ -241,12 +278,12 @@ export const getResellerAnalytics = asyncHandler(async (req, res) => {
 
     const trendMap = new Map(trendAggregation.map((item) => [item._id, item.dailyProfit]));
     const profitTrend = [];
-    for (let i = 14; i >= 0; i--) {
+    for (let i = intervals - 1; i >= 0; i--) {
         const d = new Date();
-        d.setDate(d.getDate() - i);
+        d.setDate(now.getDate() - i);
         const dateString = d.toISOString().split('T')[0];
         profitTrend.push({
-            date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            date: d.toLocaleDateString('en-US', labelFormat),
             profit: trendMap.get(dateString) || 0,
         });
     }

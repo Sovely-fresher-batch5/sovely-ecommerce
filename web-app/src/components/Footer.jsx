@@ -68,23 +68,7 @@ function Footer() {
                         <ul className="space-y-3 text-sm font-medium">
                             <li>
                                 <Link
-                                    to={ROUTES.CATEGORY('Electronics')}
-                                    className="inline-block transition-all hover:translate-x-1 hover:text-white"
-                                >
-                                    Electronics
-                                </Link>
-                            </li>
-                            <li>
-                                <Link
-                                    to={ROUTES.CATEGORY('Fashion')}
-                                    className="inline-block transition-all hover:translate-x-1 hover:text-white"
-                                >
-                                    Fashion
-                                </Link>
-                            </li>
-                            <li>
-                                <Link
-                                    to={ROUTES.CATEGORY('Home & Kitchen')}
+                                    to="/search?category=Home%20%26%20Kitchen"
                                     className="inline-block transition-all hover:translate-x-1 hover:text-white"
                                 >
                                     Home & Kitchen
@@ -92,7 +76,23 @@ function Footer() {
                             </li>
                             <li>
                                 <Link
-                                    to={ROUTES.CATEGORY('Industrial')}
+                                    to="/search?category=Home%20Improvement"
+                                    className="inline-block transition-all hover:translate-x-1 hover:text-white"
+                                >
+                                    Home Improvement
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    to="/search?category=Health%20%26%20Care"
+                                    className="inline-block transition-all hover:translate-x-1 hover:text-white"
+                                >
+                                    Health & Care
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    to="/search?category=Industrial"
                                     className="inline-block transition-all hover:translate-x-1 hover:text-white"
                                 >
                                     Industrial

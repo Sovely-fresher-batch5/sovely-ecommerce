@@ -216,12 +216,19 @@ export const updateKycStatus = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'Invalid KYC Status. Must be PENDING, APPROVED, or REJECTED.');
     }
 
+    const userToUpdate = await User.findById(req.params.id);
+    if (!userToUpdate) throw new ApiError(404, 'User not found');
+
     const updateData = { kycStatus };
     if (kycStatus === 'APPROVED') {
-        updateData.isActive = true;
-        updateData.kycRejectionReason = null;
-        updateData.role = 'RESELLER';
-        updateData.isVerifiedB2B = true;
+        updateData.isActive = true; // Auto-activate on approval
+        updateData.kycRejectionReason = null; // Clear any old rejection reason
+        updateData.isVerifiedB2B = true; // Mark as verified B2B
+
+        // SECURITY: Never demote an ADMIN to RESELLER during KYC Approval
+        if (userToUpdate.role !== 'ADMIN') {
+            updateData.role = 'RESELLER'; // Upgrade Customers to Resellers
+        }
     } else if (kycStatus === 'REJECTED') {
         updateData.kycRejectionReason = kycRejectionReason || 'Details do not match our records.';
         updateData.isVerifiedB2B = false;
@@ -281,6 +288,27 @@ export const updateMyProfile = asyncHandler(async (req, res) => {
         orderSms,
         promotionalEmails,
     } = req.body;
+
+    // 1. Validation: Check if another user is already using the new Email or GSTIN
+    if (email || gstin) {
+        const orConditions = [];
+        if (email) orConditions.push({ email });
+        if (gstin) orConditions.push({ gstin });
+
+        const existingUser = await User.findOne({
+            $or: orConditions,
+            _id: { $ne: req.user._id }, // Exclude current user
+        });
+
+        if (existingUser) {
+            if (email && existingUser.email === email) {
+                throw new ApiError(409, 'This email is already in use by another account.');
+            }
+            if (gstin && existingUser.gstin === gstin) {
+                throw new ApiError(409, 'A business with this GSTIN is already registered.');
+            }
+        }
+    }
 
     const updateData = {};
     if (name !== undefined) updateData.name = name.trim();
