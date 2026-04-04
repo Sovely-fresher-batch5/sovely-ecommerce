@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Upload, Loader2, Plus, Trash2 } from 'lucide-react';
+import { X, Upload, Loader2, Plus, Trash2, Package } from 'lucide-react';
 import api from '../../utils/api.js';
 
 const CreateProductModal = ({ isOpen, onClose, onSuccess }) => {
