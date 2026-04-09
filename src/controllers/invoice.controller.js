@@ -80,6 +80,7 @@ export const getAllInvoices = asyncHandler(async (req, res) => {
     const total = await Invoice.countDocuments(query);
     const invoices = await Invoice.find(query)
         .populate('orderId')
+        .populate('resellerId', 'name companyName gstin')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);

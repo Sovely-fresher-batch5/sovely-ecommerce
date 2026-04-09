@@ -57,6 +57,16 @@ export const createTopUpInvoice = asyncHandler(async (req, res) => {
         invoiceNumber: invoiceNumStr,
         resellerId,
         invoiceType: 'WALLET_TOPUP',
+        billedTo: {
+            companyName: req.user.companyName || req.user.name,
+            gstin: req.user.gstin || '',
+            address: {
+                street: req.user.billingAddress?.street || '',
+                city: req.user.billingAddress?.city || '',
+                state: req.user.billingAddress?.state || '',
+                zip: req.user.billingAddress?.zip || '',
+            },
+        },
         totalTaxableValue: amount,
         grandTotal: amount,
         paymentTerms: 'DUE_ON_RECEIPT',

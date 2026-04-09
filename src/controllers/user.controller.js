@@ -278,6 +278,28 @@ export const toggleUserStatus = asyncHandler(async (req, res) => {
         );
 });
 
+export const deleteUser = asyncHandler(async (req, res) => {
+    // Revoke all sessions
+    await UserSession.updateMany(
+        { userId: req.params.id, isRevoked: false },
+        { isRevoked: true, revokedAt: new Date() }
+    );
+
+    const user = await User.findByIdAndUpdate(
+        req.params.id,
+        {
+            deletedAt: new Date(),
+            isActive: false,
+            refreshToken: null,
+        },
+        { new: true }
+    );
+
+    if (!user) throw new ApiError(404, 'User not found');
+
+    return res.status(200).json(new ApiResponse(200, null, 'User has been deleted successfully'));
+});
+
 export const updateMyProfile = asyncHandler(async (req, res) => {
     const { name, email, billingAddress, emailNotifications, orderSms, promotionalEmails } =
         req.body;
