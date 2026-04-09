@@ -16,6 +16,7 @@ import {
     X,
     AlertCircle,
     UserPlus,
+    Trash2,
 } from 'lucide-react';
 import api from '../../utils/api.js';
 import { getAvatarUrl } from '../../utils/getAvatarUrl';
@@ -195,6 +196,24 @@ const AdminUsers = () => {
             alert(err.response?.data?.message || 'Failed to create user.');
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleDeleteUser = async (id, name) => {
+        if (
+            !window.confirm(
+                `Are you sure you want to PERMANENTLY DELETE user "${name}"? This action cannot be undone.`
+            )
+        ) {
+            return;
+        }
+
+        try {
+            await api.delete(`/users/admin/${id}`);
+            setUsers((prev) => prev.filter((u) => u._id !== id));
+            alert('User deleted successfully.');
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to delete user.');
         }
     };
 
@@ -416,6 +435,16 @@ const AdminUsers = () => {
                                                             className="rounded-lg bg-slate-100 p-1.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-900"
                                                         >
                                                             <Edit2 size={16} />
+                                                        </button>
+
+                                                        <button
+                                                            onClick={() =>
+                                                                handleDeleteUser(u._id, u.name)
+                                                            }
+                                                            title="Delete User Permanently"
+                                                            className="rounded-lg bg-red-50 p-1.5 text-red-500 transition-colors hover:bg-red-100 hover:text-red-700"
+                                                        >
+                                                            <Trash2 size={16} />
                                                         </button>
 
                                                         {u.updateRequestStatus === 'PENDING' && (
