@@ -318,10 +318,18 @@ export default function AccountHub() {
                     <div className="sticky top-24 space-y-3">
                         <div className="mb-8 flex items-center gap-4 rounded-3xl bg-slate-900 p-6 text-white shadow-xl">
                             {}
-                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xl font-black shadow-inner">
-                                {user?.companyName?.charAt(0).toUpperCase() ||
+                            <div className="flex h-14 w-14 shrink-0 overflow-hidden items-center justify-center rounded-full bg-indigo-600 text-xl font-black shadow-inner">
+                                {user?.avatar ? (
+                                    <img
+                                        src={getAvatarUrl(user.avatar)}
+                                        alt="Profile"
+                                        className="h-full w-full object-cover"
+                                    />
+                                ) : (
+                                    user?.companyName?.charAt(0).toUpperCase() ||
                                     user?.name?.charAt(0).toUpperCase() ||
-                                    'U'}
+                                    'U'
+                                )}
                             </div>
                             <div className="min-w-0">
                                 <p className="truncate text-lg font-black">

@@ -190,7 +190,7 @@ export const generateInvoicePDF = async (req, res, next) => {
         const logoPath = path.join(__dirname, '../../public/images/sovely-image.png');
         if (fs.existsSync(logoPath)) {
             try {
-                doc.image(logoPath, 40, 25, { width: 100 });
+                doc.image(logoPath, 40, 25, { fit: [100, 60] });
             } catch (imgError) {
                 doc.fillColor('#1e293b').fontSize(22).font('Helvetica-Bold').text('SOVELY', 40, 30);
             }
