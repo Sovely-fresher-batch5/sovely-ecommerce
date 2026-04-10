@@ -21,7 +21,7 @@ export const userValidation = {
                 .min(2, 'Name must be at least 2 characters')
                 .max(60, 'Name must be at most 60 characters')
                 .regex(/^[A-Za-z][A-Za-z .'-]*$/, 'Name can contain only letters and spaces'),
-            email: z.string().trim().email('Please provide a valid email address'),
+            email: z.string().trim().email('Please provide a valid email address').optional(),
             companyName: optionalBusinessString,
             gstin: optionalTrimmed.refine(
                 (value) =>
@@ -34,6 +34,11 @@ export const userValidation = {
                     message: 'Invalid GSTIN format',
                 }
             ),
+            panNumber: z.string().trim().optional(),
+            entityType: z.string().trim().optional(),
+            industry: z.string().trim().optional(),
+            website: z.string().trim().optional(),
+            yearEstablished: z.string().trim().optional(),
             billingAddress: z
                 .object({
                     street: z

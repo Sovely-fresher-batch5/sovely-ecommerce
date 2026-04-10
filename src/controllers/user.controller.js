@@ -301,8 +301,10 @@ export const deleteUser = asyncHandler(async (req, res) => {
 });
 
 export const updateMyProfile = asyncHandler(async (req, res) => {
-    const { name, email, billingAddress, emailNotifications, orderSms, promotionalEmails } =
-        req.body;
+    const { 
+        name, email, billingAddress, emailNotifications, orderSms, promotionalEmails,
+        companyName, gstin, panNumber, entityType, industry, website, yearEstablished
+    } = req.body;
 
     if (email) {
         const existingUser = await User.findOne({
@@ -318,6 +320,14 @@ export const updateMyProfile = asyncHandler(async (req, res) => {
     const updateData = {};
     if (name !== undefined) updateData.name = name.trim();
     if (email !== undefined) updateData.email = email.trim().toLowerCase();
+
+    if (companyName !== undefined) updateData.companyName = companyName.trim();
+    if (gstin !== undefined) updateData.gstin = gstin.trim().toUpperCase() || undefined;
+    if (panNumber !== undefined) updateData.panNumber = panNumber.trim().toUpperCase() || undefined;
+    if (entityType !== undefined) updateData.entityType = entityType.trim();
+    if (industry !== undefined) updateData.industry = industry.trim();
+    if (website !== undefined) updateData.website = website.trim();
+    if (yearEstablished !== undefined) updateData.yearEstablished = yearEstablished.trim();
 
     if (billingAddress) {
         if (billingAddress.street !== undefined)

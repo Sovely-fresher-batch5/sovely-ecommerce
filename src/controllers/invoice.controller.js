@@ -304,6 +304,8 @@ export const generateInvoicePDF = async (req, res, next) => {
                 .text(invoice.billedTo.gstin);
         }
 
+        let maxContactY = doc.y;
+
         if (invoice.shippedTo?.name) {
             doc.fillColor('#334155')
                 .fontSize(9)
@@ -321,9 +323,10 @@ export const generateInvoicePDF = async (req, res, next) => {
                     currentY + 30,
                     { width: 215, lineGap: 2 }
                 );
+            maxContactY = Math.max(maxContactY, doc.y);
         }
 
-        currentY = Math.max(doc.y + 35, 320);
+        currentY = Math.max(maxContactY + 35, 320);
 
         if (invoice.invoiceType !== 'WALLET_TOPUP' && invoice.items && invoice.items.length > 0) {
             doc.rect(40, currentY, 515, 24).fillAndStroke('#eef2ff', '#e2e8f0');

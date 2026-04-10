@@ -61,6 +61,10 @@ const userSchema = new mongoose.Schema(
         refreshToken: { type: String },
         savedCustomers: [savedCustomerSchema],
         companyName: { type: String, trim: true },
+        entityType: { type: String, trim: true },
+        industry: { type: String, trim: true },
+        website: { type: String, trim: true },
+        yearEstablished: { type: String, trim: true },
         branches: [branchSchema],
         gstin: {
             type: String,

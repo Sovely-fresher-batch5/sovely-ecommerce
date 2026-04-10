@@ -309,7 +309,7 @@ const AdminOrders = () => {
                 <div>
                     <h2 className="flex items-center gap-2 text-sm font-black text-indigo-900">
                         <RefreshCcw size={16} className="text-indigo-600" />
-                        Warehouse Sync Pipeline (Wukusy)
+                        Warehouse Sync Pipeline (Sovely server)
                     </h2>
                     <p className="mt-1 text-xs font-bold text-indigo-700/70">
                         Export new processing orders and sync back shipping/cancellation statuses.
@@ -326,7 +326,7 @@ const AdminOrders = () => {
                     <label
                         className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-sm transition-colors hover:bg-indigo-700 md:w-auto ${isUploadingCsv ? 'cursor-not-allowed opacity-50' : ''}`}
                     >
-                        <TrendingUp size={16} /> {isUploadingCsv ? 'Syncing...' : 'Sync Wukusy CSV'}
+                        <TrendingUp size={16} /> {isUploadingCsv ? 'Syncing...' : 'Sync Sovely server CSV'}
                         <input
                             type="file"
                             accept=".csv"
@@ -367,23 +367,23 @@ const AdminOrders = () => {
                         <option value="CANCELLED">Cancelled</option>
                     </select>
                 </div>
-                <div className="flex items-center rounded-xl border border-slate-200 bg-white px-4 shadow-sm transition-all focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900">
+                <div className="flex min-w-0 items-center rounded-xl border border-slate-200 bg-white px-3 shadow-sm transition-all focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900">
                     <Calendar size={16} className="mr-2 shrink-0 text-slate-400" />
                     <input
                         type="date"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
-                        className="w-full cursor-pointer border-none bg-transparent py-2.5 text-sm font-bold text-slate-700 outline-none"
+                        className="min-w-0 w-full cursor-pointer border-none bg-transparent py-2.5 text-sm font-bold text-slate-700 outline-none"
                         title="Start Date"
                     />
                 </div>
-                <div className="flex items-center rounded-xl border border-slate-200 bg-white px-4 shadow-sm transition-all focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900">
+                <div className="flex min-w-0 items-center rounded-xl border border-slate-200 bg-white px-3 shadow-sm transition-all focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900">
                     <Calendar size={16} className="mr-2 shrink-0 text-slate-400" />
                     <input
                         type="date"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
-                        className="w-full cursor-pointer border-none bg-transparent py-2.5 text-sm font-bold text-slate-700 outline-none"
+                        className="min-w-0 w-full cursor-pointer border-none bg-transparent py-2.5 text-sm font-bold text-slate-700 outline-none"
                         title="End Date"
                     />
                 </div>
