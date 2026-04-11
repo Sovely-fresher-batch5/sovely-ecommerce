@@ -381,8 +381,7 @@ export default function ActiveCartTab({ setActiveTab }) {
                                     const unitPlatformCost = Number(
                                         (
                                             (item.platformUnitCost || 0) +
-                                            (item.taxAmountPerUnit || 0) +
-                                            (item.shippingCost || 0) / (item.qty || 1)
+                                            (item.taxAmountPerUnit || 0)
                                         ).toFixed(2)
                                     );
 
@@ -470,16 +469,6 @@ export default function ActiveCartTab({ setActiveTab }) {
                                                         {item.taxAmountPerUnit?.toLocaleString(
                                                             'en-IN'
                                                         )}
-                                                    </span>
-                                                </div>
-                                                <div className="flex justify-between text-xs font-bold text-slate-600">
-                                                    <span>Apprt. Freight:</span>{' '}
-                                                    <span>
-                                                        +₹
-                                                        {(
-                                                            (item.shippingCost || 0) /
-                                                            (item.qty || 1)
-                                                        ).toFixed(2)}
                                                     </span>
                                                 </div>
                                                 <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 text-sm font-black text-slate-900">
