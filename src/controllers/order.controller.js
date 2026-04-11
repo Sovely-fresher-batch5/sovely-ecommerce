@@ -30,6 +30,29 @@ const ALLOWED_ORDER_STATUSES = new Set([
 ]);
 
 const FINAL_REFUND_STATUSES = new Set(['CANCELLED', 'RTO_DELIVERED']);
+const STATUS_TRANSITION_RULES = {
+    SHIPPED: new Set(['RTO', 'DELIVERED']),
+};
+
+const isStatusTransitionAllowed = (currentStatus, targetStatus) => {
+    if (!currentStatus || !targetStatus || currentStatus === targetStatus) {
+        return true;
+    }
+
+    const allowedTargets = STATUS_TRANSITION_RULES[currentStatus];
+    return !allowedTargets || allowedTargets.has(targetStatus);
+};
+
+const getInvalidTransitionErrorMessage = (currentStatus, targetStatus) => {
+    const allowedTargets = STATUS_TRANSITION_RULES[currentStatus];
+    if (!allowedTargets) {
+        return `Invalid status transition from ${currentStatus} to ${targetStatus}.`;
+    }
+
+    return `Invalid status transition from ${currentStatus} to ${targetStatus}. Allowed next statuses: ${Array.from(
+        allowedTargets
+    ).join(', ')}.`;
+};
 
 const roundMoney = (value) => Number((Number(value) || 0).toFixed(2));
 
@@ -392,9 +415,14 @@ export const createOrder = asyncHandler(async (req, res) => {
             }
 
             if (resellerProfitMargin < 0) {
+                const deficit = roundMoney(Math.abs(resellerProfitMargin));
                 throw new ApiError(
                     400,
-                    `Selling price for destination ${customer.address.zip} is too low. Margin is negative.`
+                    `Selling price for destination ${customer.address.zip} is too low by ₹${deficit.toFixed(
+                        2
+                    )}. Minimum customer total required is ₹${roundMoney(
+                        dsTotalCost
+                    ).toFixed(2)}, current is ₹${roundMoney(totalCustomerPayment).toFixed(2)}.`
                 );
             }
 
@@ -659,6 +687,10 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
 
     const order = await Order.findById(id);
     if (!order) throw new ApiError(404, 'Order not found');
+
+    if (!isStatusTransitionAllowed(order.status, normalizedStatus)) {
+        throw new ApiError(400, getInvalidTransitionErrorMessage(order.status, normalizedStatus));
+    }
 
     if (normalizedStatus === 'SHIPPED') order.tracking = { awbNumber, courierName };
 
@@ -1675,6 +1707,10 @@ export const importWukusyStatusesCsv = asyncHandler(async (req, res) => {
         if (order.status === targetStatus) continue;
         if (targetStatus === 'DELIVERED' && order.status === 'PROFIT_CREDITED') continue;
         if (targetStatus === 'RTO' && order.status === 'RTO_DELIVERED') continue;
+        if (!isStatusTransitionAllowed(order.status, targetStatus)) {
+            failCount++;
+            continue;
+        }
 
         if (wukusyAwb && targetStatus === 'SHIPPED') {
             const brandedAwb = `SOVELY-${wukusyAwb}`;

@@ -22,6 +22,36 @@ import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../utils/api.js';
 import toast from 'react-hot-toast';
 
+const FINAL_VIEW_ONLY_STATUSES = new Set([
+    'DELIVERED',
+    'CANCELLED',
+    'PROFIT_CREDITED',
+    'RTO_DELIVERED',
+]);
+
+const DEFAULT_MANUAL_OVERRIDE_STATUSES = [
+    'PROCESSING',
+    'SHIPPED',
+    'NDR',
+    'RTO',
+    'RTO_DELIVERED',
+    'DELIVERED',
+    'CANCELLED',
+];
+
+const MANUAL_OVERRIDE_LABELS = {
+    PROCESSING: 'Processing (Packing)',
+    SHIPPED: 'Shipped (In Transit)',
+    NDR: 'NDR (Failed Delivery Attempt)',
+    RTO: 'RTO (In Transit to Origin)',
+    RTO_DELIVERED: 'RTO Delivered (Apply Settlement)',
+    DELIVERED: 'Delivered (Releases Profit)',
+    CANCELLED: 'Cancelled',
+};
+
+const getManualOverrideStatuses = (currentStatus) =>
+    currentStatus === 'SHIPPED' ? ['RTO', 'DELIVERED'] : DEFAULT_MANUAL_OVERRIDE_STATUSES;
+
 const AdminOrders = () => {
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -56,6 +86,9 @@ const AdminOrders = () => {
     // Wukusy Sync States
     const [isUploadingCsv, setIsUploadingCsv] = useState(false);
     const [ewayBillNumber, setEwayBillNumber] = useState('');
+    const manualOverrideStatuses = selectedOrder
+        ? getManualOverrideStatuses(selectedOrder.status)
+        : DEFAULT_MANUAL_OVERRIDE_STATUSES;
 
     useEffect(() => {
         const nextParams = new URLSearchParams();
@@ -133,6 +166,10 @@ const AdminOrders = () => {
     // ==========================================
 
     const submitOrderUpdate = async (id) => {
+        if (!editForm.status) {
+            toast.error('Please select a valid status before saving.');
+            return;
+        }
         setIsSaving(true);
         try {
             const payload = {
@@ -431,13 +468,7 @@ const AdminOrders = () => {
                             ) : (
                                 orders.map((order) => {
                                     const isDropship = !!order.endCustomerDetails;
-                                    const isCompleted = [
-                                        'SHIPPED',
-                                        'DELIVERED',
-                                        'CANCELLED',
-                                        'PROFIT_CREDITED',
-                                        'RTO_DELIVERED',
-                                    ].includes(order.status);
+                                    const isCompleted = FINAL_VIEW_ONLY_STATUSES.has(order.status);
 
                                     return (
                                         <tr
@@ -524,13 +555,20 @@ const AdminOrders = () => {
                                             <td className="px-4 py-3 text-center">
                                                 <button
                                                     onClick={() => {
+                                                        const availableStatuses =
+                                                            getManualOverrideStatuses(order.status);
+
                                                         setSelectedOrder(order);
                                                         setViewMode(isCompleted);
                                                         setEwayBillNumber(
                                                             order.ewayBillNumber || ''
                                                         );
                                                         setEditForm({
-                                                            status: order.status,
+                                                            status: availableStatuses.includes(
+                                                                order.status
+                                                            )
+                                                                ? order.status
+                                                                : '',
                                                             courierName:
                                                                 order.tracking?.courierName || '',
                                                             awbNumber:
@@ -887,6 +925,13 @@ const AdminOrders = () => {
                                                             manually override the status below.
                                                         </div>
                                                     )}
+                                                    {selectedOrder.status === 'SHIPPED' && (
+                                                        <div className="rounded-lg bg-indigo-50 p-3 text-xs font-bold text-indigo-800">
+                                                            This order is already shipped. Next
+                                                            status can only be <strong>RTO</strong>{' '}
+                                                            or <strong>Delivered</strong>.
+                                                        </div>
+                                                    )}
                                                     <div>
                                                         <label className="mb-1 block text-[10px] font-bold text-slate-500 uppercase">
                                                             Manual Override Status
@@ -901,27 +946,27 @@ const AdminOrders = () => {
                                                             }
                                                             className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs font-bold text-slate-900 outline-none focus:border-slate-600 focus:ring-1 focus:ring-slate-600"
                                                         >
-                                                            <option value="PROCESSING">
-                                                                Processing (Packing)
-                                                            </option>
-                                                            <option value="SHIPPED">
-                                                                Shipped (In Transit)
-                                                            </option>
-                                                            <option value="NDR">
-                                                                NDR (Failed Delivery Attempt)
-                                                            </option>
-                                                            <option value="RTO">
-                                                                RTO (In Transit to Origin)
-                                                            </option>
-                                                            <option value="RTO_DELIVERED">
-                                                                RTO Delivered (Apply Settlement)
-                                                            </option>
-                                                            <option value="DELIVERED">
-                                                                Delivered (Releases Profit)
-                                                            </option>
-                                                            <option value="CANCELLED">
-                                                                Cancelled
-                                                            </option>
+                                                            {selectedOrder.status === 'SHIPPED' && (
+                                                                <option value="" disabled>
+                                                                    Select next status
+                                                                </option>
+                                                            )}
+                                                            {manualOverrideStatuses.map(
+                                                                (statusCode) => (
+                                                                    <option
+                                                                        key={statusCode}
+                                                                        value={statusCode}
+                                                                    >
+                                                                        {MANUAL_OVERRIDE_LABELS[
+                                                                            statusCode
+                                                                        ] ||
+                                                                            statusCode.replace(
+                                                                                /_/g,
+                                                                                ' '
+                                                                            )}
+                                                                    </option>
+                                                                )
+                                                            )}
                                                         </select>
                                                     </div>
                                                     {editForm.status === 'NDR' && (
@@ -959,7 +1004,7 @@ const AdminOrders = () => {
                                     </button>
                                     {!viewMode && selectedOrder.status !== 'PENDING' && (
                                         <button
-                                            disabled={isSaving}
+                                            disabled={isSaving || !editForm.status}
                                             onClick={() => submitOrderUpdate(selectedOrder._id)}
                                             className="flex-1 rounded-lg bg-slate-900 py-3 text-xs font-extrabold text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
                                         >

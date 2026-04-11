@@ -236,10 +236,13 @@ const recalculateCart = async (cart) => {
     }
 
     const shippingTax = Number((totalShippingCost * 0.18).toFixed(2));
+    const totalTaxWithShipping = totalTax + shippingTax;
     cart.subTotalPlatformCost = Number(subTotal.toFixed(2));
-    cart.totalTax = Number((totalTax + shippingTax).toFixed(2));
+    cart.totalTax = Number(totalTaxWithShipping.toFixed(2));
     cart.totalShippingCost = Number(totalShippingCost.toFixed(2));
-    cart.grandTotalPlatformCost = Number((subTotal + totalTax + totalShippingCost).toFixed(2));
+    cart.grandTotalPlatformCost = Number(
+        (subTotal + totalTaxWithShipping + totalShippingCost).toFixed(2)
+    );
     cart.totalExpectedProfit = Number(totalExpectedProfit.toFixed(2));
 
     cart.totalActualWeight = Number(totalActualWeight.toFixed(3));

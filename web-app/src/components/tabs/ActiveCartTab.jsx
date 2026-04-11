@@ -91,6 +91,38 @@ export default function ActiveCartTab({ setActiveTab }) {
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const [activeAssignItemId, setActiveAssignItemId] = useState(null);
 
+    const roundMoney = (value) => Number((Number(value) || 0).toFixed(2));
+    const getDropshipGroupEconomics = (group, paymentMethod) => {
+        const itemSubTotal = (group.items || []).reduce(
+            (sum, item) => sum + (Number(item.platformUnitCost) || 0) * (Number(item.qty) || 0),
+            0
+        );
+        const itemTaxTotal = (group.items || []).reduce(
+            (sum, item) => sum + (Number(item.taxAmountPerUnit) || 0) * (Number(item.qty) || 0),
+            0
+        );
+        const shippingTotal = (group.items || []).reduce(
+            (sum, item) => sum + (Number(item.shippingCost) || 0),
+            0
+        );
+        const shippingTax = roundMoney(shippingTotal * 0.18);
+        const codFee = paymentMethod === 'COD' ? 41.3 : 0;
+        const totalCost = roundMoney(itemSubTotal + itemTaxTotal + shippingTotal + shippingTax + codFee);
+        const customerPaymentTotal = roundMoney(
+            (group.items || []).reduce(
+                (sum, item) =>
+                    sum + (Number(item.resellerSellingPrice) || 0) * (Number(item.qty) || 0),
+                0
+            )
+        );
+
+        return {
+            totalCost,
+            customerPaymentTotal,
+            netMargin: roundMoney(customerPaymentTotal - totalCost),
+        };
+    };
+
     useEffect(() => {
         if (!cart) {
             fetchCart();
@@ -182,6 +214,30 @@ export default function ActiveCartTab({ setActiveTab }) {
             return setError(
                 'Please assign destinations for all dropship items before checking out.'
             );
+
+        const negativeMarginGroup = groupedCart.find((group) => {
+            if (group.icon !== 'dropship') return false;
+            const paymentMethod = paymentMethods[group.key] ?? 'COD';
+            const { netMargin } = getDropshipGroupEconomics(group, paymentMethod);
+            return netMargin < 0;
+        });
+
+        if (negativeMarginGroup) {
+            const paymentMethod = paymentMethods[negativeMarginGroup.key] ?? 'COD';
+            const { totalCost, customerPaymentTotal, netMargin } = getDropshipGroupEconomics(
+                negativeMarginGroup,
+                paymentMethod
+            );
+            const pincode = negativeMarginGroup.details?.address?.zip || 'unknown destination';
+            return setError(
+                `Selling price for destination ${pincode} is too low by ₹${Math.abs(netMargin).toFixed(
+                    2
+                )}. Minimum customer total required is ₹${totalCost.toFixed(
+                    2
+                )}, current is ₹${customerPaymentTotal.toFixed(2)}.`
+            );
+        }
+
         if (!isWalletSufficient)
             return setError('Insufficient wallet balance. Please add capital to your wallet.');
 
@@ -237,6 +293,10 @@ export default function ActiveCartTab({ setActiveTab }) {
             <div className="w-full space-y-6 xl:w-[70%]">
                 {groupedCart.map((group) => {
                     const currentPaymentMethod = paymentMethods[group.key] ?? 'COD';
+                    const groupEconomics =
+                        group.icon === 'dropship'
+                            ? getDropshipGroupEconomics(group, currentPaymentMethod)
+                            : null;
 
                     return (
                         <div
@@ -273,21 +333,35 @@ export default function ActiveCartTab({ setActiveTab }) {
                                 </div>
 
                                 {group.icon === 'dropship' && (
-                                    <div className="flex shrink-0 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-                                        <button
-                                            onClick={() => handleSetPaymentMethod(group.key, 'COD')}
-                                            className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-black transition-all ${currentPaymentMethod === 'COD' ? 'bg-emerald-500 text-white shadow' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
-                                        >
-                                            <IndianRupee size={14} /> Collect COD
-                                        </button>
-                                        <button
-                                            onClick={() =>
-                                                handleSetPaymentMethod(group.key, 'PREPAID_WALLET')
-                                            }
-                                            className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-black transition-all ${currentPaymentMethod === 'PREPAID_WALLET' ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
-                                        >
-                                            <Wallet size={14} /> Prepaid
-                                        </button>
+                                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                                        <div className="flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+                                            <button
+                                                onClick={() => handleSetPaymentMethod(group.key, 'COD')}
+                                                className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-black transition-all ${currentPaymentMethod === 'COD' ? 'bg-emerald-500 text-white shadow' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+                                            >
+                                                <IndianRupee size={14} /> Collect COD
+                                            </button>
+                                            <button
+                                                onClick={() =>
+                                                    handleSetPaymentMethod(
+                                                        group.key,
+                                                        'PREPAID_WALLET'
+                                                    )
+                                                }
+                                                className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-black transition-all ${currentPaymentMethod === 'PREPAID_WALLET' ? 'bg-slate-900 text-white shadow' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+                                            >
+                                                <Wallet size={14} /> Prepaid
+                                            </button>
+                                        </div>
+                                        {!!groupEconomics && (
+                                            <div
+                                                className={`text-[10px] font-extrabold ${groupEconomics.netMargin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}
+                                            >
+                                                Destination Net Margin:{' '}
+                                                {groupEconomics.netMargin >= 0 ? '+' : '-'}₹
+                                                {Math.abs(groupEconomics.netMargin).toFixed(2)}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
@@ -312,11 +386,7 @@ export default function ActiveCartTab({ setActiveTab }) {
                                         ).toFixed(2)
                                     );
 
-                                    const displayedProfit =
-                                        currentPaymentMethod === 'COD' &&
-                                        item.expectedProfitIfCOD !== undefined
-                                            ? item.expectedProfitIfCOD
-                                            : item.expectedProfit;
+                                    const displayedProfit = item.expectedProfit;
 
                                     return (
                                         <div
@@ -506,11 +576,6 @@ export default function ActiveCartTab({ setActiveTab }) {
                                                                     minimumFractionDigits: 2,
                                                                 })}
                                                             </div>
-                                                            {currentPaymentMethod === 'COD' && (
-                                                                <span className="text-[8px] text-amber-600 opacity-80">
-                                                                    (After ₹41.30 COD Fee)
-                                                                </span>
-                                                            )}
                                                         </div>
                                                     </div>
                                                 )}
