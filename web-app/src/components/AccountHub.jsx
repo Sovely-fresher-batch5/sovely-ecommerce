@@ -52,7 +52,7 @@ export default function AccountHub() {
     useEffect(() => {
         if (location.state?.tab) {
             setActiveTab(location.state.tab);
-            // Optional: clear state after reading so manual clicks don't get overwritten on re-renders
+
             window.history.replaceState({}, document.title);
         }
     }, [location.state]);
@@ -318,7 +318,7 @@ export default function AccountHub() {
                     <div className="sticky top-24 space-y-3">
                         <div className="mb-8 flex items-center gap-4 rounded-3xl bg-slate-900 p-6 text-white shadow-xl">
                             {}
-                            <div className="flex h-14 w-14 shrink-0 overflow-hidden items-center justify-center rounded-full bg-indigo-600 text-xl font-black shadow-inner">
+                            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-indigo-600 text-xl font-black shadow-inner">
                                 {user?.avatar ? (
                                     <img
                                         src={getAvatarUrl(user.avatar)}
@@ -422,8 +422,8 @@ export default function AccountHub() {
                                                     Track Your Shipments
                                                 </h3>
                                                 <p className="mt-1 text-sm font-medium text-slate-500">
-                                                    Monitor active orders, download tax invoices, and
-                                                    manage your warehouse dispatch.
+                                                    Monitor active orders, download tax invoices,
+                                                    and manage your warehouse dispatch.
                                                 </p>
                                             </div>
                                         </div>
@@ -684,7 +684,9 @@ export default function AccountHub() {
                                             </h3>
                                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                                 <div>
-                                                    <label className={labelClasses}>Account Holder Name</label>
+                                                    <label className={labelClasses}>
+                                                        Account Holder Name
+                                                    </label>
                                                     <input
                                                         type="text"
                                                         value={profileData.accountName}
@@ -694,7 +696,9 @@ export default function AccountHub() {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className={labelClasses}>Bank Name</label>
+                                                    <label className={labelClasses}>
+                                                        Bank Name
+                                                    </label>
                                                     <input
                                                         type="text"
                                                         value={profileData.bankName}
@@ -704,7 +708,9 @@ export default function AccountHub() {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className={labelClasses}>Account Number</label>
+                                                    <label className={labelClasses}>
+                                                        Account Number
+                                                    </label>
                                                     <input
                                                         type="text"
                                                         value={profileData.accountNumber}
@@ -714,7 +720,9 @@ export default function AccountHub() {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className={labelClasses}>IFSC Code</label>
+                                                    <label className={labelClasses}>
+                                                        IFSC Code
+                                                    </label>
                                                     <input
                                                         type="text"
                                                         value={profileData.ifscCode}
@@ -725,8 +733,12 @@ export default function AccountHub() {
                                                 </div>
                                             </div>
                                             <p className="mt-4 flex items-center gap-2 text-xs font-bold text-slate-500">
-                                                <ShieldCheck size={14} className="text-indigo-600" />
-                                                Banking details can only be modified by a portal administrator.
+                                                <ShieldCheck
+                                                    size={14}
+                                                    className="text-indigo-600"
+                                                />
+                                                Banking details can only be modified by a portal
+                                                administrator.
                                             </p>
                                         </div>
 

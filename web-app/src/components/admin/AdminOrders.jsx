@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
+import { CheckCircle } from 'lucide-react';
 import {
     Search,
     Filter,
@@ -52,6 +53,113 @@ const MANUAL_OVERRIDE_LABELS = {
 const getManualOverrideStatuses = (currentStatus) =>
     currentStatus === 'SHIPPED' ? ['RTO', 'DELIVERED'] : DEFAULT_MANUAL_OVERRIDE_STATUSES;
 
+const WUKUSY_STATUS_MAP = {
+    shipped: 'SHIPPED',
+    confirmed: 'PROCESSING',
+    'cancelled-new': 'CANCELLED',
+    cancelled: 'CANCELLED',
+    pending: 'PENDING',
+    delivered: 'DELIVERED',
+};
+
+function cleanField(val = '') {
+    return val
+        .replace(/^"+|"+$/g, '')
+        .replace(/^=/, '')
+        .trim();
+}
+
+function parseCSVText(text) {
+    const rows = [];
+    let row = [],
+        field = '',
+        i = 0,
+        insideQuotes = false;
+    while (i < text.length) {
+        const char = text[i];
+        if (insideQuotes) {
+            if (char === '"') {
+                if (text[i + 1] === '"') {
+                    field += '"';
+                    i += 2;
+                    continue;
+                }
+                insideQuotes = false;
+                i++;
+                continue;
+            }
+            field += char;
+            i++;
+            continue;
+        }
+        if (char === '"') {
+            insideQuotes = true;
+            i++;
+            continue;
+        }
+        if (char === ',') {
+            row.push(field);
+            field = '';
+            i++;
+            continue;
+        }
+        if (char === '\n') {
+            row.push(field);
+            rows.push(row);
+            row = [];
+            field = '';
+            i++;
+            continue;
+        }
+        if (char === '\r') {
+            i++;
+            continue;
+        }
+        field += char;
+        i++;
+    }
+    row.push(field);
+    rows.push(row);
+    return rows;
+}
+
+function parseCsvToOrders(csvText) {
+    const rows = parseCSVText(csvText);
+    const headerIndex = rows.findIndex((row) =>
+        row.some((col) => cleanField(col) === 'Wukusy Order No')
+    );
+    if (headerIndex === -1) return null;
+
+    const header = rows[headerIndex].map(cleanField);
+    const dataRows = rows.slice(headerIndex + 1).filter((r) => r.some((c) => c.trim()));
+    const col = (row, name) => cleanField(row[header.indexOf(name)] ?? '');
+
+    return dataRows.map((row) => {
+        const rawStatus = col(row, 'Status').toLowerCase();
+        const courier = col(row, 'Courier');
+        const tracking = col(row, 'Tracking');
+        return {
+            wukusyOrderNo: col(row, 'Wukusy Order No'),
+            platformOrderNo: col(row, 'Platform Order No'),
+            orderDate: col(row, 'Order Date'),
+            customerName: col(row, 'Customer Name'),
+            phone: col(row, 'Phone'),
+            city: col(row, 'city'),
+            state: col(row, 'State'),
+            sku: col(row, 'SKU'),
+            quantity: col(row, 'Quantity'),
+            sellingPrice: col(row, 'Sellling Price'),
+            orderProfit: col(row, 'Order Profit'),
+            paymentStatus: col(row, 'Payment Status'),
+            rawStatus: col(row, 'Status'),
+            mappedStatus: WUKUSY_STATUS_MAP[rawStatus] || 'PROCESSING',
+            courier,
+            tracking,
+            hasShipment: !!(courier || tracking),
+        };
+    });
+}
+
 const AdminOrders = () => {
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -82,6 +190,11 @@ const AdminOrders = () => {
     const [exportStartDate, setExportStartDate] = useState('');
     const [exportEndDate, setExportEndDate] = useState('');
     const [isExporting, setIsExporting] = useState(false);
+
+    const [parsedOrders, setParsedOrders] = useState([]);
+    const [isDragging, setIsDragging] = useState(false);
+    const [syncResult, setSyncResult] = useState(null);
+    const [csvFileName, setCsvFileName] = useState('');
 
     // Wukusy Sync States
     const [isUploadingCsv, setIsUploadingCsv] = useState(false);
@@ -229,25 +342,22 @@ const AdminOrders = () => {
     const handleImportWukusy = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
+        event.target.value = '';
 
-        setIsUploadingCsv(true);
-        const formData = new FormData();
-        formData.append('file', file);
+        setCsvFileName(file.name);
+        setSyncResult(null);
 
-        const uploadToast = toast.loading('Syncing statuses with Wukusy...');
-
-        try {
-            const res = await api.post('/orders/import-wukusy', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
-            toast.success(res.data.message, { id: uploadToast });
-            setPage(1);
-        } catch (err) {
-            toast.error(err.response?.data?.message || 'Failed to sync CSV', { id: uploadToast });
-        } finally {
-            setIsUploadingCsv(false);
-            event.target.value = ''; // Reset input so the same file can be selected again
-        }
+        const reader = new FileReader();
+        reader.onload = () => {
+            const orders = parseCsvToOrders(reader.result);
+            if (!orders) {
+                toast.error("Couldn't find 'Wukusy Order No' column.");
+                return;
+            }
+            setParsedOrders(orders);
+            toast.success(`${orders.length} orders loaded — review and confirm sync below`);
+        };
+        reader.readAsText(file);
     };
 
     const handleExportOrders = async () => {
@@ -284,6 +394,58 @@ const AdminOrders = () => {
             toast.error('Failed to export orders. Please try again.');
         } finally {
             setIsExporting(false);
+        }
+    };
+
+    const handleConfirmSync = async () => {
+        if (!parsedOrders.length) return;
+        setIsUploadingCsv(true);
+        const uploadToast = toast.loading('Syncing statuses with Wukusy...');
+
+        const csvLines = [
+            'Wukusy Order No,Platform Order No,Order Date,Customer Name,Phone,city,State,SKU,Quantity,Sellling Price,Order Profit,Payment Status,Status,Courier,Tracking',
+            ...parsedOrders.map((o) =>
+                [
+                    o.wukusyOrderNo,
+                    o.platformOrderNo,
+                    o.orderDate,
+                    o.customerName,
+                    o.phone,
+                    o.city,
+                    o.state,
+                    o.sku,
+                    o.quantity,
+                    o.sellingPrice,
+                    o.orderProfit,
+                    o.paymentStatus,
+                    o.rawStatus,
+                    o.courier,
+                    o.tracking,
+                ]
+                    .map((v) => `"${(v ?? '').toString().replace(/"/g, '""')}"`)
+                    .join(',')
+            ),
+        ].join('\n');
+
+        const formData = new FormData();
+        formData.append(
+            'file',
+            new Blob([csvLines], { type: 'text/csv' }),
+            csvFileName || 'sync.csv'
+        );
+
+        try {
+            const res = await api.post('/orders/import-wukusy', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            toast.success(res.data.message, { id: uploadToast });
+            setSyncResult(res.data.result || { updated: parsedOrders.length, skipped: 0 });
+            setParsedOrders([]);
+            setPage(1);
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to sync CSV', { id: uploadToast });
+        } finally {
+            setIsUploadingCsv(false);
         }
     };
 
@@ -343,37 +505,160 @@ const AdminOrders = () => {
     return (
         <div className="w-full">
             {}
-            <div className="mb-6 flex flex-col items-center justify-between gap-4 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 shadow-sm md:flex-row">
-                <div>
-                    <h2 className="flex items-center gap-2 text-sm font-black text-indigo-900">
-                        <RefreshCcw size={16} className="text-indigo-600" />
-                        Warehouse Sync Pipeline (Sovely server)
-                    </h2>
-                    <p className="mt-1 text-xs font-bold text-indigo-700/70">
-                        Export new processing orders and sync back shipping/cancellation statuses.
-                    </p>
+            <div className="mb-6 space-y-4">
+                {}
+                <div className="flex flex-col items-center justify-between gap-4 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 shadow-sm md:flex-row">
+                    <div>
+                        <h2 className="flex items-center gap-2 text-sm font-black text-indigo-900">
+                            <RefreshCcw size={16} className="text-indigo-600" />
+                            Warehouse Sync Pipeline (Sovely server)
+                        </h2>
+                        <p className="mt-1 text-xs font-bold text-indigo-700/70">
+                            Export new processing orders and sync back shipping/cancellation
+                            statuses.
+                        </p>
+                    </div>
+                    <div className="flex w-full flex-col items-center gap-3 md:w-auto md:flex-row">
+                        <button
+                            onClick={handleExportWukusy}
+                            disabled={isExporting}
+                            className="flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-white px-4 py-2.5 text-xs font-extrabold text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100 disabled:opacity-50 md:w-auto"
+                        >
+                            <Package size={16} /> Export Untracked Orders
+                        </button>
+                        <label
+                            className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-sm transition-colors hover:bg-indigo-700 md:w-auto ${isUploadingCsv ? 'cursor-not-allowed opacity-50' : ''}`}
+                        >
+                            <TrendingUp size={16} />{' '}
+                            {isUploadingCsv ? 'Syncing...' : 'Load Sovely CSV'}
+                            <input
+                                type="file"
+                                accept=".csv"
+                                className="hidden"
+                                onChange={handleImportWukusy}
+                                disabled={isUploadingCsv}
+                            />
+                        </label>
+                    </div>
                 </div>
-                <div className="flex w-full flex-col items-center gap-3 md:w-auto md:flex-row">
-                    <button
-                        onClick={handleExportWukusy}
-                        disabled={isExporting}
-                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-white px-4 py-2.5 text-xs font-extrabold text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100 disabled:opacity-50 md:w-auto"
-                    >
-                        <Package size={16} /> Export Untracked Orders
-                    </button>
-                    <label
-                        className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-sm transition-colors hover:bg-indigo-700 md:w-auto ${isUploadingCsv ? 'cursor-not-allowed opacity-50' : ''}`}
-                    >
-                        <TrendingUp size={16} /> {isUploadingCsv ? 'Syncing...' : 'Sync Sovely server CSV'}
-                        <input
-                            type="file"
-                            accept=".csv"
-                            className="hidden"
-                            onChange={handleImportWukusy}
-                            disabled={isUploadingCsv}
-                        />
-                    </label>
-                </div>
+
+                {}
+                <AnimatePresence>
+                    {parsedOrders.length > 0 && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                        >
+                            {}
+                            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3">
+                                <div>
+                                    <p className="text-sm font-black text-slate-900">
+                                        CSV Preview — {csvFileName}
+                                    </p>
+                                    <p className="text-xs font-bold text-slate-400">
+                                        {parsedOrders.length} orders ready to sync
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={() => {
+                                            setParsedOrders([]);
+                                            setSyncResult(null);
+                                        }}
+                                        className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-slate-700"
+                                    >
+                                        <X size={14} /> Discard
+                                    </button>
+                                    <button
+                                        onClick={handleConfirmSync}
+                                        disabled={isUploadingCsv}
+                                        className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-indigo-700 disabled:opacity-50"
+                                    >
+                                        <RefreshCcw
+                                            size={14}
+                                            className={isUploadingCsv ? 'animate-spin' : ''}
+                                        />
+                                        {isUploadingCsv
+                                            ? 'Syncing...'
+                                            : `Confirm Sync (${parsedOrders.length})`}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Sync result */}
+                            {syncResult && (
+                                <div className="flex items-center gap-2 border-b border-emerald-100 bg-emerald-50 px-5 py-2.5 text-xs font-bold text-emerald-800">
+                                    <CheckCircle size={14} className="text-emerald-600" />
+                                    Sync complete — <strong>{syncResult.updated}</strong> updated
+                                    {syncResult.skipped > 0 && (
+                                        <>
+                                            , <strong>{syncResult.skipped}</strong> skipped
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Preview table */}
+                            <div className="overflow-x-auto">
+                                <table className="w-full border-collapse text-left text-sm">
+                                    <thead>
+                                        <tr className="border-b border-slate-100 bg-slate-50 text-[10px] font-extrabold tracking-wider text-slate-500 uppercase">
+                                            <th className="px-4 py-2.5">Order No</th>
+                                            <th className="px-4 py-2.5">Customer</th>
+                                            <th className="px-4 py-2.5">SKU</th>
+                                            <th className="px-4 py-2.5">Courier</th>
+                                            <th className="px-4 py-2.5">Tracking</th>
+                                            <th className="px-4 py-2.5">Wukusy Status</th>
+                                            <th className="px-4 py-2.5">Maps To</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {parsedOrders.map((order, i) => (
+                                            <tr key={i} className="hover:bg-slate-50">
+                                                <td className="px-4 py-2.5 font-mono text-xs font-black text-slate-900">
+                                                    #{order.wukusyOrderNo}
+                                                </td>
+                                                <td className="px-4 py-2.5">
+                                                    <div className="text-xs font-bold text-slate-800">
+                                                        {order.customerName}
+                                                    </div>
+                                                    <div className="text-[10px] text-slate-400">
+                                                        {order.city}, {order.state}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-2.5 font-mono text-[10px] font-bold text-slate-500">
+                                                    {order.sku}
+                                                </td>
+                                                <td className="px-4 py-2.5 text-xs font-bold text-indigo-700">
+                                                    {order.courier || (
+                                                        <span className="text-slate-300">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-2.5 font-mono text-[10px] font-bold text-slate-600">
+                                                    {order.tracking || (
+                                                        <span className="text-slate-300">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-2.5 text-[10px] font-bold text-slate-500">
+                                                    {order.rawStatus}
+                                                </td>
+                                                <td className="px-4 py-2.5">
+                                                    <span
+                                                        className={`inline-flex items-center rounded border px-2 py-0.5 text-[9px] font-extrabold tracking-widest uppercase ${getStatusStyle(order.mappedStatus)}`}
+                                                    >
+                                                        {order.mappedStatus.replace(/_/g, ' ')}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
             {}
@@ -413,7 +698,7 @@ const AdminOrders = () => {
                         type="date"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
-                        className="min-w-0 w-full cursor-pointer border-none bg-transparent py-2.5 text-sm font-bold text-slate-700 outline-none"
+                        className="w-full min-w-0 cursor-pointer border-none bg-transparent py-2.5 text-sm font-bold text-slate-700 outline-none"
                         title="Start Date"
                     />
                 </div>
@@ -423,7 +708,7 @@ const AdminOrders = () => {
                         type="date"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
-                        className="min-w-0 w-full cursor-pointer border-none bg-transparent py-2.5 text-sm font-bold text-slate-700 outline-none"
+                        className="w-full min-w-0 cursor-pointer border-none bg-transparent py-2.5 text-sm font-bold text-slate-700 outline-none"
                         title="End Date"
                     />
                 </div>
@@ -479,7 +764,21 @@ const AdminOrders = () => {
                                                 <div className="font-mono text-xs font-black text-slate-900">
                                                     {order.orderId}
                                                 </div>
-                                                <div className="text-[10px] font-bold text-slate-400">
+
+                                                {/* Newly Added Platform Order No */}
+                                                {order.platformOrderNo && (
+                                                    <div
+                                                        className="mt-0.5 line-clamp-1 font-mono text-[10px] font-bold text-indigo-600"
+                                                        title={order.platformOrderNo}
+                                                    >
+                                                        <span className="text-slate-400">
+                                                            Platform ID:
+                                                        </span>{' '}
+                                                        {order.platformOrderNo}
+                                                    </div>
+                                                )}
+
+                                                <div className="mt-1 text-[10px] font-bold text-slate-400">
                                                     {new Date(order.createdAt).toLocaleDateString(
                                                         'en-IN',
                                                         {
@@ -652,9 +951,21 @@ const AdminOrders = () => {
                                         <h3 className="flex items-center gap-2 text-lg font-black text-slate-900">
                                             <Truck size={18} /> Dispatch Center
                                         </h3>
-                                        <p className="mt-0.5 font-mono text-xs font-bold text-slate-500">
-                                            {selectedOrder.orderId}
-                                        </p>
+                                        <div className="mt-0.5 flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                                            <p className="font-mono text-xs font-bold text-slate-900">
+                                                {selectedOrder.orderId}
+                                            </p>
+                                            {selectedOrder.platformOrderNo && (
+                                                <>
+                                                    <span className="hidden text-slate-300 sm:inline">
+                                                        •
+                                                    </span>
+                                                    <p className="font-mono text-[10px] font-bold text-indigo-600">
+                                                        Platform: {selectedOrder.platformOrderNo}
+                                                    </p>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                     <button
                                         onClick={() => setSelectedOrder(null)}

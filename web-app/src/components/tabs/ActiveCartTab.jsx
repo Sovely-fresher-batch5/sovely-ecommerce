@@ -107,7 +107,9 @@ export default function ActiveCartTab({ setActiveTab }) {
         );
         const shippingTax = roundMoney(shippingTotal * 0.18);
         const codFee = paymentMethod === 'COD' ? 41.3 : 0;
-        const totalCost = roundMoney(itemSubTotal + itemTaxTotal + shippingTotal + shippingTax + codFee);
+        const totalCost = roundMoney(
+            itemSubTotal + itemTaxTotal + shippingTotal + shippingTax + codFee
+        );
         const customerPaymentTotal = roundMoney(
             (group.items || []).reduce(
                 (sum, item) =>
@@ -230,9 +232,9 @@ export default function ActiveCartTab({ setActiveTab }) {
             );
             const pincode = negativeMarginGroup.details?.address?.zip || 'unknown destination';
             return setError(
-                `Selling price for destination ${pincode} is too low by ₹${Math.abs(netMargin).toFixed(
-                    2
-                )}. Minimum customer total required is ₹${totalCost.toFixed(
+                `Selling price for destination ${pincode} is too low by ₹${Math.abs(
+                    netMargin
+                ).toFixed(2)}. Minimum customer total required is ₹${totalCost.toFixed(
                     2
                 )}, current is ₹${customerPaymentTotal.toFixed(2)}.`
             );
@@ -262,7 +264,6 @@ export default function ActiveCartTab({ setActiveTab }) {
             });
             window.dispatchEvent(new Event('refreshHubData'));
 
-            // Redirect to active orders tab
             if (setActiveTab) {
                 setActiveTab('HISTORY');
             }
@@ -336,7 +337,9 @@ export default function ActiveCartTab({ setActiveTab }) {
                                     <div className="flex shrink-0 flex-col items-end gap-1.5">
                                         <div className="flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
                                             <button
-                                                onClick={() => handleSetPaymentMethod(group.key, 'COD')}
+                                                onClick={() =>
+                                                    handleSetPaymentMethod(group.key, 'COD')
+                                                }
                                                 className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-black transition-all ${currentPaymentMethod === 'COD' ? 'bg-emerald-500 text-white shadow' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
                                             >
                                                 <IndianRupee size={14} /> Collect COD

@@ -420,9 +420,9 @@ export const createOrder = asyncHandler(async (req, res) => {
                     400,
                     `Selling price for destination ${customer.address.zip} is too low by ₹${deficit.toFixed(
                         2
-                    )}. Minimum customer total required is ₹${roundMoney(
-                        dsTotalCost
-                    ).toFixed(2)}, current is ₹${roundMoney(totalCustomerPayment).toFixed(2)}.`
+                    )}. Minimum customer total required is ₹${roundMoney(dsTotalCost).toFixed(
+                        2
+                    )}, current is ₹${roundMoney(totalCustomerPayment).toFixed(2)}.`
                 );
             }
 
@@ -715,18 +715,14 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
         CANCELLED: 'Order has been cancelled',
     };
 
-    if (
-        FINAL_REFUND_STATUSES.has(normalizedStatus) &&
-        !FINAL_REFUND_STATUSES.has(order.status)
-    ) {
+    if (FINAL_REFUND_STATUSES.has(normalizedStatus) && !FINAL_REFUND_STATUSES.has(order.status)) {
         const session = await mongoose.startSession();
         session.startTransaction();
 
         try {
             order.statusHistory.push({
                 status: normalizedStatus,
-                comment:
-                    statusComment[normalizedStatus] || `Status updated to ${normalizedStatus}`,
+                comment: statusComment[normalizedStatus] || `Status updated to ${normalizedStatus}`,
             });
 
             await applyFinalStatusSettlement({
@@ -743,9 +739,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
 
             return res
                 .status(200)
-                .json(
-                    new ApiResponse(200, order, `Order status updated to ${normalizedStatus}`)
-                );
+                .json(new ApiResponse(200, order, `Order status updated to ${normalizedStatus}`));
         } catch (error) {
             await session.abortTransaction();
             session.endSession();
@@ -816,8 +810,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     ) {
         order.statusHistory.push({
             status: normalizedStatus,
-            comment:
-                statusComment[normalizedStatus] || `Status updated to ${normalizedStatus}`,
+            comment: statusComment[normalizedStatus] || `Status updated to ${normalizedStatus}`,
         });
     }
 
@@ -954,6 +947,7 @@ export const getAllAdminOrders = asyncHandler(async (req, res) => {
 
         query['$or'] = [
             { orderId: { $regex: safeSearch, $options: 'i' } },
+            { platformOrderNo: { $regex: safeSearch, $options: 'i' } },
             { 'endCustomerDetails.name': { $regex: safeSearch, $options: 'i' } },
             { 'endCustomerDetails.phone': { $regex: safeSearch, $options: 'i' } },
             { 'tracking.awbNumber': { $regex: safeSearch, $options: 'i' } },
@@ -1633,203 +1627,179 @@ export const exportUntrackedWukusyOrders = asyncHandler(async (req, res) => {
     return res.status(200).send(csvContent);
 });
 
-// ==========================================
-// 2. IMPORT STATUSES FROM WUKUSY
-// ==========================================
-// ==========================================
-// 2. IMPORT STATUSES FROM WUKUSY (WITH AUTO-RESTOCK & BRANDING)
-// ==========================================
-export const importWukusyStatusesCsv = asyncHandler(async (req, res) => {
-    if (!req.file) throw new ApiError(400, 'No CSV file uploaded.');
-
-    const csvData = fs.readFileSync(req.file.path, 'utf8');
-    const parsed = Papa.parse(csvData, { header: true, skipEmptyLines: true });
-
-    if (parsed.errors.length > 0) {
-        throw new ApiError(400, 'Invalid CSV format.');
-    }
-
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const row of parsed.data) {
-        const rawPlatformOrderId = row['Platform Order No']?.trim();
-        const wukusyAwb = row['Wukusy Order No']?.trim();
-        const rawStatus = row['Status']?.trim();
-
-        if (!rawPlatformOrderId || !rawStatus) {
-            failCount++;
-            continue;
-        }
-
-        const platformOrderId = rawPlatformOrderId;
-
-        const normalizedWarehouseStatus = rawStatus.toLowerCase().replace(/[\s-]+/g, '_');
-
-        let targetStatus = '';
-        switch (normalizedWarehouseStatus) {
-            case 'new':
-                targetStatus = 'PENDING';
-                break;
-            case 'ready_to_ship':
-                targetStatus = 'PROCESSING';
-                break;
-            case 'shipped':
-                targetStatus = 'SHIPPED';
-                break;
-            case 'cancelled_new':
-            case 'cancelled':
-                targetStatus = 'CANCELLED';
-                break;
-            case 'rto':
-            case 'returned':
-                targetStatus = 'RTO';
-                break;
-            case 'rto_delivered':
-            case 'returned_delivered':
-                targetStatus = 'RTO_DELIVERED';
-                break;
-            case 'delivered':
-                targetStatus = 'DELIVERED';
-                break;
-            default:
-                targetStatus = null;
-        }
-
-        if (!targetStatus) continue;
-
-        const order = await Order.findOne({ orderId: platformOrderId });
-        if (!order) {
-            failCount++;
-            continue;
-        }
-
-        if (order.status === targetStatus) continue;
-        if (targetStatus === 'DELIVERED' && order.status === 'PROFIT_CREDITED') continue;
-        if (targetStatus === 'RTO' && order.status === 'RTO_DELIVERED') continue;
-        if (!isStatusTransitionAllowed(order.status, targetStatus)) {
-            failCount++;
-            continue;
-        }
-
-        if (wukusyAwb && targetStatus === 'SHIPPED') {
-            const brandedAwb = `SOVELY-${wukusyAwb}`;
-            order.tracking = {
-                awbNumber: brandedAwb,
-                courierName: 'Sovely Logistics',
-
-                trackingUrl: `https://yourdomain.com/track/${brandedAwb}`,
-            };
-        }
-
-        if (
-            FINAL_REFUND_STATUSES.has(targetStatus) &&
-            !FINAL_REFUND_STATUSES.has(order.status)
-        ) {
-            const session = await mongoose.startSession();
-            session.startTransaction();
-            try {
-                order.status = targetStatus;
-                order.statusHistory.push({
-                    status: targetStatus,
-                    comment: `Status updated to ${targetStatus} via Warehouse Sync.`,
-                });
-
-                await applyFinalStatusSettlement({
-                    order,
-                    targetStatus,
-                    session,
-                    source: 'BULK_SYNC',
-                });
-
-                await order.save({ session });
-
-                await session.commitTransaction();
-                session.endSession();
-                successCount++;
-                continue;
-            } catch (err) {
-                await session.abortTransaction();
-                session.endSession();
-                console.error(`Refund/Restock failed for ${order.orderId}`, err);
-                failCount++;
-                continue;
-            }
-        }
-
-        if (targetStatus === 'DELIVERED' && order.status !== 'DELIVERED') {
-            if (order.payoutOnDelivery > 0 && order.paymentMethod === 'COD') {
-                const session = await mongoose.startSession();
-                session.startTransaction();
-                try {
-                    const updatedReseller = await User.findByIdAndUpdate(
-                        order.resellerId,
-                        { $inc: { walletBalance: order.payoutOnDelivery } },
-                        { new: true, session }
-                    );
-
-                    await WalletTransaction.create(
-                        [
-                            {
-                                resellerId: order.resellerId,
-                                type: 'CREDIT',
-                                purpose: 'PROFIT_CREDIT',
-                                amount: order.payoutOnDelivery,
-                                closingBalance: updatedReseller.walletBalance,
-                                referenceId: `PRO-${order.orderId}`,
-                                description: `Payout credited for COD delivery via Bulk Sync`,
-                                status: 'COMPLETED',
-                            },
-                        ],
-                        { session }
-                    );
-
-                    order.statusHistory.push({
-                        status: 'DELIVERED',
-                        comment: 'Order delivered to customer via warehouse sync.',
-                    });
-                    order.statusHistory.push({
-                        status: 'PROFIT_CREDITED',
-                        comment: `₹${order.payoutOnDelivery} credited to wallet via bulk sync.`,
-                    });
-
-                    order.status = 'PROFIT_CREDITED';
-                    await order.save({ session });
-
-                    await session.commitTransaction();
-                    session.endSession();
-                    successCount++;
-                    continue;
-                } catch (err) {
-                    await session.abortTransaction();
-                    session.endSession();
-                    console.error(`Profit payout failed for ${order.orderId}`, err);
-                    failCount++;
+function parseCSVText(text) {
+    const rows = [];
+    let row = [],
+        field = '',
+        i = 0,
+        insideQuotes = false;
+    while (i < text.length) {
+        const char = text[i];
+        if (insideQuotes) {
+            if (char === '"') {
+                if (text[i + 1] === '"') {
+                    field += '"';
+                    i += 2;
                     continue;
                 }
+                insideQuotes = false;
+                i++;
+                continue;
+            }
+            field += char;
+            i++;
+            continue;
+        }
+        if (char === '"') {
+            insideQuotes = true;
+            i++;
+            continue;
+        }
+        if (char === ',') {
+            row.push(field);
+            field = '';
+            i++;
+            continue;
+        }
+        if (char === '\n') {
+            row.push(field);
+            rows.push(row);
+            row = [];
+            field = '';
+            i++;
+            continue;
+        }
+        if (char === '\r') {
+            i++;
+            continue;
+        }
+        field += char;
+        i++;
+    }
+    row.push(field);
+    rows.push(row);
+    return rows;
+}
+
+export const importWukusyStatusesCsv = async (req, res) => {
+    try {
+        if (!req.file || !req.file.buffer) {
+            return res.status(400).json({ message: 'No CSV file uploaded or file is empty.' });
+        }
+
+        const csvText = req.file.buffer.toString('utf-8');
+        const rows = parseCSVText(csvText);
+
+        if (rows.length < 2) {
+            return res.status(400).json({ message: 'CSV appears to be empty.' });
+        }
+
+        const header = rows[0].map((h) => h.trim().replace(/^"+|"+$/g, ''));
+        const dataRows = rows.slice(1);
+
+        // Map column indexes based on your CSV structure
+        const wukusyOrderNoIdx = header.indexOf('Wukusy Order No');
+        const platformOrderNoIdx = header.indexOf('Platform Order No');
+        const statusIdx = header.indexOf('Status');
+        const courierIdx = header.indexOf('Courier');
+        const trackingIdx = header.indexOf('Tracking');
+
+        if (wukusyOrderNoIdx === -1 || statusIdx === -1) {
+            return res
+                .status(400)
+                .json({ message: 'Invalid CSV format. Missing required headers.' });
+        }
+
+        // Wukusy mapping dictionary
+        const WUKUSY_STATUS_MAP = {
+            shipped: 'SHIPPED',
+            confirmed: 'PROCESSING',
+            'cancelled-new': 'CANCELLED',
+            cancelled: 'CANCELLED',
+            pending: 'PENDING',
+            delivered: 'DELIVERED',
+            rto: 'RTO',
+            'rto delivered': 'RTO_DELIVERED',
+        };
+
+        let updated = 0;
+        let skipped = 0;
+
+        for (const row of dataRows) {
+            if (!row || row.length < header.length) continue;
+
+            const cleanField = (val) =>
+                val
+                    ? val
+                          .replace(/^"+|"+$/g, '')
+                          .replace(/^=/, '')
+                          .trim()
+                    : '';
+
+            const wukusyOrderNo = cleanField(row[wukusyOrderNoIdx]);
+            const platformOrderNo = cleanField(row[platformOrderNoIdx]);
+            const rawStatus = cleanField(row[statusIdx]).toLowerCase();
+            const courier = cleanField(row[courierIdx]);
+            const tracking = cleanField(row[trackingIdx]);
+
+            if (!wukusyOrderNo) continue;
+
+            const mappedStatus = WUKUSY_STATUS_MAP[rawStatus];
+
+            // Fetch order from DB using Wukusy Order No
+            const order = await Order.findOne({ orderId: wukusyOrderNo });
+
+            if (!order) {
+                skipped++;
+                continue;
+            }
+
+            let isModified = false;
+
+            // Attach Platform Order No if we don't already have it
+            if (platformOrderNo && order.platformOrderNo !== platformOrderNo) {
+                order.platformOrderNo = platformOrderNo;
+                isModified = true;
+            }
+
+            if (courier || tracking) {
+                if (!order.tracking) order.tracking = {};
+
+                if (courier && order.tracking.courierName !== courier) {
+                    order.tracking.courierName = courier;
+                    isModified = true;
+                }
+                if (tracking && order.tracking.awbNumber !== tracking) {
+                    order.tracking.awbNumber = tracking;
+                    order.tracking.trackingNumber = tracking;
+                    isModified = true;
+                }
+            }
+
+            if (mappedStatus && order.status !== mappedStatus) {
+                order.status = mappedStatus;
+                order.statusHistory.push({
+                    status: mappedStatus,
+                    comment: `System sync via Warehouse CSV (Raw: ${rawStatus})`,
+                    date: new Date(),
+                });
+                isModified = true;
+            }
+
+            if (isModified) {
+                await order.save();
+                updated++;
+            } else {
+                skipped++;
             }
         }
 
-        order.status = targetStatus;
-        order.statusHistory.push({
-            status: targetStatus,
-            comment: `Status updated to ${targetStatus} via Warehouse Sync.`,
+        return res.status(200).json({
+            message: 'Warehouse sync completed successfully',
+            result: { updated, skipped },
         });
-
-        await order.save();
-        successCount++;
+    } catch (error) {
+        console.error('Error processing Wukusy CSV:', error);
+        return res.status(500).json({ message: 'Server error processing the CSV file.' });
     }
-
-    fs.unlinkSync(req.file.path);
-
-    return res
-        .status(200)
-        .json(
-            new ApiResponse(
-                200,
-                null,
-                `Sync complete! Successfully processed ${successCount} orders. Failed/Skipped: ${failCount}.`
-            )
-        );
-});
-
+};

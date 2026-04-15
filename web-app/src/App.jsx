@@ -122,7 +122,9 @@ function App() {
                             />
                             <Route
                                 path={ROUTES.QUICK_ORDER}
-                                element={<Navigate to={`${ROUTES.ORDERS}?tab=QUICK_ORDER`} replace />}
+                                element={
+                                    <Navigate to={`${ROUTES.ORDERS}?tab=QUICK_ORDER`} replace />
+                                }
                             />
                             <Route
                                 path={ROUTES.INVOICES}

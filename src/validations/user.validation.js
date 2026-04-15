@@ -83,10 +83,26 @@ export const userValidation = {
                 .optional(),
             bankDetails: z
                 .object({
-                    accountName: z.string().trim().max(100, 'Account name must be at most 100 characters').optional(),
-                    accountNumber: z.string().trim().max(50, 'Account number must be at most 50 characters').optional(),
-                    ifscCode: z.string().trim().max(20, 'IFSC must be at most 20 characters').optional(),
-                    bankName: z.string().trim().max(100, 'Bank name must be at most 100 characters').optional(),
+                    accountName: z
+                        .string()
+                        .trim()
+                        .max(100, 'Account name must be at most 100 characters')
+                        .optional(),
+                    accountNumber: z
+                        .string()
+                        .trim()
+                        .max(50, 'Account number must be at most 50 characters')
+                        .optional(),
+                    ifscCode: z
+                        .string()
+                        .trim()
+                        .max(20, 'IFSC must be at most 20 characters')
+                        .optional(),
+                    bankName: z
+                        .string()
+                        .trim()
+                        .max(100, 'Bank name must be at most 100 characters')
+                        .optional(),
                 })
                 .optional(),
             emailNotifications: z.boolean().optional(),

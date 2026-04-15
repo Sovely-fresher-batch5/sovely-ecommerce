@@ -207,7 +207,9 @@ const Invoices = () => {
                                                 <div
                                                     className={`mt-1 text-[10px] font-extrabold tracking-widest uppercase ${inv.status === 'PAID' ? 'text-emerald-600' : inv.status === 'FAILED' ? 'text-red-600' : 'text-red-500'}`}
                                                 >
-                                                    {inv.status === 'FAILED' ? 'FAILED PAYMENT' : inv.status}
+                                                    {inv.status === 'FAILED'
+                                                        ? 'FAILED PAYMENT'
+                                                        : inv.status}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-5 text-center">

@@ -73,8 +73,8 @@ export default function ProductCard({ product }) {
                     {product.vendor && product.vendor.toLowerCase() !== 'your brand' && (
                         <span className="font-medium">{product.vendor}</span>
                     )}
-                    <span 
-                        className="truncate max-w-[120px] rounded-md bg-slate-100 px-2 py-0.5 font-semibold text-slate-500"
+                    <span
+                        className="max-w-[120px] truncate rounded-md bg-slate-100 px-2 py-0.5 font-semibold text-slate-500"
                         title={product.skuId}
                     >
                         SKU: {product.skuId}

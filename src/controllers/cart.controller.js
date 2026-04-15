@@ -281,14 +281,6 @@ export const addToCart = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'Product ID, Quantity, and Order Type are required');
     }
 
-    // Allow adding to cart without customer details for now (will be marked as Unassigned)
-    // if (
-    //     orderType === 'DROPSHIP' &&
-    //     (!customerDetails || !customerDetails.name || !customerDetails.phone)
-    // ) {
-    //     throw new ApiError(400, 'Customer destination details are required for Dropship orders.');
-    // }
-
     const parsedQty = validatePositiveInteger(qty, 'Quantity');
 
     const product = await Product.findById(productId);

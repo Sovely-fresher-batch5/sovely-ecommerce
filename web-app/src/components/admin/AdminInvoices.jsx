@@ -259,17 +259,17 @@ const AdminInvoices = () => {
                                         </td>
                                         <td className="p-4">
                                             <div className="line-clamp-1 font-bold text-slate-800">
-                                                {inv.billedTo?.companyName || 
-                                                 inv.resellerId?.companyName || 
-                                                 inv.resellerId?.name || 
-                                                 'Unknown Entity'}
+                                                {inv.billedTo?.companyName ||
+                                                    inv.resellerId?.companyName ||
+                                                    inv.resellerId?.name ||
+                                                    'Unknown Entity'}
                                             </div>
                                             <div className="text-[11px] font-bold text-slate-500">
                                                 GSTIN:{' '}
                                                 <span className="font-mono text-slate-600">
-                                                    {inv.billedTo?.gstin || 
-                                                     inv.resellerId?.gstin || 
-                                                     'N/A'}
+                                                    {inv.billedTo?.gstin ||
+                                                        inv.resellerId?.gstin ||
+                                                        'N/A'}
                                                 </span>
                                             </div>
                                         </td>

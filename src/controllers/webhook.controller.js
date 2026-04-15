@@ -151,7 +151,9 @@ export const razorpayWebhook = async (req, res) => {
                     });
                 }
 
-                console.log(`❌ Webhook Processed: Marked Invoice ${invoice.invoiceNumber} as FAILED`);
+                console.log(
+                    `❌ Webhook Processed: Marked Invoice ${invoice.invoiceNumber} as FAILED`
+                );
             }
             return res.status(200).json({ status: 'ok' });
         } catch (error) {

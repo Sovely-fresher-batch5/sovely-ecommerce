@@ -279,7 +279,6 @@ export const toggleUserStatus = asyncHandler(async (req, res) => {
 });
 
 export const deleteUser = asyncHandler(async (req, res) => {
-    // Revoke all sessions
     await UserSession.updateMany(
         { userId: req.params.id, isRevoked: false },
         { isRevoked: true, revokedAt: new Date() }
@@ -301,9 +300,20 @@ export const deleteUser = asyncHandler(async (req, res) => {
 });
 
 export const updateMyProfile = asyncHandler(async (req, res) => {
-    const { 
-        name, email, billingAddress, emailNotifications, orderSms, promotionalEmails,
-        companyName, gstin, panNumber, entityType, industry, website, yearEstablished
+    const {
+        name,
+        email,
+        billingAddress,
+        emailNotifications,
+        orderSms,
+        promotionalEmails,
+        companyName,
+        gstin,
+        panNumber,
+        entityType,
+        industry,
+        website,
+        yearEstablished,
     } = req.body;
 
     if (email) {

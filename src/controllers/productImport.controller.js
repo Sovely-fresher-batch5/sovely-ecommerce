@@ -110,6 +110,13 @@ export const importProductsFromCSV = asyncHandler(async (req, res) => {
                 if (!handle) return;
 
                 if (!productMap.has(handle)) {
+                    // 1. Extract the prices
+                    const compareAtPrice = toNum(row['Variant Compare At Price']);
+                    const variantPrice = toNum(row['Variant Price']);
+
+                    const actualPrice =
+                        compareAtPrice > 0 ? Math.round(compareAtPrice * 0.6) : variantPrice;
+
                     productMap.set(handle, {
                         handle,
                         title: (row['Title'] || '').trim(),
@@ -119,7 +126,7 @@ export const importProductsFromCSV = asyncHandler(async (req, res) => {
                         tags: parseTags(row['Tags']),
                         sku: (row['Variant SKU'] || '').trim(),
                         weightGrams: toNum(row['Variant Grams']) || 100,
-                        price: toNum(row['Variant Price']),
+                        price: actualPrice,
                         cost: toNum(row['Cost per item']),
                         status: (row['Status'] || 'active').toLowerCase(),
                         images: [],

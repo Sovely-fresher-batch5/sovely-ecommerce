@@ -418,6 +418,14 @@ const Orders = () => {
                                             <h3 className="text-xl font-black text-slate-900">
                                                 {ord.orderId}
                                             </h3>
+
+                                            {}
+                                            {ord.platformOrderNo && (
+                                                <span className="rounded-md border border-indigo-100 bg-indigo-50 px-2.5 py-1 font-mono text-[10px] font-bold tracking-wide text-indigo-600 shadow-sm">
+                                                    Platform: {ord.platformOrderNo}
+                                                </span>
+                                            )}
+
                                             <span
                                                 className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-extrabold tracking-widest uppercase ${statusDef.bg} ${statusDef.text} ${statusDef.border}`}
                                             >

@@ -9,14 +9,11 @@ import { User } from './models/User.js';
 import { WalletTransaction } from './models/WalletTransaction.js';
 import mongoose from 'mongoose';
 
-// For Vercel Serverless environment
 const startServer = async () => {
     try {
         await connectDB();
         console.log('✅ MongoDB connected');
 
-        // Initial CRON schedules (Note: Vercel has its own cron jobs, 
-        // but this keeps local behavior intact)
         cron.schedule('0 2 * * *', () => syncProductRtoRates(), { timezone: 'Asia/Kolkata' });
 
         if (process.env.NODE_ENV !== 'production' || process.env.VERCEL !== '1') {

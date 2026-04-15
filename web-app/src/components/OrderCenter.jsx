@@ -26,7 +26,6 @@ export default function OrderCenter() {
     );
     const { user } = useContext(AuthContext);
 
-    // Sync tab state with URL parameter if it changes externally
     React.useEffect(() => {
         if (queryTab && TABS.some((t) => t.id === queryTab) && queryTab !== activeTab) {
             setActiveTab(queryTab);
