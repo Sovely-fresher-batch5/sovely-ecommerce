@@ -60,6 +60,7 @@ const WUKUSY_STATUS_MAP = {
     cancelled: 'CANCELLED',
     pending: 'PENDING',
     delivered: 'DELIVERED',
+    label_printed: 'SHIPPED',
 };
 
 function cleanField(val = '') {

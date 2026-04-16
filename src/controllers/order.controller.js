@@ -337,7 +337,7 @@ export const createOrder = asyncHandler(async (req, res) => {
 
             const whTotalCost = whSubTotal + whTaxTotal + finalShippingTotal;
 
-            const whOrderId = `OD-WH-${Math.floor(1000000 + Math.random() * 9000000)}`;
+            const whOrderId = `Sov-${Math.floor(10000000 + Math.random() * 90000000)}`;
             generatedOrderIds.push(whOrderId);
 
             ordersToCreate.push({
@@ -396,7 +396,7 @@ export const createOrder = asyncHandler(async (req, res) => {
             const dsTaxTotal = dsItemTaxTotal + dsShippingTax + codTax;
             const dsTotalCost = dsSubTotal + dsTaxTotal + dsShippingTotal + codCharge;
 
-            const dsOrderId = `OD-DS-${Math.floor(1000000 + Math.random() * 9000000)}`;
+            const dsOrderId = `Sov-${Math.floor(10000000 + Math.random() * 90000000)}`;
             generatedOrderIds.push(dsOrderId);
 
             const totalCustomerPayment = dsItems.reduce(
@@ -1121,7 +1121,7 @@ export const createBulkDropshipOrders = asyncHandler(async (req, res) => {
                 );
             }
 
-            const dsOrderId = `OD-BLK-${Math.floor(1000000 + Math.random() * 9000000)}`;
+            const dsOrderId = `Sov-${Math.floor(10000000 + Math.random() * 90000000)}`;
             generatedOrderIds.push(dsOrderId);
 
             ordersToCreate.push({
@@ -1659,20 +1659,20 @@ export const exportUntrackedWukusyOrders = asyncHandler(async (req, res) => {
     }).populate('resellerId');
 
     const headers = [
-        'Platform order number',
+        'Platform order num',
         'First Name',
         'Last Name',
         'Company',
         'Mobile',
-        'Shipping Address 1',
-        'Shipping Address 2',
+        'Shipping Add',
+        'Shipping Add',
         'City',
         'State',
         'Pincode',
         'SKU',
         'Quantity',
-        'Payment Method',
-        'Selling Price',
+        'Payment Met',
+        'Sellling Price',
     ];
 
     const escapeCsv = (val) => {
@@ -1735,7 +1735,7 @@ export const exportUntrackedWukusyOrders = asyncHandler(async (req, res) => {
                 pincode,
                 item.sku,
                 item.qty,
-                order.paymentMethod === 'COD' ? 'Prepaid' : order.paymentMethod, // Adjust if Wukusy requires strict 'Prepaid'
+                order.paymentMethod === 'COD' ? 'COD' : 'Prepaid',
                 item.resellerSellingPrice || item.platformBasePrice,
             ];
             csvContent += row.map(escapeCsv).join(',') + '\n';
@@ -1817,14 +1817,13 @@ export const importWukusyStatusesCsv = async (req, res) => {
         const header = rows[0].map((h) => h.trim().replace(/^"+|"+$/g, ''));
         const dataRows = rows.slice(1);
 
-        // Map column indexes based on your CSV structure
         const wukusyOrderNoIdx = header.indexOf('Wukusy Order No');
         const platformOrderNoIdx = header.indexOf('Platform Order No');
         const statusIdx = header.indexOf('Status');
         const courierIdx = header.indexOf('Courier');
         const trackingIdx = header.indexOf('Tracking');
 
-        if (wukusyOrderNoIdx === -1 || statusIdx === -1) {
+        if (platformOrderNoIdx === -1 || statusIdx === -1) {
             return res
                 .status(400)
                 .json({ message: 'Invalid CSV format. Missing required headers.' });
@@ -1839,6 +1838,7 @@ export const importWukusyStatusesCsv = async (req, res) => {
             delivered: 'DELIVERED',
             rto: 'RTO',
             'rto delivered': 'RTO_DELIVERED',
+            label_printed: 'SHIPPED',
         };
 
         let updated = 0;
@@ -1861,12 +1861,12 @@ export const importWukusyStatusesCsv = async (req, res) => {
             const courier = cleanField(row[courierIdx]);
             const tracking = cleanField(row[trackingIdx]);
 
-            if (!wukusyOrderNo) continue;
+            if (!platformOrderNo) continue;
 
             const mappedStatus = WUKUSY_STATUS_MAP[rawStatus];
 
-            // Fetch order from DB using Wukusy Order No
-            const order = await Order.findOne({ orderId: wukusyOrderNo });
+            // FIX: Search your database using the Platform Order No (your local orderId)
+            const order = await Order.findOne({ orderId: platformOrderNo });
 
             if (!order) {
                 skipped++;
@@ -1875,9 +1875,9 @@ export const importWukusyStatusesCsv = async (req, res) => {
 
             let isModified = false;
 
-            // Attach Platform Order No if we don't already have it
-            if (platformOrderNo && order.platformOrderNo !== platformOrderNo) {
-                order.platformOrderNo = platformOrderNo;
+            // Optionally map the external Wukusy ID if you ever need it
+            if (wukusyOrderNo && order.platformOrderNo !== wukusyOrderNo) {
+                order.platformOrderNo = wukusyOrderNo;
                 isModified = true;
             }
 
@@ -1896,6 +1896,24 @@ export const importWukusyStatusesCsv = async (req, res) => {
             }
 
             if (mappedStatus && order.status !== mappedStatus) {
+                // --- FINANCIAL SETTLEMENT PATCH ---
+                const finalStatuses = ['CANCELLED', 'RTO_DELIVERED'];
+                if (finalStatuses.includes(mappedStatus) && !finalStatuses.includes(order.status)) {
+                    try {
+                        await applyFinalStatusSettlement({
+                            order,
+                            targetStatus: mappedStatus,
+                            session: null,
+                            source: 'BULK_SYNC',
+                        });
+                    } catch (settlementError) {
+                        console.error(
+                            `Failed to apply settlement for ${order.orderId}:`,
+                            settlementError
+                        );
+                    }
+                }
+
                 order.status = mappedStatus;
                 order.statusHistory.push({
                     status: mappedStatus,
