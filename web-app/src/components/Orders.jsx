@@ -24,6 +24,7 @@ import {
     Download,
     Calendar,
     X,
+    Copy,
 } from 'lucide-react';
 import api from '../utils/api.js';
 import { useDebounce } from '../hooks/useDebounce.js';
@@ -70,12 +71,30 @@ const Orders = () => {
     const [ndrForms, setNdrForms] = useState({});
     const [submittingNdr, setSubmittingNdr] = useState(null);
 
-    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [showExportModal, setShowExportModal] = useState(false);
     const [exportStartDate, setExportStartDate] = useState('');
     const [exportEndDate, setExportEndDate] = useState('');
     const [isExporting, setIsExporting] = useState(false);
 
+    const [listStartDate, setListStartDate] = useState(() => searchParams.get('startDate') || '');
+    const [listEndDate, setListEndDate] = useState(() => searchParams.get('endDate') || '');
+
     const navigate = useNavigate();
+
+    useEffect(() => {
+        const next = new URLSearchParams();
+        if (filter !== 'ALL') next.set('status', filter);
+        if (searchTerm.trim()) next.set('search', searchTerm.trim());
+        if (sortOrder !== 'latest') next.set('sort', sortOrder);
+        if (page > 1) next.set('page', String(page));
+        if (listStartDate) next.set('startDate', listStartDate);
+        if (listEndDate) next.set('endDate', listEndDate);
+        
+        // Only update if changed to avoid loops
+        if (next.toString() !== searchParams.toString()) {
+            setSearchParams(next, { replace: true });
+        }
+    }, [filter, page, searchTerm, setSearchParams, sortOrder, listStartDate, listEndDate, searchParams]);
 
     const handleExportMyOrders = async () => {
         if (!exportStartDate || !exportEndDate) {
@@ -89,11 +108,13 @@ const Orders = () => {
 
         setIsExporting(true);
         try {
+            console.log('[Export] Calling /orders/export-me', { exportStartDate, exportEndDate });
             const res = await api.get('/orders/export-me', {
                 params: { startDate: exportStartDate, endDate: exportEndDate },
                 responseType: 'blob',
             });
 
+            console.log('[Export] Response received', res.status, res.data);
             const url = window.URL.createObjectURL(new Blob([res.data]));
             const link = document.createElement('a');
             link.href = url;
@@ -104,10 +125,24 @@ const Orders = () => {
             document.body.appendChild(link);
             link.click();
             link.remove();
+            window.URL.revokeObjectURL(url);
 
             toast.success('Orders exported successfully!');
+            setShowExportModal(false);
         } catch (err) {
-            toast.error('Failed to export orders. Please try again.');
+            console.error('[Export] Error:', err.response?.status, err.response?.data, err.message);
+            // Try to extract error message from blob response
+            if (err.response?.data instanceof Blob) {
+                const text = await err.response.data.text();
+                try {
+                    const json = JSON.parse(text);
+                    toast.error(json.message || 'Export failed.');
+                } catch {
+                    toast.error('Failed to export orders. Please try again.');
+                }
+            } else {
+                toast.error(err.response?.data?.message || 'Failed to export orders. Please try again.');
+            }
         } finally {
             setIsExporting(false);
         }
@@ -120,6 +155,8 @@ const Orders = () => {
                 const params = { page, limit: PAGE_SIZE, sort: sortOrder };
                 if (filter !== 'ALL') params.status = filter;
                 if (debouncedSearchTerm.trim()) params.search = debouncedSearchTerm.trim();
+                if (listStartDate) params.startDate = listStartDate;
+                if (listEndDate) params.endDate = listEndDate;
 
                 const res = await api.get('/orders', { params });
 
@@ -161,16 +198,9 @@ const Orders = () => {
             }
         };
         fetchOrders();
-    }, [navigate, page, filter, debouncedSearchTerm, sortOrder, refreshTrigger]);
+    }, [navigate, page, filter, debouncedSearchTerm, sortOrder, refreshTrigger, listStartDate, listEndDate]);
 
-    useEffect(() => {
-        const next = new URLSearchParams();
-        if (filter !== 'ALL') next.set('status', filter);
-        if (searchTerm.trim()) next.set('search', searchTerm.trim());
-        if (sortOrder !== 'latest') next.set('sort', sortOrder);
-        if (page > 1) next.set('page', String(page));
-        setSearchParams(next, { replace: true });
-    }, [filter, page, searchTerm, setSearchParams, sortOrder]);
+
 
     useEffect(() => {
         const handleRefresh = () => setRefreshTrigger((prev) => prev + 1);
@@ -289,6 +319,7 @@ const Orders = () => {
     const showingEnd = Math.min(page * PAGE_SIZE, totalCount);
 
     return (
+        <>
         <div className="mx-auto mb-20 w-full max-w-7xl flex-1 px-4 py-8 font-sans text-slate-900 sm:px-6 md:mb-0 lg:px-8 lg:py-12">
             <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                 <div>
@@ -299,6 +330,7 @@ const Orders = () => {
                         Track wholesale shipments, dropship deliveries, and pending profit margins.
                     </p>
                 </div>
+
                 <div className="custom-scrollbar flex gap-4 overflow-x-auto pb-4 lg:pb-0">
                     <div className="flex min-w-[220px] shrink-0 items-center gap-4 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 p-5 shadow-sm">
                         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md shadow-emerald-500/20">
@@ -421,32 +453,53 @@ const Orders = () => {
                         <option value="latest">Newest First</option>
                         <option value="oldest">Oldest First</option>
                     </select>
-                    <div className="flex items-center rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-sm transition-all focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900">
-                        <Calendar size={14} className="mr-2 text-slate-400" />
-                        <input
-                            type="date"
-                            value={exportStartDate}
-                            onChange={(e) => setExportStartDate(e.target.value)}
-                            className="bg-transparent text-xs font-bold text-slate-700 outline-none"
-                            title="Export Start Date"
-                        />
+                    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+                        <div className="flex items-center rounded-lg bg-slate-50 px-3 py-1.5 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-100">
+                            <Calendar size={14} className="mr-2 text-slate-400" />
+                            <input
+                                type="date"
+                                value={listStartDate}
+                                onChange={(e) => {
+                                    setListStartDate(e.target.value);
+                                    setPage(1);
+                                }}
+                                className="bg-transparent text-xs font-bold text-slate-700 outline-none"
+                                title="List Start Date"
+                            />
+                        </div>
+                        <div className="flex items-center rounded-lg bg-slate-50 px-3 py-1.5 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-100">
+                            <Calendar size={14} className="mr-2 text-slate-400" />
+                            <input
+                                type="date"
+                                value={listEndDate}
+                                onChange={(e) => {
+                                    setListEndDate(e.target.value);
+                                    setPage(1);
+                                }}
+                                className="bg-transparent text-xs font-bold text-slate-700 outline-none"
+                                title="List End Date"
+                            />
+                        </div>
+                        {(listStartDate || listEndDate) && (
+                            <button
+                                onClick={() => {
+                                    setListStartDate('');
+                                    setListEndDate('');
+                                    setPage(1);
+                                }}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                                title="Clear Dates"
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
                     </div>
-                    <div className="flex items-center rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-sm transition-all focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900">
-                        <Calendar size={14} className="mr-2 text-slate-400" />
-                        <input
-                            type="date"
-                            value={exportEndDate}
-                            onChange={(e) => setExportEndDate(e.target.value)}
-                            className="bg-transparent text-xs font-bold text-slate-700 outline-none"
-                            title="Export End Date"
-                        />
-                    </div>
+
                     <button
-                        onClick={handleExportMyOrders}
-                        disabled={isExporting}
-                        className="flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-extrabold text-white transition-all hover:bg-slate-800 disabled:opacity-50"
+                        onClick={() => setShowExportModal(true)}
+                        className="flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-extrabold text-white transition-all hover:bg-slate-800"
                     >
-                        {isExporting ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white"></div> : <Download size={18} />}
+                        <Download size={18} />
                         Export
                     </button>
                 </div>
@@ -580,15 +633,24 @@ const Orders = () => {
                                                 {ord.ndrDetails?.reason || 'Customer Unavailable'}
                                             </span>
                                         )}
+                                        {ord.tracking?.courierName && (
+                                            <span className="flex items-center gap-1.5 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-[11px] font-extrabold text-indigo-700">
+                                                <Truck size={12} />
+                                                {ord.tracking.courierName}
+                                            </span>
+                                        )}
                                         {ord.tracking?.awbNumber && (
-                                            <div className="flex flex-col">
-                                                <span className="text-[10px] font-extrabold tracking-widest text-slate-400 uppercase">
-                                                    {ord.tracking.courierName || 'Courier'} AWB
-                                                </span>
-                                                <span className="font-mono font-bold text-slate-800">
-                                                    {ord.tracking.awbNumber}
-                                                </span>
-                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(ord.tracking.awbNumber);
+                                                    toast.success('Tracking ID copied!');
+                                                }}
+                                                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-extrabold text-slate-700 shadow-sm transition-colors hover:border-indigo-300 hover:text-indigo-700"
+                                                title="Click to copy tracking ID"
+                                            >
+                                                <span className="font-mono">{ord.tracking.awbNumber}</span>
+                                                <Copy size={11} className="text-slate-400" />
+                                            </button>
                                         )}
                                         {ord.tracking?.trackingUrl && (
                                             <a
@@ -597,7 +659,7 @@ const Orders = () => {
                                                 rel="noreferrer"
                                                 className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 font-bold text-indigo-700 transition-colors hover:bg-indigo-100 hover:text-indigo-900"
                                             >
-                                                <Truck size={16} /> Track
+                                                <Truck size={16} /> Live Track
                                             </a>
                                         )}
                                     </div>
@@ -975,6 +1037,87 @@ const Orders = () => {
                                                 </div>
                                             </div>
 
+                                            {/* ── Shipment & Dispatch Info Card ── */}
+                                            <div className={`rounded-2xl border p-5 ${
+                                                ord.tracking?.awbNumber || ord.platformOrderNo
+                                                    ? 'border-indigo-100 bg-gradient-to-br from-indigo-50/60 to-slate-50'
+                                                    : 'border-slate-200 bg-slate-50'
+                                            }`}>
+                                                <h4 className="mb-4 flex items-center gap-2 text-xs font-extrabold tracking-widest text-slate-400 uppercase">
+                                                    <Truck size={16} /> Shipment &amp; Dispatch Info
+                                                </h4>
+
+                                                {(ord.tracking?.awbNumber || ord.tracking?.courierName || ord.platformOrderNo) ? (
+                                                    <div className="space-y-3">
+                                                        {/* Top row: Platform ID + Courier */}
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                                                                <p className="mb-1 text-[9px] font-extrabold tracking-widest text-slate-400 uppercase">Platform ID</p>
+                                                                {ord.platformOrderNo ? (
+                                                                    <p className="font-mono text-sm font-black text-indigo-700 break-all">{ord.platformOrderNo}</p>
+                                                                ) : (
+                                                                    <p className="text-sm font-bold text-slate-300">—</p>
+                                                                )}
+                                                            </div>
+                                                            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                                                                <p className="mb-1 text-[9px] font-extrabold tracking-widest text-slate-400 uppercase">Courier Partner</p>
+                                                                {ord.tracking?.courierName ? (
+                                                                    <p className="flex items-center gap-1.5 text-sm font-black text-slate-900">
+                                                                        <Truck size={14} className="text-indigo-500" />
+                                                                        {ord.tracking.courierName}
+                                                                    </p>
+                                                                ) : (
+                                                                    <p className="text-sm font-bold text-slate-300">—</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Tracking ID row */}
+                                                        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                                                            <p className="mb-2 text-[9px] font-extrabold tracking-widest text-slate-400 uppercase">Tracking ID / AWB</p>
+                                                            {ord.tracking?.awbNumber ? (
+                                                                <div className="flex items-center justify-between gap-3">
+                                                                    <span className="font-mono text-sm font-black text-slate-900 break-all">{ord.tracking.awbNumber}</span>
+                                                                    <div className="flex shrink-0 gap-2">
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                navigator.clipboard.writeText(ord.tracking.awbNumber);
+                                                                                toast.success('Tracking ID copied to clipboard!');
+                                                                            }}
+                                                                            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10px] font-extrabold text-slate-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                                                                        >
+                                                                            <Copy size={11} /> Copy
+                                                                        </button>
+                                                                        {ord.tracking?.trackingUrl && (
+                                                                            <a
+                                                                                href={ord.tracking.trackingUrl}
+                                                                                target="_blank"
+                                                                                rel="noreferrer"
+                                                                                className="flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[10px] font-extrabold text-indigo-700 transition-colors hover:bg-indigo-100"
+                                                                            >
+                                                                                <Truck size={11} /> Track
+                                                                            </a>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-sm font-bold text-slate-300">—</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-3 rounded-xl border border-dashed border-slate-200 bg-white p-4">
+                                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100">
+                                                            <Truck size={18} className="text-slate-300" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-black text-slate-400">Not yet dispatched</p>
+                                                            <p className="text-xs font-medium text-slate-300">Courier &amp; tracking details will appear here once shipped.</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
                                             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
                                                 <h4 className="mb-4 flex items-center gap-2 text-xs font-extrabold tracking-widest text-slate-500 uppercase">
                                                     <Receipt size={16} /> Financial Receipt
@@ -1119,6 +1262,84 @@ const Orders = () => {
             )}
 
         </div>
+
+        {showExportModal && (
+            <div
+                style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+                onClick={(e) => { if (e.target === e.currentTarget) setShowExportModal(false); }}
+            >
+                <div style={{ background: 'white', borderRadius: '1.5rem', padding: '2rem', width: '100%', maxWidth: '28rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
+                                <Download size={18} />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-black text-slate-900">Export Orders</h2>
+                                <p className="text-xs font-medium text-slate-500">Download as CSV file</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setShowExportModal(false)}
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">From Date</label>
+                            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                                <Calendar size={16} className="text-slate-400" />
+                                <input
+                                    type="date"
+                                    value={exportStartDate}
+                                    onChange={(e) => setExportStartDate(e.target.value)}
+                                    className="flex-1 bg-transparent text-sm font-bold text-slate-800 outline-none"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">To Date</label>
+                            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                                <Calendar size={16} className="text-slate-400" />
+                                <input
+                                    type="date"
+                                    value={exportEndDate}
+                                    onChange={(e) => setExportEndDate(e.target.value)}
+                                    className="flex-1 bg-transparent text-sm font-bold text-slate-800 outline-none"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <p className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-xs font-medium text-slate-500">
+                        Orders in this range will export as CSV with Sovely GSTIN details.
+                    </p>
+
+                    <div className="mt-6 flex gap-3">
+                        <button
+                            onClick={() => setShowExportModal(false)}
+                            className="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-extrabold text-slate-700 hover:bg-slate-50"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleExportMyOrders}
+                            disabled={isExporting}
+                            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-sm font-extrabold text-white hover:bg-slate-800 disabled:opacity-50"
+                        >
+                            {isExporting
+                                ? <><div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" /> Exporting...</>
+                                : <><Download size={16} /> Download CSV</>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     );
 };
 
