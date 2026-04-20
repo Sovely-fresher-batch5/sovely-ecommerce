@@ -4,6 +4,7 @@ import { OtpToken } from '../models/OtpToken.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { Notification } from '../models/Notification.js';
+import { WalletTransaction } from '../models/WalletTransaction.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
@@ -426,6 +427,55 @@ export const updateAvatar = asyncHandler(async (req, res) => {
     }
 
     return res.status(200).json(new ApiResponse(200, user, 'Profile photo updated successfully'));
+});
+
+export const updateUserByAdmin = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { name, email, companyName, gstin, walletAdjustment, role } = req.body;
+
+    const user = await User.findById(id);
+    if (!user) throw new ApiError(404, 'User not found');
+
+    const updateData = {};
+    if (name !== undefined) updateData.name = name.trim();
+    if (email !== undefined) {
+        const existingUser = await User.findOne({ email, _id: { $ne: id } });
+        if (existingUser) throw new ApiError(400, 'Email already in use by another user');
+        updateData.email = email.trim().toLowerCase();
+    }
+    if (companyName !== undefined) updateData.companyName = companyName.trim();
+    if (gstin !== undefined) updateData.gstin = gstin.trim().toUpperCase();
+    if (role !== undefined) updateData.role = role;
+
+    // Handle Wallet Adjustment
+    if (walletAdjustment && walletAdjustment !== 0) {
+        const adjustment = Number(walletAdjustment);
+        if (isNaN(adjustment)) throw new ApiError(400, 'Invalid wallet adjustment amount');
+
+        user.walletBalance = (user.walletBalance || 0) + adjustment;
+        
+        // Record Transaction
+        await WalletTransaction.create({
+            resellerId: user._id,
+            type: adjustment > 0 ? 'CREDIT' : 'DEBIT',
+            purpose: 'ADMIN_ADJUSTMENT',
+            amount: Math.abs(adjustment),
+            closingBalance: user.walletBalance,
+            referenceId: `ADMIN-${Date.now()}`,
+            description: `Manual adjustment by administrator.`,
+            status: 'COMPLETED',
+        });
+    }
+
+    // Apply other updates
+    Object.assign(user, updateData);
+    await user.save({ validateBeforeSave: false });
+
+    const updatedUser = await User.findById(id).select('-passwordHash -refreshToken');
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, updatedUser, 'User profile updated successfully by admin'));
 });
 
 export const updatePassword = asyncHandler(async (req, res) => {

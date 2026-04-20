@@ -22,6 +22,7 @@ const walletTransactionSchema = new mongoose.Schema(
                 'RTO_PENALTY',
                 'REFUND',
                 'BANK_WITHDRAWAL',
+                'ADMIN_ADJUSTMENT',
             ],
             required: true,
         },

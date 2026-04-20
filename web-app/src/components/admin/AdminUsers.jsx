@@ -40,6 +40,16 @@ const AdminUsers = () => {
     const [isSaving, setIsSaving] = useState(false);
 
     const [reviewingUserUpdates, setReviewingUserUpdates] = useState(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [adminEditForm, setAdminEditForm] = useState({
+        id: '',
+        name: '',
+        email: '',
+        companyName: '',
+        gstin: '',
+        walletAdjustment: 0,
+        role: 'CUSTOMER',
+    });
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newUserForm, setNewUserForm] = useState({
@@ -132,6 +142,36 @@ const AdminUsers = () => {
             setUpdatingId(null);
         } catch (err) {
             alert('Failed to update user role');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleEditClick = (u) => {
+        setAdminEditForm({
+            id: u._id,
+            name: u.name || '',
+            email: u.email || '',
+            companyName: u.companyName || '',
+            gstin: u.gstin || '',
+            walletAdjustment: 0,
+            role: u.role || 'CUSTOMER',
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const handleAdminUpdate = async (e) => {
+        e.preventDefault();
+        setIsSaving(true);
+        try {
+            const res = await api.put(`/users/admin/${adminEditForm.id}/update`, adminEditForm);
+            setUsers((prev) =>
+                prev.map((u) => (u._id === adminEditForm.id ? res.data.data : u))
+            );
+            setIsEditModalOpen(false);
+            alert('User profile updated successfully.');
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to update user profile.');
         } finally {
             setIsSaving(false);
         }
@@ -393,74 +433,38 @@ const AdminUsers = () => {
                                                 {getUpdateBadge(u.updateRequestStatus)}
                                             </td>
                                             <td className="p-4 text-right whitespace-nowrap">
-                                                {isEdit ? (
-                                                    <div className="flex justify-end gap-2">
-                                                        <select
-                                                            value={editForm.role}
-                                                            onChange={(e) =>
-                                                                setEditForm({
-                                                                    ...editForm,
-                                                                    role: e.target.value,
-                                                                })
-                                                            }
-                                                            className="rounded border border-slate-300 p-1.5 text-xs font-bold outline-none focus:border-slate-900"
-                                                        >
-                                                            <option value="CUSTOMER">
-                                                                Customer / Reseller
-                                                            </option>
-                                                            <option value="ADMIN">Admin</option>
-                                                        </select>
-                                                        <button
-                                                            disabled={isSaving}
-                                                            onClick={() => submitUserUpdate(u._id)}
-                                                            className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
-                                                        >
-                                                            Save
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setUpdatingId(null)}
-                                                            className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-200"
-                                                        >
-                                                            Cancel
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                                                        <button
-                                                            onClick={() => {
-                                                                setUpdatingId(u._id);
-                                                                setEditForm({ role: u.role });
-                                                            }}
-                                                            title="Edit System Role"
-                                                            className="rounded-lg bg-slate-100 p-1.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-900"
-                                                        >
-                                                            <Edit2 size={16} />
-                                                        </button>
+                                                <div className="flex justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                                                    <button
+                                                        onClick={() => handleEditClick(u)}
+                                                        title="Edit User Profile"
+                                                        className="rounded-lg bg-slate-100 p-1.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-900"
+                                                    >
+                                                        <Edit2 size={16} />
+                                                    </button>
 
+                                                    <button
+                                                        onClick={() =>
+                                                            handleDeleteUser(u._id, u.name)
+                                                        }
+                                                        title="Delete User Permanently"
+                                                        className="rounded-lg bg-red-50 p-1.5 text-red-500 transition-colors hover:bg-red-100 hover:text-red-700"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+
+                                                    {u.updateRequestStatus === 'PENDING' && (
                                                         <button
                                                             onClick={() =>
-                                                                handleDeleteUser(u._id, u.name)
+                                                                setReviewingUserUpdates(u)
                                                             }
-                                                            title="Delete User Permanently"
-                                                            className="rounded-lg bg-red-50 p-1.5 text-red-500 transition-colors hover:bg-red-100 hover:text-red-700"
+                                                            title="Review Account Updates"
+                                                            className="flex items-center gap-1 rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-200"
                                                         >
-                                                            <Trash2 size={16} />
+                                                            <FileSearch size={14} /> Review
+                                                            Updates
                                                         </button>
-
-                                                        {u.updateRequestStatus === 'PENDING' && (
-                                                            <button
-                                                                onClick={() =>
-                                                                    setReviewingUserUpdates(u)
-                                                                }
-                                                                title="Review Account Updates"
-                                                                className="flex items-center gap-1 rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-200"
-                                                            >
-                                                                <FileSearch size={14} /> Review
-                                                                Updates
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                )}
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     );
@@ -972,6 +976,138 @@ const AdminUsers = () => {
                                     <CheckCircle size={16} /> Approve Changes
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isEditModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+                    <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-[2rem] bg-white shadow-2xl">
+                        <div className="flex items-center justify-between border-b border-slate-100 p-6">
+                            <h2 className="flex items-center gap-2 text-xl font-extrabold text-slate-900">
+                                <Edit2 size={24} className="text-slate-400" /> Administrative Profile Editor
+                            </h2>
+                            <button
+                                onClick={() => setIsEditModalOpen(false)}
+                                className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="custom-scrollbar flex-1 overflow-y-auto p-6">
+                            <form id="adminEditForm" onSubmit={handleAdminUpdate} className="space-y-6">
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    <div>
+                                        <label className="mb-1 block text-xs font-bold tracking-wider text-slate-500 uppercase">
+                                            Full Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={adminEditForm.name}
+                                            onChange={(e) => setAdminEditForm({...adminEditForm, name: e.target.value})}
+                                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="mb-1 block text-xs font-bold tracking-wider text-slate-500 uppercase">
+                                            Email Address
+                                        </label>
+                                        <input
+                                            type="email"
+                                            value={adminEditForm.email}
+                                            onChange={(e) => setAdminEditForm({...adminEditForm, email: e.target.value})}
+                                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="mb-1 block text-xs font-bold tracking-wider text-slate-500 uppercase">
+                                            Company Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={adminEditForm.companyName}
+                                            onChange={(e) => setAdminEditForm({...adminEditForm, companyName: e.target.value})}
+                                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="mb-1 block text-xs font-bold tracking-wider text-slate-500 uppercase">
+                                            GSTIN
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={adminEditForm.gstin}
+                                            onChange={(e) => setAdminEditForm({...adminEditForm, gstin: e.target.value.toUpperCase()})}
+                                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 font-mono text-sm uppercase outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="mb-1 block text-xs font-bold tracking-wider text-slate-500 uppercase">
+                                            System Role
+                                        </label>
+                                        <select
+                                            value={adminEditForm.role}
+                                            onChange={(e) => setAdminEditForm({...adminEditForm, role: e.target.value})}
+                                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
+                                        >
+                                            <option value="CUSTOMER">Customer / Reseller</option>
+                                            <option value="ADMIN">Administrator</option>
+                                        </select>
+                                    </div>
+                                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 md:col-span-2">
+                                        <h3 className="mb-3 text-xs font-bold tracking-wider text-emerald-900 uppercase">
+                                            Wallet Adjustment
+                                        </h3>
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex-1">
+                                                <label className="mb-1 block text-[10px] font-bold text-emerald-700 uppercase">
+                                                    Amount to Add / Subtract
+                                                </label>
+                                                <div className="relative">
+                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-emerald-600">₹</span>
+                                                    <input
+                                                        type="number"
+                                                        placeholder="e.g. 500 or -200"
+                                                        value={adminEditForm.walletAdjustment}
+                                                        onChange={(e) => setAdminEditForm({...adminEditForm, walletAdjustment: e.target.value})}
+                                                        className="w-full rounded-xl border border-emerald-200 bg-white py-2.5 pl-8 pr-4 text-sm font-bold text-emerald-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="h-12 border-l border-emerald-200"></div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-bold text-emerald-700 uppercase">Current Balance</span>
+                                                <span className="text-xl font-black text-emerald-900">
+                                                    ₹{users.find(u => u._id === adminEditForm.id)?.walletBalance?.toLocaleString('en-IN') || '0.00'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <p className="mt-2 text-[10px] font-medium text-emerald-600 italic">
+                                            * Updates will record a "Manual Adjustment" transaction in the user's wallet history.
+                                        </p>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div className="flex shrink-0 justify-end gap-3 rounded-b-[2rem] border-t border-slate-100 bg-slate-50 p-6">
+                            <button
+                                type="button"
+                                onClick={() => setIsEditModalOpen(false)}
+                                className="rounded-xl border border-slate-200 px-6 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-white"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                form="adminEditForm"
+                                disabled={isSaving}
+                                className="rounded-xl bg-slate-900 px-6 py-2.5 text-sm font-bold text-white shadow-md transition-colors hover:bg-slate-800 disabled:opacity-50"
+                            >
+                                {isSaving ? 'Saving Changes...' : 'Update Profile & Wallet'}
+                            </button>
                         </div>
                     </div>
                 </div>
