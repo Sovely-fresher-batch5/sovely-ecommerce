@@ -162,6 +162,15 @@ const AdminUsers = () => {
 
     const handleAdminUpdate = async (e) => {
         e.preventDefault();
+
+        if (
+            !window.confirm(
+                `Are you sure you want to save these changes? Wallet Adjustment: ₹${adminEditForm.walletAdjustment || 0}`
+            )
+        ) {
+            return;
+        }
+
         setIsSaving(true);
         try {
             const res = await api.put(`/users/admin/${adminEditForm.id}/update`, adminEditForm);

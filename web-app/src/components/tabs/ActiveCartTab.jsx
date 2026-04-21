@@ -651,40 +651,46 @@ export default function ActiveCartTab({ setActiveTab }) {
                                     Handling
                                 </h5>
 
-                                <div className="space-y-2 text-xs font-bold text-slate-500">
-                                    <div className="flex justify-between">
-                                        <span>Total Billable Weight</span>
-                                        <span className="text-slate-800">
-                                            {cart.totalBillableWeight?.toFixed(2)} kg{' '}
-                                            <span className="text-[9px] font-medium text-slate-400">
-                                                ({cart.weightType})
-                                            </span>
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Delivery Freight</span>
-                                        <span className="text-slate-800">
-                                            + ₹
-                                            {(cart.totalDeliveryCharge || 0).toLocaleString(
-                                                'en-IN'
-                                            )}
-                                        </span>
-                                    </div>
-                                    {cart.totalPackingCharge > 0 && (
-                                        <div className="flex justify-between">
-                                            <span>Packing Materials</span>
-                                            <span className="text-slate-800">
-                                                + ₹
-                                                {(cart.totalPackingCharge || 0).toLocaleString(
-                                                    'en-IN'
-                                                )}
-                                            </span>
-                                        </div>
-                                    )}
+                                <div className="space-y-3 text-xs font-bold text-slate-500">
+                                    {groupedCart.map((group) => {
+                                        const shippingTotal = (group.items || []).reduce(
+                                            (sum, item) => sum + (Number(item.shippingCost) || 0),
+                                            0
+                                        );
+                                        const billableWeight = (group.items || []).reduce(
+                                            (sum, item) => sum + (Number(item.billableWeight) || 0),
+                                            0
+                                        );
+                                        
+                                        if (shippingTotal <= 0) return null;
+
+                                        const isDropship = group.key.startsWith('DROPSHIP');
+                                        let label = 'Wholesale Delivery';
+                                        
+                                        if (isDropship) {
+                                            const nameText = group.title.replace('Dropship Destination: ', '');
+                                            label = `To: ${nameText}`;
+                                        }
+
+                                        return (
+                                            <div key={group.key} className="flex justify-between items-start">
+                                                <div className="flex flex-col truncate pr-2">
+                                                    <span className="truncate text-slate-700" title={label}>
+                                                        {label}
+                                                    </span>
+                                                    <span className="text-[9px] text-slate-400 font-medium mt-0.5">
+                                                        Weight: {billableWeight.toFixed(2)} kg
+                                                    </span>
+                                                </div>
+                                                <span className="text-slate-800 shrink-0">
+                                                    + ₹{shippingTotal.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                                 <p className="mt-3 border-t border-slate-200 pt-2 text-[9px] leading-relaxed font-bold text-slate-400">
-                                    *Rates calculated per destination using 0.5kg slab intervals.
-                                    Higher of actual or volumetric weight applies.
+                                    *Rates calculated per destination using 0.5kg slab intervals. Separate tracking IDs will be generated for each location.
                                 </p>
                             </div>
 
