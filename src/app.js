@@ -17,6 +17,7 @@ import paymentRouter from './routes/payment.routes.js';
 import walletRouter from './routes/wallet.routes.js';
 import analyticsRouter from './routes/analytics.routes.js';
 import webhookRouter from './routes/webhook.routes.js';
+import accessRequestRouter from './routes/accessRequest.routes.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -92,6 +93,7 @@ app.use(`${apiVersion}/invoices`, invoiceRouter);
 app.use(`${apiVersion}/payments`, paymentRouter);
 app.use(`${apiVersion}/wallet`, walletRouter);
 app.use(`${apiVersion}/analytics`, analyticsRouter);
+app.use(`${apiVersion}/access-requests`, accessRequestRouter);
 
 app.use((req, res, next) => {
     console.log(`❌ 404 Not Found: ${req.method} ${req.originalUrl}`);

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import api from '../../utils/api.js';
 import { getAvatarUrl } from '../../utils/getAvatarUrl';
+import AdminAccessRequests from './AdminAccessRequests';
 
 const AdminUsers = () => {
     const [users, setUsers] = useState([]);
@@ -289,10 +290,25 @@ const AdminUsers = () => {
     };
 
     return (
-        <>
+        <div className="space-y-12">
             {}
-            <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4 lg:grid-cols-6">
-                <div className="flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm transition-all focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900 md:col-span-2 lg:col-span-3">
+            <section>
+                <AdminAccessRequests />
+            </section>
+
+            {}
+            <section>
+                <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+                    <div>
+                        <h2 className="text-2xl font-black text-slate-900">Users & Resellers</h2>
+                        <p className="text-sm text-slate-500">
+                            Manage all registered users, permissions, and profiles
+                        </p>
+                    </div>
+                </div>
+
+                <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4 lg:grid-cols-6">
+                    <div className="flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm transition-all focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900 md:col-span-2 lg:col-span-3">
                     <Search size={18} className="text-slate-400" />
                     <input
                         ref={searchInputRef}
@@ -1162,7 +1178,8 @@ const AdminUsers = () => {
                     </div>
                 </div>
             )}
-        </>
+            </section>
+        </div>
     );
 };
 

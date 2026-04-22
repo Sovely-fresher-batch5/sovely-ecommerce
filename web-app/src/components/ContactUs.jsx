@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Phone, MapPin, Send, Building2 } from 'lucide-react';
+import api from '../utils/api';
+import toast from 'react-hot-toast';
 
 const fadeUp = {
     hidden: { opacity: 0, y: 20 },
@@ -38,16 +40,23 @@ export default function ContactUs() {
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
     }, []);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
 
-        setTimeout(() => {
+        try {
+            const response = await api.post('/access-requests', formData);
+            if (response.data.success) {
+                setIsSuccess(true);
+                setFormData({ name: '', email: '', company: '', volume: '', message: '' });
+                setTimeout(() => setIsSuccess(false), 5000);
+            }
+        } catch (error) {
+            console.error('Submission error:', error);
+            toast.error(error.response?.data?.message || 'Failed to submit application');
+        } finally {
             setIsSubmitting(false);
-            setIsSuccess(true);
-            setFormData({ name: '', email: '', company: '', volume: '', message: '' });
-            setTimeout(() => setIsSuccess(false), 5000);
-        }, 1500);
+        }
     };
 
     return (
