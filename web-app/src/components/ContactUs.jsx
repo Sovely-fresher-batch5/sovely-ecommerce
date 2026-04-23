@@ -13,6 +13,7 @@ export default function ContactUs() {
     const [formData, setFormData] = useState({
         name: '',
         email: '',
+        phone: '',
         company: '',
         volume: '',
         message: '',
@@ -48,7 +49,7 @@ export default function ContactUs() {
             const response = await api.post('/access-requests', formData);
             if (response.data.success) {
                 setIsSuccess(true);
-                setFormData({ name: '', email: '', company: '', volume: '', message: '' });
+                setFormData({ name: '', email: '', phone: '', company: '', volume: '', message: '' });
                 setTimeout(() => setIsSuccess(false), 5000);
             }
         } catch (error) {
@@ -80,7 +81,7 @@ export default function ContactUs() {
 
             <div className="mx-auto max-w-7xl px-4 pb-24 sm:px-6 lg:px-8">
                 <div className="-mt-12 grid grid-cols-1 gap-8 lg:grid-cols-5 lg:gap-12">
-                    {}
+                    { }
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -117,10 +118,10 @@ export default function ContactUs() {
                                         Direct Line
                                     </p>
                                     <p className="mt-1 font-medium text-slate-900">
-                                        +91 98765 43210
+                                        +91 95350 94003
                                     </p>
                                     <p className="text-sm text-slate-500">
-                                        Mon-Sat, 9am to 6pm IST
+                                        Don't hesitate to call. You can call Anytime!
                                     </p>
                                 </div>
                             </div>
@@ -149,7 +150,7 @@ export default function ContactUs() {
                         </div>
                     </motion.div>
 
-                    {}
+                    { }
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -203,6 +204,21 @@ export default function ContactUs() {
                             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                                 <div>
                                     <label className="mb-2 block text-xs font-bold tracking-wider text-slate-500 uppercase">
+                                        Phone Number
+                                    </label>
+                                    <input
+                                        required
+                                        type="tel"
+                                        value={formData.phone}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, phone: e.target.value })
+                                        }
+                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-900 transition-colors outline-none focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500/30"
+                                        placeholder="+91 95350 94003"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="mb-2 block text-xs font-bold tracking-wider text-slate-500 uppercase">
                                         Company / Store Name
                                     </label>
                                     <input
@@ -216,35 +232,35 @@ export default function ContactUs() {
                                         placeholder="Retail Co."
                                     />
                                 </div>
-                                <div>
-                                    <label className="mb-2 block text-xs font-bold tracking-wider text-slate-500 uppercase">
-                                        Est. Monthly Volume
-                                    </label>
-                                    <select
-                                        required
-                                        value={formData.volume}
-                                        onChange={(e) =>
-                                            setFormData({ ...formData, volume: e.target.value })
-                                        }
-                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-900 transition-colors outline-none focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500/30"
-                                    >
-                                        <option value="" disabled>
-                                            Select volume tier...
-                                        </option>
-                                        <option value="startup">
-                                            Just starting out (0 - 50 orders/mo)
-                                        </option>
-                                        <option value="growing">
-                                            Growing (50 - 500 orders/mo)
-                                        </option>
-                                        <option value="scale">
-                                            Scaling (500 - 5,000 orders/mo)
-                                        </option>
-                                        <option value="enterprise">
-                                            Enterprise (5,000+ orders/mo)
-                                        </option>
-                                    </select>
-                                </div>
+                            </div>
+                            <div>
+                                <label className="mb-2 block text-xs font-bold tracking-wider text-slate-500 uppercase">
+                                    Est. Monthly Volume
+                                </label>
+                                <select
+                                    required
+                                    value={formData.volume}
+                                    onChange={(e) =>
+                                        setFormData({ ...formData, volume: e.target.value })
+                                    }
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-900 transition-colors outline-none focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500/30"
+                                >
+                                    <option value="" disabled>
+                                        Select volume tier...
+                                    </option>
+                                    <option value="startup">
+                                        Just starting out (0 - 50 orders/mo)
+                                    </option>
+                                    <option value="growing">
+                                        Growing (50 - 500 orders/mo)
+                                    </option>
+                                    <option value="scale">
+                                        Scaling (500 - 5,000 orders/mo)
+                                    </option>
+                                    <option value="enterprise">
+                                        Enterprise (5,000+ orders/mo)
+                                    </option>
+                                </select>
                             </div>
                             <div>
                                 <label className="mb-2 block text-xs font-bold tracking-wider text-slate-500 uppercase">

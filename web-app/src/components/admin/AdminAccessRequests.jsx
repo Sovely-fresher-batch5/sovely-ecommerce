@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, Mail, Building2, TrendingUp, Search, Loader2 } from 'lucide-react';
+import { ShieldCheck, Mail, Phone, Building2, TrendingUp, Search, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../utils/api';
 
@@ -58,7 +58,8 @@ const AdminAccessRequests = () => {
         (req) =>
             req.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             req.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            req.company.toLowerCase().includes(searchTerm.toLowerCase())
+            req.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (req.phone && req.phone.includes(searchTerm))
     );
 
     const getStatusColor = (status) => {
@@ -99,7 +100,7 @@ const AdminAccessRequests = () => {
                     />
                     <input
                         type="text"
-                        placeholder="Search by name, email or company..."
+                        placeholder="Search by name, email, phone or company..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500/20"
@@ -128,7 +129,8 @@ const AdminAccessRequests = () => {
                         <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
                             <tr>
                                 <th className="px-6 py-4">Applicant</th>
-                                <th className="px-6 py-4">Company Details</th>
+                                <th className="px-6 py-4">Company</th>
+                                <th className="px-6 py-4">Est. Volume</th>
                                 <th className="px-6 py-4">Message</th>
                                 <th className="px-6 py-4">Status</th>
                                 <th className="px-6 py-4 text-right">Actions</th>
@@ -137,14 +139,14 @@ const AdminAccessRequests = () => {
                         <tbody className="divide-y divide-slate-100 bg-white">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan="5" className="p-8 text-center text-slate-500">
+                                    <td colSpan="6" className="p-8 text-center text-slate-500">
                                         <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin" />
                                         Loading requests...
                                     </td>
                                 </tr>
                             ) : filteredRequests.length === 0 ? (
                                 <tr>
-                                    <td colSpan="5" className="p-8 text-center text-slate-500">
+                                    <td colSpan="6" className="p-8 text-center text-slate-500">
                                         No access requests found.
                                     </td>
                                 </tr>
@@ -163,6 +165,9 @@ const AdminAccessRequests = () => {
                                                     <div className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
                                                         <Mail size={12} /> {req.email}
                                                     </div>
+                                                    <div className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                                                        <Phone size={12} /> {req.phone}
+                                                    </div>
                                                     <div className="mt-1 text-[10px] text-slate-400">
                                                         {new Date(req.createdAt).toLocaleDateString()}
                                                     </div>
@@ -174,9 +179,14 @@ const AdminAccessRequests = () => {
                                                 <Building2 size={14} className="text-slate-400" />
                                                 {req.company}
                                             </div>
-                                            <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-                                                <TrendingUp size={12} className="text-slate-400" />
-                                                Vol: {req.volume}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2 text-xs text-slate-700 font-medium whitespace-nowrap">
+                                                <TrendingUp size={14} className="text-emerald-500" />
+                                                {req.volume === 'startup' ? '0 - 50 orders/mo' :
+                                                 req.volume === 'growing' ? '50 - 500 orders/mo' :
+                                                 req.volume === 'scale' ? '500 - 5,000 orders/mo' :
+                                                 req.volume === 'enterprise' ? '5,000+ orders/mo' : req.volume}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">

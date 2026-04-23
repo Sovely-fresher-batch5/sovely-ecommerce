@@ -2,11 +2,12 @@ import { AccessRequest } from '../models/AccessRequest.js';
 
 export const createAccessRequest = async (req, res, next) => {
     try {
-        const { name, email, company, volume, message } = req.body;
+        const { name, email, phone, company, volume, message } = req.body;
 
         const newRequest = await AccessRequest.create({
             name,
             email,
+            phone,
             company,
             volume,
             message,
