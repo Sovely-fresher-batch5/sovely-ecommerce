@@ -182,7 +182,7 @@ export default function ContactUs() {
                                             setFormData({ ...formData, name: e.target.value })
                                         }
                                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-900 transition-colors outline-none focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500/30"
-                                        placeholder="John Doe"
+                                        placeholder="Gagan G. N."
                                     />
                                 </div>
                                 <div>
@@ -197,7 +197,7 @@ export default function ContactUs() {
                                             setFormData({ ...formData, email: e.target.value })
                                         }
                                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-medium text-slate-900 transition-colors outline-none focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500/30"
-                                        placeholder="john@company.com"
+                                        placeholder="Gagan@company.com"
                                     />
                                 </div>
                             </div>
